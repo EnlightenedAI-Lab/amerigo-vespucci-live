@@ -10,7 +10,8 @@
   "scripts": {
     "start": "node src/index.js",
     "setup:arcgis": "node scripts/setup-arcgis-layer.js",
-    "check": "node --check src/*.js scripts/*.js"
+    "check": "node --check src/*.js scripts/*.js",
+    "test": "node --test"
   },
   "dependencies": {
     "dotenv": "^16.4.7",

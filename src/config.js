@@ -26,6 +26,10 @@ export function loadConfig(options = {}) {
     enableHistory: /^true$/i.test(process.env.ENABLE_HISTORY || 'false'),
     historyMinIntervalSeconds: Number(process.env.HISTORY_MIN_INTERVAL_SECONDS || '300'),
     healthStaleAfterSeconds: Number(process.env.HEALTH_STALE_AFTER_SECONDS || '1800'),
+    datadockedApiKey: process.env.DATADOCKED_API_KEY,
+    datadockedBaseUrl: process.env.DATADOCKED_BASE_URL || 'https://datadocked.com/api/vessels_operations',
+    datadockedPollIntervalSeconds: Number(process.env.DATADOCKED_POLL_INTERVAL_SECONDS || '1800'),
+    datadockedAisStaleSeconds: Number(process.env.DATADOCKED_AIS_STALE_SECONDS || '300'),
     port: Number(process.env.PORT || '3000'),
     logLevel: process.env.LOG_LEVEL || 'info'
   };
