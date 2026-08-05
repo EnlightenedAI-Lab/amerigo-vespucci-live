@@ -123,3 +123,41 @@ See [docs/arcgis-web-map-guide.md](docs/arcgis-web-map-guide.md) for step-by-ste
 ```bash
 npm run check
 ```
+
+## Build 1 voyage history and route layers
+
+The hosted ArcGIS feature service now uses five sublayers while preserving the original current-position workflow:
+
+| Layer | Name | Geometry | Purpose |
+| --- | --- | --- | --- |
+| 0 | Current Vessel Position | Point | One editable feature for the latest accepted Amerigo Vespucci position. |
+| 1 | Vespucci Track History | Point | Deduplicated AIS/Data Docked observation history. |
+| 2 | Vespucci Travelled Route | Polyline | One line built only from verified accepted history points, ordered by `LastAIS`. |
+| 3 | Vespucci Destination | Point | Configured destination marker, currently Ponta Delgada (`PTPDL`). |
+| 4 | Vespucci Estimated Route | Polyline | Two-vertex straight-line estimate from the current position to the configured destination. |
+
+Run `npm run setup:arcgis` after configuring the layer IDs. The script first inspects the feature service and each existing layer. It never recreates Layer 0 and does not duplicate layers that already exist. If Layers 1-4 or required fields are missing, set a temporary owner-level `ARCGIS_ADMIN_TOKEN`, rerun the setup command, confirm success, and immediately remove `ARCGIS_ADMIN_TOKEN` from `.env` and from Render/deployment secrets. Once the layers and fields exist, future deployments only need the normal runtime ArcGIS credentials.
+
+Add these sublayers in ArcGIS Map Viewer by opening the web map, choosing **Add layer from URL** or browsing to the hosted feature layer item, expanding the item, and adding Layers 0 through 4. Style Layer 0 as before. The setup script adds default renderers for small history points, a solid travelled-route line, a prominent destination point, and a dashed estimated-route line when ArcGIS accepts renderer definitions.
+
+### Observed track vs. estimated route
+
+The travelled route is the observed AIS track: it is generated only from accepted, timestamped observations that pass history deduplication. The estimated route is not an official voyage plan. It is labelled `Straight-line estimate` and stores the basis text `Straight-line geographic estimate; not an official navigational route.`
+
+Distance remaining is calculated with a Haversine great-circle approximation and stored in nautical miles. Estimated ETA is calculated only when the reported vessel speed is finite and at least `ETA_MIN_SPEED_KNOTS`: `position timestamp + distanceNM / speedKnots hours`. The service does not use reported AIS destination ETA for this calculated ETA, and `EstimatedETA` is null when speed is missing, invalid, or below the threshold.
+
+Additional configuration variables:
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `ARCGIS_TRAVELLED_ROUTE_LAYER_ID` | `2` | Travelled route polyline layer. |
+| `ARCGIS_DESTINATION_LAYER_ID` | `3` | Destination point layer. |
+| `ARCGIS_ESTIMATED_ROUTE_LAYER_ID` | `4` | Estimated route polyline layer. |
+| `ROUTE_MAX_HISTORY_POINTS` | `5000` | Maximum history points used to rebuild the observed route. |
+| `ETA_MIN_SPEED_KNOTS` | `1` | Minimum reported speed for ETA calculation. |
+| `DESTINATION_NAME` | `Ponta Delgada, Portugal` | Destination marker label. |
+| `DESTINATION_PORT_CODE` | `PTPDL` | Destination port code used to upsert the marker. |
+| `DESTINATION_LATITUDE` | `37.734722` | Destination latitude. |
+| `DESTINATION_LONGITUDE` | `-25.664444` | Destination longitude. |
+
+The `/health` endpoint includes optional-layer status fields: `historyEnabled`, `lastHistoryWrite`, `historyPointCount`, `lastTravelledRouteUpdate`, `lastDestinationUpdate`, `lastEstimatedRouteUpdate`, `distanceRemainingNM`, and `estimatedETA`. It remains HTTP 200 while the main service is running, even if an optional history, destination, or route update temporarily fails.
