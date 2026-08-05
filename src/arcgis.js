@@ -1,4 +1,5 @@
 import { logger } from './logger.js';
+import { CONDITIONS_ATTRIBUTION, CONDITIONS_BASIS } from './openmeteo.js';
 import { buildPolyline, calculateEstimatedETA, createPositionKey, ESTIMATED_ROUTE_BASIS, haversineDistanceNM, parseDestinationConfig } from './navigation.js';
 
 const FIELD_MAP = {
@@ -20,12 +21,16 @@ export class ArcGISClient {
     this.travelledRouteObjectId = null;
     this.destinationObjectId = null;
     this.estimatedRouteObjectId = null;
+    this.conditionsObjectId = null;
+    this.conditionsWeatherAt = null;
+    this.conditionsMarineAt = null;
   }
 
   async initialize() {
     await this.ensureValidToken();
     this.featureServiceUrl = await this.resolveFeatureServiceUrl();
     this.currentObjectId = await this.findCurrentFeatureObjectId();
+    if (this.config.enableConditions) await this.initializeConditionsFeature();
     logger.info('ArcGIS client initialized', { featureServiceUrl: this.featureServiceUrl, currentObjectId: this.currentObjectId });
   }
 
@@ -51,6 +56,41 @@ export class ArcGISClient {
     return item.url;
   }
   layerUrl(layerId = this.config.currentLayerId) { return `${this.featureServiceUrl}/${layerId}`; }
+
+
+  async initializeConditionsFeature() {
+    try {
+      const params = new URLSearchParams({ f: 'json', where: `MMSI=${this.config.targetMmsi}`, outFields: 'OBJECTID,WeatherAt,MarineAt', returnGeometry: 'false' });
+      const data = await this.get(`${this.layerUrl(this.config.conditionsLayerId)}/query?${params}`);
+      const attrs = data.features?.[0]?.attributes;
+      this.conditionsObjectId = attrs?.OBJECTID || null;
+      this.conditionsWeatherAt = attrs?.WeatherAt ? new Date(attrs.WeatherAt) : null;
+      this.conditionsMarineAt = attrs?.MarineAt ? new Date(attrs.MarineAt) : null;
+    } catch (error) {
+      logger.warn('Optional conditions layer initialization failed', { error: error.message });
+    }
+  }
+
+  async upsertConditions(position, weather, marine) {
+    const attrs = {
+      MMSI: position.mmsi, VesselName: position.vesselName || 'Amerigo Vespucci', Latitude: position.latitude, Longitude: position.longitude,
+      VesselAIS: position.lastAIS.getTime(), UpdatedAt: Date.now(), WeatherStatus: weather.status, MarineStatus: marine.status,
+      Attribution: CONDITIONS_ATTRIBUTION, Basis: CONDITIONS_BASIS
+    };
+    if (weather.status === 'ok' && (!this.conditionsWeatherAt || weather.validTime > this.conditionsWeatherAt)) Object.assign(attrs, weather.attributes);
+    if (marine.status === 'ok' && (!this.conditionsMarineAt || marine.validTime > this.conditionsMarineAt)) Object.assign(attrs, marine.attributes);
+    const sourceTimes = [attrs.WeatherAt, attrs.MarineAt, this.conditionsWeatherAt?.getTime(), this.conditionsMarineAt?.getTime()].filter(Number.isFinite);
+    if (sourceTimes.length) attrs.ConditionsAt = Math.max(...sourceTimes);
+    if (this.conditionsObjectId) attrs.OBJECTID = this.conditionsObjectId;
+    const feature = { attributes: attrs, geometry: { x: position.longitude, y: position.latitude, spatialReference: { wkid: 4326 } } };
+    const endpoint = this.conditionsObjectId ? 'updateFeatures' : 'addFeatures';
+    const data = await this.post(this.layerUrl(this.config.conditionsLayerId), endpoint, new URLSearchParams({ f: 'json', features: JSON.stringify([feature]) }));
+    const result = data.updateResults?.[0] || data.addResults?.[0];
+    if (!result?.success) throw new Error(`ArcGIS conditions ${endpoint} failed: ${JSON.stringify(data)}`);
+    if (!this.conditionsObjectId) this.conditionsObjectId = result.objectId;
+    if (attrs.WeatherAt) this.conditionsWeatherAt = new Date(attrs.WeatherAt);
+    if (attrs.MarineAt) this.conditionsMarineAt = new Date(attrs.MarineAt);
+  }
 
   async findCurrentFeatureObjectId() { return this.findObjectId(this.config.currentLayerId, `MMSI=${this.config.targetMmsi}`); }
   async findObjectId(layerId, where) {

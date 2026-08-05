@@ -4,6 +4,7 @@ import { ArcGISClient } from './arcgis.js';
 import { AISStreamClient } from './aisstream.js';
 import { createServer } from './server.js';
 import { DataDockedClient } from './datadocked.js';
+import { OpenMeteoClient } from './openmeteo.js';
 
 const config = loadConfig();
 setLogLevel(config.logLevel);
@@ -22,6 +23,7 @@ const state = {
   lastDataDockedAccepted: null,
   aisClient: null,
   dataDockedClient: null,
+  openMeteoClient: null,
   aisConnected: () => state.aisClient?.connected || false
 };
 const arcgis = new ArcGISClient(config);
@@ -47,6 +49,7 @@ async function handlePosition(position, options = {}) {
   } catch (error) {
     logger.warn('Optional destination update failed', { error: error.message });
   }
+  state.openMeteoClient?.onPosition();
   if (config.enableHistory) {
     const enoughTime = !state.lastHistoryWrite || position.lastAIS.getTime() - state.lastHistoryWrite.getTime() >= config.historyMinIntervalSeconds * 1000;
     if (enoughTime) {
@@ -68,6 +71,9 @@ async function handlePosition(position, options = {}) {
 state.aisClient = new AISStreamClient(config, (position) => handlePosition(position, { source: 'aisstream' }));
 state.aisClient.start();
 
+state.openMeteoClient = new OpenMeteoClient(config, arcgis, state);
+state.openMeteoClient.start();
+
 state.dataDockedClient = new DataDockedClient(config, handlePosition, state);
 state.dataDockedClient.start();
 
@@ -80,5 +86,6 @@ function shutdown(signal) {
   logger.info('Shutting down', { signal });
   state.aisClient?.stop();
   state.dataDockedClient?.stop();
+  state.openMeteoClient?.stop();
   process.exit(0);
 }
