@@ -11,6 +11,8 @@ export function createServer(state, config) {
       aisFresh,
       lastAIS: last?.toISOString() || null,
       lastArcGISUpdate: state.lastArcGISUpdate?.toISOString() || null,
+      lastDataDockedAttempt: state.lastDataDockedAttempt?.toISOString() || null,
+      lastDataDockedAccepted: state.lastDataDockedAccepted?.toISOString() || null,
       mmsi: config.targetMmsi
     });
   });

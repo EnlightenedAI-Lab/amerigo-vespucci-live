@@ -62,7 +62,7 @@ If you want breadcrumb/history support, create or identify a second point layer 
 npm start
 ```
 
-When AISStream sends a position report for MMSI `247999000`, the service updates ArcGIS.
+When AISStream sends a position report for MMSI `247999000`, the service updates ArcGIS. If `DATADOCKED_API_KEY` is configured, the service also fetches one Data Docked position immediately at startup so the map can show an initial point before AISStream delivers live data.
 
 ### 5. Check service health
 
@@ -72,7 +72,7 @@ Open this in a browser on the machine running the service:
 http://localhost:3000/health
 ```
 
-The health endpoint returns HTTP 200 when the Node service is running. Its JSON reports AIS status separately with `aisConnected`, `aisFresh`, `lastAIS`, and `lastArcGISUpdate`, so Render health checks do not fail just because AIS data is temporarily stale.
+The health endpoint returns HTTP 200 when the Node service is running. Its JSON reports AIS status separately with `aisConnected`, `aisFresh`, `lastAIS`, and `lastArcGISUpdate`, plus `lastDataDockedAttempt` and `lastDataDockedAccepted` when the optional Data Docked fallback is configured, so Render health checks do not fail just because AIS data is temporarily stale.
 
 ## Environment variables
 
@@ -91,16 +91,21 @@ The health endpoint returns HTTP 200 when the Node service is running. Its JSON 
 | `HISTORY_MIN_INTERVAL_SECONDS` | No | Minimum seconds between breadcrumb writes. Defaults to `300`. |
 | `PORT` | No | Health endpoint port. Defaults to `3000`. |
 | `HEALTH_STALE_AFTER_SECONDS` | No | Health becomes stale after this many seconds without AIS. Defaults to `1800`. |
+| `DATADOCKED_API_KEY` | No | Optional Data Docked API key. When absent, the service keeps AISStream-only behavior. |
+| `DATADOCKED_BASE_URL` | No | Data Docked vessels operations API base URL. Defaults to `https://datadocked.com/api/vessels_operations`. |
+| `DATADOCKED_POLL_INTERVAL_SECONDS` | No | Minimum seconds between Data Docked calls. Defaults to `1800`. |
+| `DATADOCKED_AIS_STALE_SECONDS` | No | Data Docked is used after startup only when AISStream has not delivered a fresh position within this many seconds. Defaults to `300`. |
 | `LOG_LEVEL` | No | `debug`, `info`, `warn`, or `error`. |
 
 ## How it works
 
 1. `src/aisstream.js` opens an AISStream WebSocket and subscribes with `FiltersShipMMSI` for only MMSI `247999000`.
 2. Incoming AIS messages are parsed into a normalized position record.
-3. `src/arcgis.js` resolves the hosted feature layer URL from the ArcGIS item ID.
-4. The service searches for an existing feature with the same MMSI and then updates that feature. If it does not exist, the service creates it once and updates it afterwards.
-5. If history is enabled, the service writes breadcrumb points to the configured history layer at a controlled interval.
-6. `src/server.js` exposes `/health` for monitoring.
+3. If `DATADOCKED_API_KEY` is set, `src/datadocked.js` fetches `GET /get-vessel-location?imo_or_mmsi=247999000` immediately at startup, then polls no more often than `DATADOCKED_POLL_INTERVAL_SECONDS` and only accepts fallback positions when AISStream is stale and the Data Docked timestamp is newer than the last AISStream timestamp.
+4. `src/arcgis.js` resolves the hosted feature layer URL from the ArcGIS item ID.
+5. The service searches for an existing feature with the same MMSI and then updates that feature. If it does not exist, the service creates it once and updates it afterwards.
+6. If history is enabled, the service writes breadcrumb points to the configured history layer at a controlled interval.
+7. `src/server.js` exposes `/health` for monitoring.
 
 ## ArcGIS web map guide
 
