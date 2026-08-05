@@ -21,7 +21,8 @@ export function createServer(state, config) {
       lastEstimatedRouteUpdate: state.lastEstimatedRouteUpdate?.toISOString() || null,
       distanceRemainingNM: state.distanceRemainingNM,
       estimatedETA: state.estimatedETA?.toISOString() || null,
-      mmsi: config.targetMmsi
+      mmsi: config.targetMmsi,
+      ...(state.openMeteoClient?.health?.() || { conditionsEnabled: config.enableConditions })
     });
   });
   app.get('/', (_req, res) => res.json({ service: 'amerigo-vespucci-live', health: '/health' }));

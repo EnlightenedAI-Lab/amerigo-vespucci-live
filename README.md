@@ -161,3 +161,49 @@ Additional configuration variables:
 | `DESTINATION_LONGITUDE` | `-25.664444` | Destination longitude. |
 
 The `/health` endpoint includes optional-layer status fields: `historyEnabled`, `lastHistoryWrite`, `historyPointCount`, `lastTravelledRouteUpdate`, `lastDestinationUpdate`, `lastEstimatedRouteUpdate`, `distanceRemainingNM`, and `estimatedETA`. It remains HTTP 200 while the main service is running, even if an optional history, destination, or route update temporarily fails.
+
+## Build 2 live atmospheric weather and marine conditions
+
+Build 2 adds **Layer 5 — Vespucci Marine Conditions**, a point layer that follows the latest accepted Amerigo Vespucci position without changing Layers 0–4. Layer 5 stores Open-Meteo numerical-model output near the vessel, the Open-Meteo model grid coordinates, source-valid timestamps, status for each endpoint, attribution, safety basis text, and next-24-hour summary values.
+
+| Layer | Name | Geometry | Purpose |
+| --- | --- | --- | --- |
+| 5 | Vespucci Marine Conditions | Point | One movable point for current atmospheric weather, marine conditions, and a timestamp-aligned 24-hour forecast summary. |
+
+Run `npm run setup:arcgis` with a temporary owner-level `ARCGIS_ADMIN_TOKEN` if Layer 5 or its fields are missing. The setup flow uses the same ArcGIS `addToDefinition` architecture as Build 1: it inspects existing service schema first, preserves Layer 0 styling, and creates only missing non-Layer-0 resources. The default Layer 5 symbol is a hollow marine-blue circle with transparent fill so it can be placed under the current-vessel marker without hiding it.
+
+### Open-Meteo configuration
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `ENABLE_CONDITIONS` | `true` | Enables the optional Build 2 conditions subsystem. Open-Meteo failures are logged as optional failures and do not stop vessel tracking or Layer 0 updates. |
+| `ARCGIS_CONDITIONS_LAYER_ID` | `5` | ArcGIS sublayer used for **Vespucci Marine Conditions**. |
+| `OPEN_METEO_WEATHER_BASE_URL` | `https://api.open-meteo.com/v1/forecast` | Weather forecast endpoint. Change this for a customer/commercial Open-Meteo-compatible endpoint. |
+| `OPEN_METEO_MARINE_BASE_URL` | `https://marine-api.open-meteo.com/v1/marine` | Marine forecast endpoint. Change this for a customer/commercial Open-Meteo-compatible endpoint. |
+| `OPEN_METEO_API_KEY` | empty | Optional key appended as `apikey`. The public evaluation/non-commercial prototype endpoints do not require a key, but commercial customers can configure one without code changes. |
+| `OPEN_METEO_REFRESH_SECONDS` | `1800` | Minimum seconds between weather/marine refresh attempts. |
+| `OPEN_METEO_FORECAST_HOURS` | `24` | Forecast window for summary calculations. |
+| `OPEN_METEO_MAX_POSITION_AGE_SECONDS` | `21600` | Skips Open-Meteo requests when the latest accepted vessel position is older than this many seconds. |
+| `OPEN_METEO_REQUEST_TIMEOUT_SECONDS` | `15` | AbortController timeout for each Open-Meteo HTTP request. |
+
+The service calls the weather endpoint with `timezone=GMT`, `cell_selection=sea`, `wind_speed_unit=kn`, current weather variables, and hourly precipitation, visibility, wind speed, and gust variables. It calls the marine endpoint with `timezone=GMT`, `cell_selection=sea`, current wave/swell/current/sea-level variables, and hourly wave, swell, and ocean-current variables. Weather and marine requests are fetched concurrently and handled independently: weather-only or marine-only success updates only the valid side and status fields so a temporary endpoint failure does not erase the last valid values from the other endpoint.
+
+### Current and 24-hour fields
+
+Current atmospheric fields include `AirTempC`, `FeelsLikeC`, `HumidityPct`, `PrecipMM`, `WeatherCode`, `WeatherText`, `CloudPct`, `PressureHPA`, `VisibilityKM`, `WindKnots`, `WindFromDeg`, and `GustKnots`. Current marine fields include `WaveHeightM`, `WaveFromDeg`, `WavePeriodS`, `WindWaveM`, `WindWaveFrom`, `WindWaveSec`, `SwellHeightM`, `SwellFromDeg`, `SwellPeriodS`, `SeaTempC`, `CurrentKnots`, `CurrentToDeg`, and `SeaLevelM`.
+
+The next-24-hour summary uses hourly timestamps from the current source-valid model time through `OPEN_METEO_FORECAST_HOURS`; it does not blindly take the first 24 array positions. Summary fields are `MaxWind24Kn`, `MaxGust24Kn`, `MinVis24KM`, `Precip24MM`, `MaxWave24M`, `MaxSwell24M`, `MaxCurrent24Kn`, `ForecastStart`, and `ForecastEnd`. Null, undefined, and non-finite values are ignored, and unavailable variables remain null instead of being invented.
+
+### Interpretation, attribution, and safety
+
+Layer 5 stores: `Weather and marine forecast data by Open-Meteo.com; normalized by Amerigo Vespucci Live.` Open-Meteo attribution is required wherever these values are displayed. The stored basis text is: `Model-derived conditions at the nearest available forecast grid cell; not onboard observations and not for navigation.`
+
+Weather and ocean values are numerical-model output, not measurements from instruments aboard Amerigo Vespucci. Marine-current and sea-level accuracy can be limited near coasts, harbors, complex bathymetry, and grid-cell boundaries. The data is not suitable for navigation.
+
+Direction fields are explicit: `WindFromDeg` is where the wind comes from; `WaveFromDeg` and `SwellFromDeg` are where waves and swell come from; `CurrentToDeg` is where the ocean current flows toward. Ocean-current velocity is normalized to knots when Open-Meteo reports km/h, m/s, mph, or already-in-knots units.
+
+### Adding Layer 5 to the saved ArcGIS map
+
+After setup succeeds, open the saved ArcGIS web map, add the hosted feature service sublayer named **Vespucci Marine Conditions**, and save the map. In the layer list, drag Layer 5 underneath **Current Vessel Position** so the hollow blue conditions circle sits below the vessel symbol and does not obscure Layer 0. Configure its popup with current conditions first, then the 24-hour summary, timestamps (`VesselAIS`, `WeatherAt`, `MarineAt`, `ConditionsAt`, `UpdatedAt`), source statuses (`WeatherStatus`, `MarineStatus`), attribution, and basis.
+
+The `/health` endpoint remains HTTP 200 while the main service runs and now includes `conditionsEnabled`, `lastConditionsAttempt`, `lastConditionsUpdate`, `lastWeatherValidTime`, `lastMarineValidTime`, `weatherStatus`, `marineStatus`, `conditionsLatitude`, `conditionsLongitude`, `conditionsPositionAIS`, `conditionsAgeSeconds`, and `nextConditionsRefresh`.
