@@ -49,8 +49,7 @@ export class ArcGISClient {
       f: 'json',
       username: this.config.arcgisUsername,
       password: this.config.arcgisPassword,
-      client: 'referer',
-      referer: 'https://www.arcgis.com',
+      client: 'requestip',
       expiration: String(GENERATED_TOKEN_MINUTES)
     });
     const data = await this.rawPost(`${this.config.arcgisPortalUrl}/sharing/rest/generateToken`, body);
