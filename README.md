@@ -78,7 +78,7 @@ The health endpoint returns `ok: true` when recent AIS data has been processed. 
 | `TARGET_MMSI` | No | Defaults to `247999000`. |
 | `ARCGIS_ITEM_ID` | Yes | Existing hosted feature layer item ID. |
 | `ARCGIS_TOKEN` | Yes, unless username/password are set | ArcGIS token from a secret manager or manual generation. |
-| `ARCGIS_USERNAME` / `ARCGIS_PASSWORD` | Yes, unless token is set | Used to generate an ArcGIS token automatically. |
+| `ARCGIS_USERNAME` / `ARCGIS_PASSWORD` | Yes, unless token is set | Used to generate a server-to-server ArcGIS token automatically with `client=requestip`. |
 | `ARCGIS_PORTAL_URL` | No | Defaults to `https://www.arcgis.com`. |
 | `ARCGIS_CURRENT_LAYER_ID` | No | Defaults to layer `0`. |
 | `ENABLE_HISTORY` | No | Set to `true` to add breadcrumb records to a separate layer. |
@@ -106,7 +106,7 @@ See [docs/arcgis-web-map-guide.md](docs/arcgis-web-map-guide.md) for step-by-ste
 - Use a process manager or platform that restarts the service if the process exits.
 - Store `.env` values in deployment secrets, not in GitHub.
 - The WebSocket client includes exponential reconnect logic up to 30 seconds between attempts.
-- For continuous 24/7 operation, set `ARCGIS_USERNAME` and `ARCGIS_PASSWORD` so the service can renew ArcGIS tokens automatically. If ArcGIS returns token-expired or invalid-token errors, the service renews the token and safely retries the failed request. A static `ARCGIS_TOKEN` is supported, but automatic renewal requires credentials to be configured too.
+- For continuous 24/7 operation, set `ARCGIS_USERNAME` and `ARCGIS_PASSWORD` so the service can renew ArcGIS tokens automatically. Because this service runs server-side on Render rather than in a browser, generated tokens use ArcGIS `client=requestip` server-to-server authentication instead of a referer-bound browser token. If ArcGIS returns token-expired or invalid-token errors, the service renews the token and safely retries the failed request. A static `ARCGIS_TOKEN` is supported, but automatic renewal requires credentials to be configured too.
 
 ## Developer checks
 
