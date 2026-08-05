@@ -66,4 +66,4 @@ If `ENABLE_HISTORY=true` and a separate history point layer exists:
 - The ship layer should contain one current feature for MMSI `247999000`.
 - The symbol should move as new AIS messages arrive.
 - The popup `LastAIS` value should update after live messages are received.
-- The service health URL should return `ok: true` when recent AIS data has been processed.
+- The service health URL should return HTTP 200 when the Node service is running; check `aisConnected`, `aisFresh`, `lastAIS`, and `lastArcGISUpdate` in the JSON for live data status.

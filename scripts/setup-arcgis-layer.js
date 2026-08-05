@@ -17,15 +17,30 @@ const fields = [
 const config = loadConfig({ requireAIS: false });
 const client = new ArcGISClient(config);
 await client.initialize();
-await ensureFields(client, config.currentLayerId, 'current-position');
+const adminFeatureServiceUrl = toAdminFeatureServiceUrl(client.featureServiceUrl);
+
+await ensureFields(client, config.currentLayerId, 'current-position', adminFeatureServiceUrl);
 
 if (config.enableHistory) {
-  await ensureFields(client, config.historyLayerId, 'history');
+  await ensureFields(client, config.historyLayerId, 'history', adminFeatureServiceUrl);
 } else {
   console.log('History setup skipped. Set ENABLE_HISTORY=true and ensure a second point layer exists to configure it.');
 }
 
-async function ensureFields(client, layerId, label) {
+function toAdminFeatureServiceUrl(featureServiceUrl) {
+  const servicesPath = '/arcgis/rest/services/';
+  const adminServicesPath = '/arcgis/rest/admin/services/';
+  if (!featureServiceUrl.includes(servicesPath)) {
+    throw new Error(`Cannot derive ArcGIS admin URL from feature service URL: ${featureServiceUrl}`);
+  }
+  return featureServiceUrl.replace(servicesPath, adminServicesPath);
+}
+
+function sanitizeArcGISResponse(response) {
+  return JSON.stringify(response, (key, value) => (key.toLowerCase().includes('token') ? '[redacted]' : value));
+}
+
+async function ensureFields(client, layerId, label, adminFeatureServiceUrl) {
   const layer = await client.get(`${client.layerUrl(layerId)}?f=json`);
   if (layer.error) throw new Error(`${label} layer lookup failed: ${JSON.stringify(layer.error)}`);
   const existing = new Set((layer.fields || []).map((field) => field.name.toLowerCase()));
@@ -35,7 +50,10 @@ async function ensureFields(client, layerId, label) {
     return;
   }
   const body = new URLSearchParams({ f: 'json', addToDefinition: JSON.stringify({ fields: missing }) });
-  const result = await client.post(client.layerUrl(layerId), 'addToDefinition', body);
-  if (!result.success) throw new Error(`${label} addToDefinition failed: ${JSON.stringify(result)}`);
+  const adminLayerUrl = `${adminFeatureServiceUrl}/${layerId}`;
+  const result = await client.post(adminLayerUrl, 'addToDefinition', body);
+  if (!result.success) {
+    throw new Error(`${label} addToDefinition failed at ${adminLayerUrl}/addToDefinition: ${sanitizeArcGISResponse(result)}`);
+  }
   console.log(`${label} layer added fields: ${missing.map((field) => field.name).join(', ')}`);
 }

@@ -4,10 +4,11 @@ export function createServer(state, config) {
   const app = express();
   app.get('/health', (_req, res) => {
     const last = state.lastPosition?.lastAIS;
-    const stale = !last || Date.now() - last.getTime() > config.healthStaleAfterSeconds * 1000;
-    res.status(stale ? 503 : 200).json({
-      ok: !stale,
+    const aisFresh = Boolean(last && Date.now() - last.getTime() <= config.healthStaleAfterSeconds * 1000);
+    res.status(200).json({
+      ok: true,
       aisConnected: state.aisConnected(),
+      aisFresh,
       lastAIS: last?.toISOString() || null,
       lastArcGISUpdate: state.lastArcGISUpdate?.toISOString() || null,
       mmsi: config.targetMmsi
