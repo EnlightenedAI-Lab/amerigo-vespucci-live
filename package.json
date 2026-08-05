@@ -1,0 +1,20 @@
+{
+  "name": "amerigo-vespucci-live",
+  "version": "1.0.0",
+  "description": "Live AISStream to ArcGIS tracker for Italian Navy training ship Amerigo Vespucci.",
+  "type": "module",
+  "main": "src/index.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "setup:arcgis": "node scripts/setup-arcgis-layer.js",
+    "check": "node --check src/*.js scripts/*.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "ws": "^8.18.0"
+  }
+}
