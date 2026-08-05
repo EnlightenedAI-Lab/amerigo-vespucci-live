@@ -13,7 +13,8 @@ The service updates one current-position feature instead of creating endless dup
 1. Node.js 20 or newer.
 2. An AISStream.io API key.
 3. ArcGIS Online access to edit the hosted feature layer.
-4. Either an ArcGIS token, or an ArcGIS username and password that can generate a token.
+4. A permanent restricted ArcGIS runtime token, or an ArcGIS username and password that can generate a runtime token.
+5. Only if the hosted feature layer is missing schema fields: a temporary owner-level ArcGIS token for one-time setup.
 
 No secrets are stored in this repository. Put secrets only in your local `.env` file or deployment platform secret manager.
 
@@ -37,6 +38,7 @@ Open `.env` in a text editor and fill in:
 
 - `AISSTREAM_API_KEY`
 - `ARCGIS_TOKEN`, or `ARCGIS_USERNAME` and `ARCGIS_PASSWORD`
+- `ARCGIS_ADMIN_TOKEN` only when `npm run setup:arcgis` reports that missing fields must be bootstrapped
 
 Leave `TARGET_MMSI=247999000` and `ARCGIS_ITEM_ID=fea75f4405ec44e8bf099ab2cb054a33` unless you intentionally need to change them.
 
@@ -48,7 +50,9 @@ Run this once after filling in `.env`:
 npm run setup:arcgis
 ```
 
-The script adds these fields to the current-position layer when they are missing: `MMSI`, `VesselName`, `SpeedKnots`, `Course`, `Heading`, `Latitude`, `Longitude`, `LastAIS`, `Destination`, and `NavStatus`.
+The script inspects the layer first and does nothing when all required fields already exist. It adds only missing fields: `MMSI`, `VesselName`, `SpeedKnots`, `Course`, `Heading`, `Latitude`, `Longitude`, `LastAIS`, `Destination`, and `NavStatus`.
+
+Use `ARCGIS_TOKEN` as the permanent restricted runtime token. If fields are missing, temporarily set `ARCGIS_ADMIN_TOKEN` to an owner-level token and rerun `npm run setup:arcgis`; the setup script uses that admin token only for the `/arcgis/rest/admin/services/` `addToDefinition` schema request. Remove `ARCGIS_ADMIN_TOKEN` immediately after setup succeeds. Future deployments should then succeed with only `ARCGIS_TOKEN` because the schema already exists.
 
 If you want breadcrumb/history support, create or identify a second point layer in the same hosted feature service, set `ENABLE_HISTORY=true`, set `ARCGIS_HISTORY_LAYER_ID`, and run the setup command again.
 
@@ -77,7 +81,8 @@ The health endpoint returns HTTP 200 when the Node service is running. Its JSON 
 | `AISSTREAM_API_KEY` | Yes | AISStream.io API key. |
 | `TARGET_MMSI` | No | Defaults to `247999000`. |
 | `ARCGIS_ITEM_ID` | Yes | Existing hosted feature layer item ID. |
-| `ARCGIS_TOKEN` | Yes, unless username/password are set | ArcGIS token from a secret manager or manual generation. |
+| `ARCGIS_TOKEN` | Yes, unless username/password are set | Permanent restricted ArcGIS runtime token used for normal item lookups, feature queries, additions, and updates. |
+| `ARCGIS_ADMIN_TOKEN` | No | Temporary owner-level token used only by `npm run setup:arcgis` for `addToDefinition` when required fields are missing. Remove immediately after setup succeeds. |
 | `ARCGIS_USERNAME` / `ARCGIS_PASSWORD` | Yes, unless token is set | Used to generate a server-to-server ArcGIS token automatically with `client=requestip`. |
 | `ARCGIS_PORTAL_URL` | No | Defaults to `https://www.arcgis.com`. |
 | `ARCGIS_CURRENT_LAYER_ID` | No | Defaults to layer `0`. |
@@ -104,7 +109,7 @@ See [docs/arcgis-web-map-guide.md](docs/arcgis-web-map-guide.md) for step-by-ste
 ## Deployment notes
 
 - Use a process manager or platform that restarts the service if the process exits.
-- Store `.env` values in deployment secrets, not in GitHub.
+- Store `.env` values in deployment secrets, not in GitHub. Do not keep `ARCGIS_ADMIN_TOKEN` in deployment secrets after schema bootstrap succeeds; normal deployments should use only `ARCGIS_TOKEN` once the fields exist.
 - The WebSocket client includes exponential reconnect logic up to 30 seconds between attempts.
 - For continuous 24/7 operation, set `ARCGIS_USERNAME` and `ARCGIS_PASSWORD` so the service can renew ArcGIS tokens automatically. Because this service runs server-side on Render rather than in a browser, generated tokens use ArcGIS `client=requestip` server-to-server authentication instead of a referer-bound browser token. If ArcGIS returns token-expired or invalid-token errors, the service renews the token and safely retries the failed request. A static `ARCGIS_TOKEN` is supported, but automatic renewal requires credentials to be configured too.
 
