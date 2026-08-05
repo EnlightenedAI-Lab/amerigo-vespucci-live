@@ -26,7 +26,7 @@ if (config.enableHistory) {
 }
 
 async function ensureFields(client, layerId, label) {
-  const layer = await client.get(`${client.layerUrl(layerId)}?f=json&token=${encodeURIComponent(client.token)}`);
+  const layer = await client.get(`${client.layerUrl(layerId)}?f=json`);
   if (layer.error) throw new Error(`${label} layer lookup failed: ${JSON.stringify(layer.error)}`);
   const existing = new Set((layer.fields || []).map((field) => field.name.toLowerCase()));
   const missing = fields.filter((field) => !existing.has(field.name.toLowerCase()));
@@ -34,8 +34,8 @@ async function ensureFields(client, layerId, label) {
     console.log(`${label} layer already has all required fields.`);
     return;
   }
-  const body = new URLSearchParams({ f: 'json', token: client.token, addToDefinition: JSON.stringify({ fields: missing }) });
-  const result = await client.post(`${client.layerUrl(layerId)}/addToDefinition`, body);
+  const body = new URLSearchParams({ f: 'json', addToDefinition: JSON.stringify({ fields: missing }) });
+  const result = await client.post(client.layerUrl(layerId), 'addToDefinition', body);
   if (!result.success) throw new Error(`${label} addToDefinition failed: ${JSON.stringify(result)}`);
   console.log(`${label} layer added fields: ${missing.map((field) => field.name).join(', ')}`);
 }

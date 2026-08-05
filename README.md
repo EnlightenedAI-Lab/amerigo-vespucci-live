@@ -106,7 +106,7 @@ See [docs/arcgis-web-map-guide.md](docs/arcgis-web-map-guide.md) for step-by-ste
 - Use a process manager or platform that restarts the service if the process exits.
 - Store `.env` values in deployment secrets, not in GitHub.
 - The WebSocket client includes exponential reconnect logic up to 30 seconds between attempts.
-- ArcGIS token generation is supported, but long-running production deployments are best served by a platform secret that refreshes `ARCGIS_TOKEN` or by restarting before generated tokens expire.
+- For continuous 24/7 operation, set `ARCGIS_USERNAME` and `ARCGIS_PASSWORD` so the service can renew ArcGIS tokens automatically. If ArcGIS returns token-expired or invalid-token errors, the service renews the token and safely retries the failed request. A static `ARCGIS_TOKEN` is supported, but automatic renewal requires credentials to be configured too.
 
 ## Developer checks
 
