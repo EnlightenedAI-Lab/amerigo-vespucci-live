@@ -16,13 +16,15 @@ const fields = [
 
 const config = loadConfig({ requireAIS: false });
 const client = new ArcGISClient(config);
-await client.initialize();
+await client.ensureValidToken();
+client.featureServiceUrl = await client.resolveFeatureServiceUrl();
 const adminFeatureServiceUrl = toAdminFeatureServiceUrl(client.featureServiceUrl);
+const adminToken = process.env.ARCGIS_ADMIN_TOKEN;
 
-await ensureFields(client, config.currentLayerId, 'current-position', adminFeatureServiceUrl);
+await ensureFields(client, config.currentLayerId, 'current-position', adminFeatureServiceUrl, adminToken);
 
 if (config.enableHistory) {
-  await ensureFields(client, config.historyLayerId, 'history', adminFeatureServiceUrl);
+  await ensureFields(client, config.historyLayerId, 'history', adminFeatureServiceUrl, adminToken);
 } else {
   console.log('History setup skipped. Set ENABLE_HISTORY=true and ensure a second point layer exists to configure it.');
 }
@@ -40,18 +42,28 @@ function sanitizeArcGISResponse(response) {
   return JSON.stringify(response, (key, value) => (key.toLowerCase().includes('token') ? '[redacted]' : value));
 }
 
-async function ensureFields(client, layerId, label, adminFeatureServiceUrl) {
+async function ensureFields(client, layerId, label, adminFeatureServiceUrl, adminToken) {
   const layer = await client.get(`${client.layerUrl(layerId)}?f=json`);
-  if (layer.error) throw new Error(`${label} layer lookup failed: ${JSON.stringify(layer.error)}`);
+  if (layer.error) throw new Error(`${label} layer lookup failed: ${sanitizeArcGISResponse(layer.error)}`);
   const existing = new Set((layer.fields || []).map((field) => field.name.toLowerCase()));
   const missing = fields.filter((field) => !existing.has(field.name.toLowerCase()));
   if (missing.length === 0) {
     console.log(`${label} layer already has all required fields.`);
     return;
   }
-  const body = new URLSearchParams({ f: 'json', addToDefinition: JSON.stringify({ fields: missing }) });
+  if (!adminToken) {
+    throw new Error(
+      `${label} layer is missing required field(s): ${missing.map((field) => field.name).join(', ')}. `
+      + 'Set a temporary owner-level ARCGIS_ADMIN_TOKEN to bootstrap the schema, rerun setup, and remove ARCGIS_ADMIN_TOKEN immediately after setup succeeds.'
+    );
+  }
+  const body = new URLSearchParams({
+    f: 'json',
+    token: adminToken,
+    addToDefinition: JSON.stringify({ fields: missing })
+  });
   const adminLayerUrl = `${adminFeatureServiceUrl}/${layerId}`;
-  const result = await client.post(adminLayerUrl, 'addToDefinition', body);
+  const result = await client.rawPost(`${adminLayerUrl}/addToDefinition`, body);
   if (!result.success) {
     throw new Error(`${label} addToDefinition failed at ${adminLayerUrl}/addToDefinition: ${sanitizeArcGISResponse(result)}`);
   }
