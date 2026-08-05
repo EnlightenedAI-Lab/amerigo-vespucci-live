@@ -68,7 +68,7 @@ Open this in a browser on the machine running the service:
 http://localhost:3000/health
 ```
 
-The health endpoint returns `ok: true` when recent AIS data has been processed. It returns a warning status if no recent AIS message has arrived yet.
+The health endpoint returns HTTP 200 when the Node service is running. Its JSON reports AIS status separately with `aisConnected`, `aisFresh`, `lastAIS`, and `lastArcGISUpdate`, so Render health checks do not fail just because AIS data is temporarily stale.
 
 ## Environment variables
 
