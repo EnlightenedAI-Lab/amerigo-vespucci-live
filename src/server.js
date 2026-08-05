@@ -13,6 +13,14 @@ export function createServer(state, config) {
       lastArcGISUpdate: state.lastArcGISUpdate?.toISOString() || null,
       lastDataDockedAttempt: state.lastDataDockedAttempt?.toISOString() || null,
       lastDataDockedAccepted: state.lastDataDockedAccepted?.toISOString() || null,
+      historyEnabled: config.enableHistory,
+      lastHistoryWrite: state.lastHistoryWrite?.toISOString() || null,
+      historyPointCount: state.historyPointCount,
+      lastTravelledRouteUpdate: state.lastTravelledRouteUpdate?.toISOString() || null,
+      lastDestinationUpdate: state.lastDestinationUpdate?.toISOString() || null,
+      lastEstimatedRouteUpdate: state.lastEstimatedRouteUpdate?.toISOString() || null,
+      distanceRemainingNM: state.distanceRemainingNM,
+      estimatedETA: state.estimatedETA?.toISOString() || null,
       mmsi: config.targetMmsi
     });
   });

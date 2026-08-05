@@ -1,17 +1,17 @@
 import { loadConfig } from '../src/config.js';
 import { ArcGISClient } from '../src/arcgis.js';
 
-const fields = [
-  { name: 'MMSI', type: 'esriFieldTypeDouble', alias: 'MMSI' },
-  { name: 'VesselName', type: 'esriFieldTypeString', alias: 'Vessel Name', length: 128 },
-  { name: 'SpeedKnots', type: 'esriFieldTypeDouble', alias: 'Speed (knots)' },
-  { name: 'Course', type: 'esriFieldTypeDouble', alias: 'Course' },
-  { name: 'Heading', type: 'esriFieldTypeDouble', alias: 'Heading' },
-  { name: 'Latitude', type: 'esriFieldTypeDouble', alias: 'Latitude' },
-  { name: 'Longitude', type: 'esriFieldTypeDouble', alias: 'Longitude' },
-  { name: 'LastAIS', type: 'esriFieldTypeDate', alias: 'Last AIS Update' },
-  { name: 'Destination', type: 'esriFieldTypeString', alias: 'Destination', length: 128 },
-  { name: 'NavStatus', type: 'esriFieldTypeString', alias: 'Navigation Status', length: 128 }
+const sharedPositionFields = [
+  field('MMSI', 'esriFieldTypeDouble', 'MMSI'), field('VesselName', 'esriFieldTypeString', 'Vessel Name', 128), field('SpeedKnots', 'esriFieldTypeDouble', 'Speed (knots)'),
+  field('Course', 'esriFieldTypeDouble', 'Course'), field('Heading', 'esriFieldTypeDouble', 'Heading'), field('Latitude', 'esriFieldTypeDouble', 'Latitude'), field('Longitude', 'esriFieldTypeDouble', 'Longitude'),
+  field('LastAIS', 'esriFieldTypeDate', 'Last AIS Update'), field('Destination', 'esriFieldTypeString', 'Destination', 128), field('NavStatus', 'esriFieldTypeString', 'Navigation Status', 128)
+];
+const layerDefs = [
+  { idKey: 'currentLayerId', name: 'Current Vessel Position', geometryType: 'esriGeometryPoint', fields: sharedPositionFields, existingOnly: true },
+  { idKey: 'historyLayerId', name: 'Vespucci Track History', geometryType: 'esriGeometryPoint', fields: [...sharedPositionFields, field('Source', 'esriFieldTypeString', 'Source', 32), field('PositionKey', 'esriFieldTypeString', 'Position Key', 160)], drawingInfo: pointRenderer([0, 112, 255, 180], 5) },
+  { idKey: 'travelledRouteLayerId', name: 'Vespucci Travelled Route', geometryType: 'esriGeometryPolyline', fields: [field('MMSI', 'esriFieldTypeDouble', 'MMSI'), field('VesselName', 'esriFieldTypeString', 'Vessel Name', 128), field('RouteType', 'esriFieldTypeString', 'Route Type', 64), field('PointCount', 'esriFieldTypeInteger', 'Point Count'), field('StartAIS', 'esriFieldTypeDate', 'Start AIS'), field('EndAIS', 'esriFieldTypeDate', 'End AIS'), field('LastUpdated', 'esriFieldTypeDate', 'Last Updated')], drawingInfo: lineRenderer([0, 90, 180, 220], 2, 'esriSLSSolid') },
+  { idKey: 'destinationLayerId', name: 'Vespucci Destination', geometryType: 'esriGeometryPoint', fields: [field('DestinationName', 'esriFieldTypeString', 'Destination Name', 160), field('PortCode', 'esriFieldTypeString', 'Port Code', 16), field('Latitude', 'esriFieldTypeDouble', 'Latitude'), field('Longitude', 'esriFieldTypeDouble', 'Longitude'), field('UpdatedAt', 'esriFieldTypeDate', 'Updated At')], drawingInfo: pointRenderer([220, 40, 40, 220], 12) },
+  { idKey: 'estimatedRouteLayerId', name: 'Vespucci Estimated Route', geometryType: 'esriGeometryPolyline', fields: [field('MMSI', 'esriFieldTypeDouble', 'MMSI'), field('VesselName', 'esriFieldTypeString', 'Vessel Name', 128), field('DestinationName', 'esriFieldTypeString', 'Destination Name', 160), field('RouteType', 'esriFieldTypeString', 'Route Type', 64), field('DistanceNM', 'esriFieldTypeDouble', 'Distance (NM)'), field('SpeedKnots', 'esriFieldTypeDouble', 'Speed (knots)'), field('EstimatedETA', 'esriFieldTypeDate', 'Estimated ETA'), field('CalculatedAt', 'esriFieldTypeDate', 'Calculated At'), field('Basis', 'esriFieldTypeString', 'Basis', 256)], drawingInfo: lineRenderer([220, 40, 40, 220], 2, 'esriSLSDash') }
 ];
 
 const config = loadConfig({ requireAIS: false });
@@ -20,52 +20,48 @@ await client.ensureValidToken();
 client.featureServiceUrl = await client.resolveFeatureServiceUrl();
 const adminFeatureServiceUrl = toAdminFeatureServiceUrl(client.featureServiceUrl);
 const adminToken = process.env.ARCGIS_ADMIN_TOKEN;
+const service = await client.get(`${client.featureServiceUrl}?f=json`);
+if (service.error) throw new Error(`Feature service lookup failed: ${sanitizeArcGISResponse(service.error)}`);
+const existingLayers = new Map((service.layers || []).map((layer) => [Number(layer.id), layer]));
 
-await ensureFields(client, config.currentLayerId, 'current-position', adminFeatureServiceUrl, adminToken);
-
-if (config.enableHistory) {
-  await ensureFields(client, config.historyLayerId, 'history', adminFeatureServiceUrl, adminToken);
-} else {
-  console.log('History setup skipped. Set ENABLE_HISTORY=true and ensure a second point layer exists to configure it.');
+const missingLayers = layerDefs.filter((def) => !def.existingOnly && !existingLayers.has(Number(config[def.idKey])));
+const fieldWork = [];
+for (const def of layerDefs) {
+  const id = Number(config[def.idKey]);
+  if (!existingLayers.has(id)) {
+    if (def.existingOnly) throw new Error(`Required existing layer ${id} (${def.name}) is missing. Create/preserve Layer 0 before setup.`);
+    continue;
+  }
+  const layer = await client.get(`${client.layerUrl(id)}?f=json`);
+  const existing = new Set((layer.fields || []).map((f) => f.name.toLowerCase()));
+  const missing = def.fields.filter((f) => !existing.has(f.name.toLowerCase()));
+  if (missing.length) fieldWork.push({ def, id, missing });
 }
 
-function toAdminFeatureServiceUrl(featureServiceUrl) {
-  const servicesPath = '/arcgis/rest/services/';
-  const adminServicesPath = '/arcgis/rest/admin/services/';
-  if (!featureServiceUrl.includes(servicesPath)) {
-    throw new Error(`Cannot derive ArcGIS admin URL from feature service URL: ${featureServiceUrl}`);
-  }
-  return featureServiceUrl.replace(servicesPath, adminServicesPath);
+if ((missingLayers.length || fieldWork.length) && !adminToken) {
+  const lines = [];
+  if (missingLayers.length) lines.push(`Missing layer(s): ${missingLayers.map((d) => `${config[d.idKey]} ${d.name}`).join(', ')}`);
+  for (const item of fieldWork) lines.push(`Layer ${item.id} ${item.def.name} missing field(s): ${item.missing.map((f) => f.name).join(', ')}`);
+  throw new Error(`${lines.join('; ')}. Set a temporary owner-level ARCGIS_ADMIN_TOKEN, rerun setup, and remove ARCGIS_ADMIN_TOKEN immediately after setup succeeds.`);
 }
 
-function sanitizeArcGISResponse(response) {
-  return JSON.stringify(response, (key, value) => (key.toLowerCase().includes('token') ? '[redacted]' : value));
+if (missingLayers.length) {
+  const layers = missingLayers.map((def) => makeLayerDefinition(def, Number(config[def.idKey])));
+  const result = await adminPost(`${adminFeatureServiceUrl}/addToDefinition`, adminToken, { layers });
+  if (!result.success) throw new Error(`Feature service addToDefinition failed: ${sanitizeArcGISResponse(result)}`);
+  console.log(`Added layer(s): ${missingLayers.map((d) => `${config[d.idKey]} ${d.name}`).join(', ')}`);
 }
+for (const item of fieldWork) {
+  const result = await adminPost(`${adminFeatureServiceUrl}/${item.id}/addToDefinition`, adminToken, { fields: item.missing });
+  if (!result.success) throw new Error(`Layer ${item.id} addToDefinition failed: ${sanitizeArcGISResponse(result)}`);
+  console.log(`Layer ${item.id} added fields: ${item.missing.map((f) => f.name).join(', ')}`);
+}
+if (!missingLayers.length && !fieldWork.length) console.log('ArcGIS feature service already has all required layers and fields. ARCGIS_ADMIN_TOKEN is not needed.');
 
-async function ensureFields(client, layerId, label, adminFeatureServiceUrl, adminToken) {
-  const layer = await client.get(`${client.layerUrl(layerId)}?f=json`);
-  if (layer.error) throw new Error(`${label} layer lookup failed: ${sanitizeArcGISResponse(layer.error)}`);
-  const existing = new Set((layer.fields || []).map((field) => field.name.toLowerCase()));
-  const missing = fields.filter((field) => !existing.has(field.name.toLowerCase()));
-  if (missing.length === 0) {
-    console.log(`${label} layer already has all required fields.`);
-    return;
-  }
-  if (!adminToken) {
-    throw new Error(
-      `${label} layer is missing required field(s): ${missing.map((field) => field.name).join(', ')}. `
-      + 'Set a temporary owner-level ARCGIS_ADMIN_TOKEN to bootstrap the schema, rerun setup, and remove ARCGIS_ADMIN_TOKEN immediately after setup succeeds.'
-    );
-  }
-  const body = new URLSearchParams({
-    f: 'json',
-    token: adminToken,
-    addToDefinition: JSON.stringify({ fields: missing })
-  });
-  const adminLayerUrl = `${adminFeatureServiceUrl}/${layerId}`;
-  const result = await client.rawPost(`${adminLayerUrl}/addToDefinition`, body);
-  if (!result.success) {
-    throw new Error(`${label} addToDefinition failed at ${adminLayerUrl}/addToDefinition: ${sanitizeArcGISResponse(result)}`);
-  }
-  console.log(`${label} layer added fields: ${missing.map((field) => field.name).join(', ')}`);
-}
+function field(name, type, alias, length) { return { name, type, alias, ...(length ? { length } : {}) }; }
+function makeLayerDefinition(def, id) { return { id, name: def.name, type: 'Feature Layer', geometryType: def.geometryType, objectIdField: 'OBJECTID', fields: [field('OBJECTID', 'esriFieldTypeOID', 'OBJECTID'), ...def.fields], capabilities: 'Query,Create,Update,Delete,Editing', drawingInfo: def.drawingInfo }; }
+function pointRenderer(color, size) { return { renderer: { type: 'simple', symbol: { type: 'esriSMS', style: 'esriSMSCircle', color, size, outline: { color: [255, 255, 255, 220], width: 1 } } } }; }
+function lineRenderer(color, width, style) { return { renderer: { type: 'simple', symbol: { type: 'esriSLS', style, color, width } } }; }
+function toAdminFeatureServiceUrl(url) { if (!url.includes('/arcgis/rest/services/')) throw new Error(`Cannot derive ArcGIS admin URL from feature service URL: ${url}`); return url.replace('/arcgis/rest/services/', '/arcgis/rest/admin/services/'); }
+function sanitizeArcGISResponse(response) { return JSON.stringify(response, (key, value) => (key.toLowerCase().includes('token') ? '[redacted]' : value)); }
+async function adminPost(url, token, definition) { return client.rawPost(url, new URLSearchParams({ f: 'json', token, addToDefinition: JSON.stringify(definition) })); }
