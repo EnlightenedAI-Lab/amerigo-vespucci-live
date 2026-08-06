@@ -1,4 +1,7 @@
 import express from 'express';
+import { fileURLToPath } from 'node:url';
+
+const spatialDirectory = fileURLToPath(new URL('../public/spatial', import.meta.url));
 
 export function createServer(state, config) {
   const app = express();
@@ -25,6 +28,8 @@ export function createServer(state, config) {
       ...(state.openMeteoClient?.health?.() || { conditionsEnabled: config.enableConditions })
     });
   });
+  app.get('/spatial', (_req, res) => res.sendFile('index.html', { root: spatialDirectory }));
+  app.use('/spatial', express.static(spatialDirectory));
   app.get('/', (_req, res) => res.json({ service: 'amerigo-vespucci-live', health: '/health' }));
   return app;
 }

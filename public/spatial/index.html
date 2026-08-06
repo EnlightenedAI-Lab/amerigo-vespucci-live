@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>IQAI Spatial — Prompt to map</title>
+  <meta name="description" content="Create clear, useful maps from a simple request and your data.">
+  <link rel="stylesheet" href="/spatial/spatial.css">
+</head>
+<body>
+  <main id="app">
+    <section class="creation" id="creation" aria-labelledby="creation-title">
+      <header class="brand"><span class="brand-mark" aria-hidden="true"></span><span>IQAI <b>Spatial</b></span><span class="prototype">Prototype</span></header>
+      <div class="creation-content">
+        <p class="eyebrow">PROMPT TO MAP</p>
+        <h1 id="creation-title">Map what matters.</h1>
+        <p class="intro">Describe the view you need. IQAI will shape your request and supplied data into a clear, useful map.</p>
+        <form class="composer" id="create-form">
+          <label for="map-prompt">What would you like to map?</label>
+          <textarea id="map-prompt" rows="4" required>Show coastal resilience projects around San Francisco Bay, grouped by project type</textarea>
+          <div class="composer-actions">
+            <div class="data-actions">
+              <button type="button" class="quiet" id="attach-button" aria-describedby="file-status"><span aria-hidden="true">＋</span> Attach file</button>
+              <input type="file" id="file-input" hidden>
+              <button type="button" class="quiet" id="url-button"><span aria-hidden="true">↗</span> Add data URL</button>
+            </div>
+            <button type="submit" class="primary">Create Map <span aria-hidden="true">→</span></button>
+          </div>
+          <p class="file-status" id="file-status" aria-live="polite"></p>
+          <div class="url-entry" id="url-entry" hidden>
+            <label for="data-url">Data URL</label><div><input id="data-url" type="url" placeholder="https://example.com/data.csv"><button type="button" id="add-url">Add</button></div>
+          </div>
+        </form>
+        <div class="examples" aria-label="Example prompts">
+          <span>Try an example</span>
+          <button type="button">Map urban tree cover by neighborhood</button>
+          <button type="button">Show renewable energy sites in Portugal</button>
+          <button type="button">Compare walkability around schools</button>
+        </div>
+      </div>
+      <footer>Designed for exploration · No AI or external data services are connected</footer>
+    </section>
+
+    <section class="workspace" id="workspace" aria-label="Generated map workspace" hidden>
+      <div class="map" role="img" aria-label="Mock map of coastal resilience projects around San Francisco Bay">
+        <svg class="map-art" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+          <rect width="1440" height="900" fill="#dceae5"/>
+          <path class="water" d="M0 0h720c-31 96-135 124-112 236 19 91 149 84 166 186 22 128-166 135-149 250 11 73 96 125 124 228H0z"/>
+          <path class="landline" d="M720 0c-31 96-135 124-112 236 19 91 149 84 166 186 22 128-166 135-149 250 11 73 96 125 124 228"/>
+          <g class="roads"><path d="M850-20L802 950"/><path d="M1050-30L920 930"/><path d="M680 170L1440 105"/><path d="M640 580L1440 720"/><path d="M625 380L1180 900"/><path d="M780 10L1380 510"/></g>
+          <g class="minor"><path d="M730 250L1260 180"/><path d="M700 470L1320 390"/><path d="M750 680L1200 610"/><path d="M900 0L1400 250"/></g>
+          <g class="labels"><text x="1010" y="280">OAKLAND</text><text x="830" y="720">SAN MATEO</text><text x="360" y="470">SAN FRANCISCO BAY</text><text x="1110" y="540">ALAMEDA</text></g>
+          <g class="markers"><circle class="wetland" cx="703" cy="370" r="13"/><circle class="wetland" cx="745" cy="515" r="13"/><circle class="wetland" cx="668" cy="640" r="13"/><circle class="shore" cx="820" cy="425" r="13"/><circle class="shore" cx="913" cy="580" r="13"/><circle class="shore" cx="770" cy="236" r="13"/><circle class="infra" cx="996" cy="392" r="13"/><circle class="infra" cx="860" cy="685" r="13"/></g>
+        </svg>
+        <div class="map-scrim"></div>
+        <header class="workspace-header"><button class="icon-button panel-trigger" id="panel-trigger" aria-expanded="false" aria-controls="detail-panel" aria-label="Open map details">☰</button><div class="wordmark"><span class="brand-mark"></span><span>IQAI <b>Spatial</b></span></div><div class="disabled-actions"><button disabled title="Unavailable in prototype">Save <small>Prototype</small></button><button disabled title="Unavailable in prototype">Share <small>Prototype</small></button></div></header>
+        <form class="revision" id="revision-form"><label for="revision-prompt" class="sr-only">Revise this map</label><input id="revision-prompt" placeholder="Ask for a change to this map…"><button aria-label="Apply revision">→</button></form>
+        <div class="map-title"><p>MOCK MAP · 12 PROJECTS</p><h2>Coastal resilience around<br>San Francisco Bay</h2><span>Grouped by project type</span></div>
+        <div class="map-controls" aria-hidden="true"><button>+</button><button>−</button></div>
+        <button class="back" id="back-button">← <span>Back to prompt</span></button>
+        <div class="toast" id="toast" role="status" aria-live="polite" hidden>Map revised with mock data</div>
+      </div>
+      <aside class="detail-panel" id="detail-panel" aria-label="Map details" aria-hidden="true">
+        <div class="sheet-handle" aria-hidden="true"></div>
+        <div class="panel-heading"><div><p>MAP DETAILS</p><h2>Explore this map</h2></div><button class="close-panel" id="close-panel" aria-label="Close map details">×</button></div>
+        <div class="tabs" role="tablist"><button role="tab" aria-selected="true" data-tab="layers">Layers</button><button role="tab" aria-selected="false" data-tab="legend">Legend</button><button role="tab" aria-selected="false" data-tab="sources">Sources</button></div>
+        <div class="tab-content" id="layers" role="tabpanel"><label class="layer"><input type="checkbox" checked><span class="dot wetland-bg"></span><span><b>Wetland restoration</b><small>5 projects</small></span></label><label class="layer"><input type="checkbox" checked><span class="dot shore-bg"></span><span><b>Shoreline adaptation</b><small>4 projects</small></span></label><label class="layer"><input type="checkbox" checked><span class="dot infra-bg"></span><span><b>Resilient infrastructure</b><small>3 projects</small></span></label><label class="layer basemap"><input type="checkbox" checked><span><b>Light coastal basemap</b><small>Reference layer</small></span></label></div>
+        <div class="tab-content" id="legend" role="tabpanel" hidden><p class="panel-copy">Projects are styled by adaptation approach. Marker size is consistent because no magnitude was supplied.</p><div class="legend-row"><span class="dot wetland-bg"></span> Wetland restoration</div><div class="legend-row"><span class="dot shore-bg"></span> Shoreline adaptation</div><div class="legend-row"><span class="dot infra-bg"></span> Resilient infrastructure</div></div>
+        <div class="tab-content" id="sources" role="tabpanel" hidden><div class="source"><span>01</span><div><b>Sample resilience projects</b><p>Mock dataset · 12 records</p></div></div><div class="source"><span>02</span><div><b>Light coastal basemap</b><p>Prototype reference geometry</p></div></div><p class="source-note">Sources shown here are illustrative. No external provider was queried.</p></div>
+      </aside>
+      <div class="backdrop" id="backdrop" hidden></div>
+      <div class="loading" id="loading" role="status"><span></span><p>Shaping your map</p><small>Interpreting places and themes…</small></div>
+    </section>
+  </main>
+  <script src="/spatial/spatial.js"></script>
+</body>
+</html>
