@@ -1,0 +1,181 @@
+/* IQAI Spatial V2 — map-dominant situational awareness shell */
+:root {
+  --iqai-ink: #0b1220;
+  --iqai-navy: #132238;
+  --iqai-panel: #1a2d4a;
+  --iqai-ocean: #1e4d6b;
+  --iqai-cyan: #3ec6e0;
+  --iqai-gold: #c9a227;
+  --iqai-text: #f4f1e8;
+  --iqai-muted: #9fb3c8;
+  --iqai-danger: #e07070;
+  --iqai-touch: 44px;
+}
+
+#iqai-v2-app {
+  position: fixed;
+  inset: 0;
+  z-index: 5000;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  grid-template-columns: 56px 1fr 320px;
+  grid-template-areas:
+    "top top top"
+    "rail map drawer"
+    "bottom bottom bottom";
+  background: var(--iqai-ink);
+  color: var(--iqai-text);
+  font-family: "Segoe UI", system-ui, sans-serif;
+}
+
+#iqai-v2-app.hidden { display: none !important; }
+
+.iqai-topbar {
+  grid-area: top;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 0.75rem;
+  background: linear-gradient(180deg, #15243b, var(--iqai-ink));
+  border-bottom: 1px solid #243a5c;
+  flex-wrap: wrap;
+}
+
+.iqai-brand { font-weight: 600; letter-spacing: 0.02em; }
+.iqai-brand small { color: var(--iqai-muted); font-weight: 400; margin-left: 0.35rem; }
+.iqai-badge-nfn {
+  background: #3a2418;
+  color: #ffd7b0;
+  border: 1px solid #8a5a32;
+  border-radius: 4px;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.iqai-meta { font-variant-numeric: tabular-nums; font-size: 0.85rem; color: var(--iqai-muted); }
+.iqai-meta strong { color: var(--iqai-text); }
+.iqai-health-alert { color: var(--iqai-danger); font-size: 0.8rem; }
+
+.iqai-mode-rail {
+  grid-area: rail;
+  background: var(--iqai-navy);
+  border-right: 1px solid #243a5c;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.5rem 0.35rem;
+}
+
+.iqai-mode-btn {
+  min-height: var(--iqai-touch);
+  min-width: var(--iqai-touch);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--iqai-muted);
+  cursor: pointer;
+  font-size: 0.65rem;
+  line-height: 1.1;
+  padding: 0.35rem 0.2rem;
+}
+.iqai-mode-btn:hover, .iqai-mode-btn:focus-visible {
+  outline: 2px solid var(--iqai-cyan);
+  color: var(--iqai-text);
+}
+.iqai-mode-btn.active {
+  background: var(--iqai-panel);
+  border-color: var(--iqai-gold);
+  color: var(--iqai-gold);
+}
+
+.iqai-map-stage {
+  grid-area: map;
+  position: relative;
+  min-height: 0;
+}
+.iqai-map-stage .arcgis-ocean-map,
+.iqai-map-stage #iqai-arcgis-map {
+  width: 100%;
+  height: 100%;
+}
+
+.iqai-drawer {
+  grid-area: drawer;
+  background: var(--iqai-panel);
+  border-left: 1px solid #243a5c;
+  overflow: auto;
+  padding: 0.75rem;
+}
+.iqai-drawer h3 { margin: 0 0 0.5rem; font-size: 0.95rem; color: var(--iqai-gold); }
+.iqai-drawer dl { margin: 0; font-size: 0.82rem; }
+.iqai-drawer dt { color: var(--iqai-muted); margin-top: 0.4rem; }
+.iqai-drawer dd { margin: 0.1rem 0 0; font-variant-numeric: tabular-nums; }
+
+.iqai-bottomstrip {
+  grid-area: bottom;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.35rem 0.75rem;
+  background: #101a2b;
+  border-top: 1px solid #243a5c;
+  font-size: 0.75rem;
+  flex-wrap: wrap;
+}
+.iqai-time-controls button {
+  min-height: 36px;
+  min-width: 36px;
+  margin-right: 0.25rem;
+}
+.iqai-attribution-bar { color: var(--iqai-muted); flex: 1; min-width: 200px; }
+.iqai-layer-row.error { color: var(--iqai-danger); }
+.iqai-layer-row.disabled { opacity: 0.55; }
+.iqai-layer-row.active { border-left: 3px solid var(--iqai-cyan); }
+.iqai-coords { font-variant-numeric: tabular-nums; font-size: 0.8rem; color: var(--iqai-muted); margin-right: 0.75rem; }
+
+#iqai-boot-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(11, 18, 32, 0.85);
+  color: var(--iqai-text);
+  z-index: 10;
+}
+#iqai-boot-loading.hidden { display: none; }
+
+.iqai-rollback-btn {
+  margin-left: auto;
+  background: transparent;
+  border: 1px solid #4a6080;
+  color: var(--iqai-muted);
+  border-radius: 6px;
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+  min-height: 36px;
+}
+
+@media (max-width: 900px) {
+  #iqai-v2-app {
+    grid-template-columns: 48px 1fr;
+    grid-template-areas:
+      "top top"
+      "rail map"
+      "bottom bottom";
+  }
+  .iqai-drawer {
+    position: fixed;
+    right: 0; top: auto; bottom: 72px;
+    width: min(100%, 360px);
+    max-height: 45vh;
+    z-index: 5100;
+    transform: translateX(100%);
+    transition: transform 0.2s ease;
+  }
+  .iqai-drawer.open { transform: translateX(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .iqai-drawer { transition: none; }
+}

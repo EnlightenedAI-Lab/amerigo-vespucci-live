@@ -1,5 +1,8 @@
 import 'dotenv/config';
 
+export const DEFAULT_FEATURE_SERVICE_URL =
+  'https://services9.arcgis.com/HWLvgMBDdrPG7U8N/arcgis/rest/services/Amerigo_Vespucci_Live/FeatureServer';
+
 export function loadConfig(options = {}) {
   const { requireAIS = true, requireArcGIS = true } = options;
   const required = ['ARCGIS_ITEM_ID'];
@@ -12,6 +15,16 @@ export function loadConfig(options = {}) {
     throw new Error(`Missing required environment variable(s): ${missing.join(', ')}`);
   }
 
+  const iqaiV2Enabled = /^true$/i.test(process.env.IQAI_V2_ENABLED || '');
+  const spatialLayersEnabled = process.env.SPATIAL_LAYERS_ENABLED == null
+    ? true
+    : /^true$/i.test(process.env.SPATIAL_LAYERS_ENABLED);
+  const legacyUiEnabled = process.env.LEGACY_UI_ENABLED == null
+    ? true
+    : /^true$/i.test(process.env.LEGACY_UI_ENABLED);
+  const enableDataDocked = /^true$/i.test(process.env.ENABLE_DATA_DOCKED || '')
+    && Boolean(process.env.DATADOCKED_API_KEY);
+
   return {
     aisstreamApiKey: process.env.AISSTREAM_API_KEY,
     aisstreamUrl: process.env.AISSTREAM_URL || 'wss://stream.aisstream.io/v0/stream',
@@ -21,6 +34,7 @@ export function loadConfig(options = {}) {
     arcgisUsername: process.env.ARCGIS_USERNAME,
     arcgisPassword: process.env.ARCGIS_PASSWORD,
     arcgisPortalUrl: process.env.ARCGIS_PORTAL_URL || 'https://www.arcgis.com',
+    arcgisFeatureServiceUrl: process.env.ARCGIS_FEATURE_SERVICE_URL || DEFAULT_FEATURE_SERVICE_URL,
     currentLayerId: Number(process.env.ARCGIS_CURRENT_LAYER_ID || '0'),
     historyLayerId: Number(process.env.ARCGIS_HISTORY_LAYER_ID || '1'),
     travelledRouteLayerId: Number(process.env.ARCGIS_TRAVELLED_ROUTE_LAYER_ID || '2'),
@@ -35,7 +49,7 @@ export function loadConfig(options = {}) {
     openMeteoForecastHours: Number(process.env.OPEN_METEO_FORECAST_HOURS || '24'),
     openMeteoMaxPositionAgeSeconds: Number(process.env.OPEN_METEO_MAX_POSITION_AGE_SECONDS || '21600'),
     openMeteoRequestTimeoutSeconds: Number(process.env.OPEN_METEO_REQUEST_TIMEOUT_SECONDS || '15'),
-    enableHistory: /^true$/i.test(process.env.ENABLE_HISTORY || 'false'),
+    enableHistory: /^false$/i.test(process.env.ENABLE_HISTORY || '') ? false : true,
     historyMinIntervalSeconds: Number(process.env.HISTORY_MIN_INTERVAL_SECONDS || '300'),
     routeMaxHistoryPoints: Number(process.env.ROUTE_MAX_HISTORY_POINTS || '5000'),
     etaMinSpeedKnots: Number(process.env.ETA_MIN_SPEED_KNOTS || '1'),
@@ -49,6 +63,12 @@ export function loadConfig(options = {}) {
     datadockedPollIntervalSeconds: Number(process.env.DATADOCKED_POLL_INTERVAL_SECONDS || '1800'),
     datadockedAisStaleSeconds: Number(process.env.DATADOCKED_AIS_STALE_SECONDS || '300'),
     port: Number(process.env.PORT || '3000'),
-    logLevel: process.env.LOG_LEVEL || 'info'
+    logLevel: process.env.LOG_LEVEL || 'info',
+    iqaiV2Enabled,
+    spatialLayersEnabled,
+    legacyUiEnabled,
+    radarEnabled: /^true$/i.test(process.env.RADAR_ENABLED || ''),
+    enableDataDocked,
+    oceanViewWebmapId: process.env.OCEAN_VIEW_WEBMAP_ID || '86f1b6a9b6124da5b362964749b5d797'
   };
 }

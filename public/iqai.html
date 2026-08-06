@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IQAI Spatial — Maritime Intelligence</title>
+  <link rel="stylesheet" href="/css/iqai-v2.css">
+</head>
+<body>
+  <div id="iqai-v2-app" aria-label="IQAI Spatial Maritime Intelligence">
+    <header class="iqai-topbar">
+      <div class="iqai-brand">IQAI Spatial <small>Maritime Intelligence</small></div>
+      <span class="iqai-badge-nfn" role="status">Situational awareness only — not for navigation</span>
+      <span class="iqai-meta" id="iqai-vessel-meta">Amerigo Vespucci</span>
+      <span class="iqai-meta" id="iqai-dest-meta">—</span>
+      <span class="iqai-meta" id="iqai-ais-meta">AIS —</span>
+      <span class="iqai-meta">Valid: <strong id="iqai-valid-time">—</strong></span>
+      <span class="iqai-health-alert" id="iqai-health"></span>
+      <a href="/" class="iqai-rollback-btn" title="Return to classic Live Maritime Tracker">Classic UI</a>
+    </header>
+    <nav class="iqai-mode-rail" aria-label="Map modes">
+      <button type="button" class="iqai-mode-btn active" data-mode="navigation" aria-selected="true">Nav</button>
+      <button type="button" class="iqai-mode-btn" data-mode="ocean">Ocean</button>
+      <button type="button" class="iqai-mode-btn" data-mode="weather">Weather</button>
+      <button type="button" class="iqai-mode-btn" data-mode="satellite">Sat</button>
+      <button type="button" class="iqai-mode-btn" data-mode="intelligence">Intel</button>
+    </nav>
+    <main class="iqai-map-stage">
+      <div id="iqai-arcgis-map" class="arcgis-ocean-map" role="application" aria-label="IQAI map"></div>
+      <div id="iqai-boot-error" class="ocean-error hidden"></div>
+      <div id="iqai-boot-loading" class="ocean-loading">Loading IQAI Spatial…</div>
+    </main>
+    <aside class="iqai-drawer open" id="iqai-drawer" aria-label="Context drawer">
+      <p class="iqai-meta">Mode: <strong id="iqai-active-mode">Navigation</strong></p>
+      <div id="iqai-layer-list"></div>
+      <div id="iqai-drawer-body"></div>
+    </aside>
+    <footer class="iqai-bottomstrip">
+      <div class="iqai-time-controls">
+        <button type="button" id="iqai-time-step-back" title="Step back" aria-label="Step back">◀</button>
+        <button type="button" id="iqai-time-play" title="Play" aria-label="Play">▶</button>
+        <button type="button" id="iqai-time-step-fwd" title="Step forward" aria-label="Step forward">▶|</button>
+      </div>
+      <button type="button" id="iqai-btn-center" class="iqai-rollback-btn">Center vessel</button>
+      <button type="button" id="iqai-btn-fit" class="iqai-rollback-btn">Fit voyage</button>
+      <span class="iqai-coords" id="iqai-coords">—</span>
+      <span class="iqai-attribution-bar" id="iqai-attribution"></span>
+    </footer>
+  </div>
+  <script src="/js/iqai/iqai-entry.js" type="module"></script>
+</body>
+</html>

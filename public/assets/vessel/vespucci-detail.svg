@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 72" role="img" aria-label="Amerigo Vespucci detailed">
+  <defs>
+    <filter id="halo2" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="0" stdDeviation="2" flood-color="#0b1220" flood-opacity="0.95"/>
+      <feDropShadow dx="0" dy="0" stdDeviation="0.6" flood-color="#f4f1e8" flood-opacity="0.9"/>
+    </filter>
+  </defs>
+  <g filter="url(#halo2)">
+    <path d="M36 6 L58 60 L36 50 L14 60 Z" fill="#111111" stroke="#c9a227" stroke-width="1.6"/>
+    <rect x="16" y="36" width="40" height="4" fill="#f4f1e8"/>
+    <rect x="18" y="44" width="36" height="3.5" fill="#f4f1e8"/>
+    <rect x="33" y="12" width="6" height="22" fill="#111111" stroke="#c9a227" stroke-width="0.8"/>
+    <line x1="22" y1="20" x2="50" y2="20" stroke="#c9a227" stroke-width="1.2"/>
+    <line x1="20" y1="26" x2="52" y2="26" stroke="#c9a227" stroke-width="1"/>
+    <line x1="18" y1="32" x2="54" y2="32" stroke="#c9a227" stroke-width="0.9"/>
+    <path d="M36 6 L48 14 L36 10 Z" fill="#f4f1e8" opacity="0.9"/>
+    <line x1="36" y1="6" x2="62" y2="18" stroke="#c9a227" stroke-width="1.1"/>
+    <circle cx="36" cy="8" r="1.2" fill="#c9a227"/>
+  </g>
+</svg>

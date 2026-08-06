@@ -1,6 +1,11 @@
 import { logger } from './logger.js';
 import { CONDITIONS_ATTRIBUTION, CONDITIONS_BASIS } from './openmeteo.js';
-import { buildPolyline, calculateEstimatedETA, createPositionKey, ESTIMATED_ROUTE_BASIS, haversineDistanceNM, parseDestinationConfig } from './navigation.js';
+import { calculateEstimatedETA, createPositionKey, ESTIMATED_ROUTE_BASIS, haversineDistanceNM, parseDestinationConfig } from './navigation.js';
+import {
+  validateWebMercatorGeometry,
+  webMercatorPointFromWgs84,
+  webMercatorPolylineFromWgs84Points
+} from './arcgis-geometry.js';
 
 const FIELD_MAP = {
   MMSI: 'MMSI', VesselName: 'VesselName', SpeedKnots: 'SpeedKnots', Course: 'Course', Heading: 'Heading',
@@ -28,7 +33,8 @@ export class ArcGISClient {
 
   async initialize() {
     await this.ensureValidToken();
-    this.featureServiceUrl = await this.resolveFeatureServiceUrl();
+    this.featureServiceUrl = this.config.arcgisFeatureServiceUrl
+      || await this.resolveFeatureServiceUrl();
     this.currentObjectId = await this.findCurrentFeatureObjectId();
     if (this.config.enableConditions) await this.initializeConditionsFeature();
     logger.info('ArcGIS client initialized', { featureServiceUrl: this.featureServiceUrl, currentObjectId: this.currentObjectId });
@@ -57,6 +63,18 @@ export class ArcGISClient {
   }
   layerUrl(layerId = this.config.currentLayerId) { return `${this.featureServiceUrl}/${layerId}`; }
 
+  pointGeometryForWebMercatorLayer(longitude, latitude, context) {
+    const geometry = webMercatorPointFromWgs84(longitude, latitude);
+    validateWebMercatorGeometry(geometry, context);
+    return geometry;
+  }
+
+  polylineGeometryForWebMercatorLayer(points, context) {
+    const geometry = webMercatorPolylineFromWgs84Points(points);
+    validateWebMercatorGeometry(geometry, context);
+    return geometry;
+  }
+
 
   async initializeConditionsFeature() {
     try {
@@ -82,7 +100,10 @@ export class ArcGISClient {
     const sourceTimes = [attrs.WeatherAt, attrs.MarineAt, this.conditionsWeatherAt?.getTime(), this.conditionsMarineAt?.getTime()].filter(Number.isFinite);
     if (sourceTimes.length) attrs.ConditionsAt = Math.max(...sourceTimes);
     if (this.conditionsObjectId) attrs.OBJECTID = this.conditionsObjectId;
-    const feature = { attributes: attrs, geometry: { x: position.longitude, y: position.latitude, spatialReference: { wkid: 4326 } } };
+    const feature = {
+      attributes: attrs,
+      geometry: this.pointGeometryForWebMercatorLayer(position.longitude, position.latitude, 'conditions layer')
+    };
     const endpoint = this.conditionsObjectId ? 'updateFeatures' : 'addFeatures';
     const data = await this.post(this.layerUrl(this.config.conditionsLayerId), endpoint, new URLSearchParams({ f: 'json', features: JSON.stringify([feature]) }));
     const result = data.updateResults?.[0] || data.addResults?.[0];
@@ -93,6 +114,24 @@ export class ArcGISClient {
   }
 
   async findCurrentFeatureObjectId() { return this.findObjectId(this.config.currentLayerId, `MMSI=${this.config.targetMmsi}`); }
+
+  async queryCurrentFeature() {
+    const params = new URLSearchParams({
+      f: 'json',
+      where: `MMSI=${this.config.targetMmsi}`,
+      outFields: '*',
+      returnGeometry: 'true',
+      resultRecordCount: '1'
+    });
+    const data = await this.get(`${this.layerUrl()}/query?${params}`);
+    return data.features?.[0] || null;
+  }
+
+  async countHistoryFeatures() {
+    const params = new URLSearchParams({ f: 'json', where: `MMSI=${this.config.targetMmsi}`, returnCountOnly: 'true' });
+    const data = await this.get(`${this.layerUrl(this.config.historyLayerId)}/query?${params}`);
+    return Number(data.count ?? 0);
+  }
   async findObjectId(layerId, where) {
     const params = new URLSearchParams({ f: 'json', where, outFields: 'OBJECTID', returnGeometry: 'false' });
     const data = await this.get(`${this.layerUrl(layerId)}/query?${params}`);
@@ -128,6 +167,7 @@ export class ArcGISClient {
     const latest = await this.getLatestHistoryTimestamp();
     if (latest && position.lastAIS <= latest) return { inserted: false, reason: 'not-newer-than-latest-history' };
     const feature = this.toFeature(position, { includeObjectId: false, source, positionKey });
+    feature.geometry = this.pointGeometryForWebMercatorLayer(position.longitude, position.latitude, 'history layer');
     const data = await this.post(this.layerUrl(this.config.historyLayerId), 'addFeatures', new URLSearchParams({ f: 'json', features: JSON.stringify([feature]) }));
     const result = data.addResults?.[0];
     if (!result?.success) throw new Error(`ArcGIS history insert failed: ${JSON.stringify(data)}`);
@@ -145,10 +185,14 @@ export class ArcGISClient {
     const value = data.features?.[0]?.attributes?.LastAIS;
     return value ? new Date(value) : null;
   }
-  async queryHistoryPoints() {
+  async queryHistoryPoints(_config) {
     const params = new URLSearchParams({ f: 'json', where: `MMSI=${this.config.targetMmsi}`, outFields: 'MMSI,VesselName,LastAIS,Latitude,Longitude', returnGeometry: 'true', orderByFields: 'LastAIS ASC', resultRecordCount: String(this.config.routeMaxHistoryPoints) });
     const data = await this.get(`${this.layerUrl(this.config.historyLayerId)}/query?${params}`);
-    return (data.features || []).map((f) => ({ attributes: f.attributes, latitude: Number(f.geometry?.y ?? f.attributes?.Latitude), longitude: Number(f.geometry?.x ?? f.attributes?.Longitude) })).filter((p) => Number.isFinite(p.latitude) && Number.isFinite(p.longitude));
+    return (data.features || []).map((f) => ({
+      attributes: f.attributes,
+      latitude: Number(f.attributes?.Latitude),
+      longitude: Number(f.attributes?.Longitude)
+    })).filter((p) => Number.isFinite(p.latitude) && Number.isFinite(p.longitude));
   }
 
   async upsertTravelledRoute() {
@@ -157,7 +201,7 @@ export class ArcGISClient {
     if (!this.travelledRouteObjectId) this.travelledRouteObjectId = await this.findObjectId(this.config.travelledRouteLayerId, `MMSI=${this.config.targetMmsi}`);
     const attrs = { MMSI: this.config.targetMmsi, VesselName: points.at(-1).attributes?.VesselName || 'Amerigo Vespucci', RouteType: 'Observed AIS track', PointCount: points.length, StartAIS: points[0].attributes.LastAIS, EndAIS: points.at(-1).attributes.LastAIS, LastUpdated: Date.now() };
     if (this.travelledRouteObjectId) attrs.OBJECTID = this.travelledRouteObjectId;
-    const data = await this.post(this.layerUrl(this.config.travelledRouteLayerId), this.travelledRouteObjectId ? 'updateFeatures' : 'addFeatures', new URLSearchParams({ f: 'json', features: JSON.stringify([{ attributes: attrs, geometry: buildPolyline(points) }]) }));
+    const data = await this.post(this.layerUrl(this.config.travelledRouteLayerId), this.travelledRouteObjectId ? 'updateFeatures' : 'addFeatures', new URLSearchParams({ f: 'json', features: JSON.stringify([{ attributes: attrs, geometry: this.polylineGeometryForWebMercatorLayer(points.map((p) => ({ longitude: p.longitude, latitude: p.latitude })), 'travelled route layer') }]) }));
     const result = data.updateResults?.[0] || data.addResults?.[0];
     if (!result?.success) throw new Error(`ArcGIS travelled route upsert failed: ${JSON.stringify(data)}`);
     if (!this.travelledRouteObjectId) this.travelledRouteObjectId = result.objectId;
@@ -169,7 +213,7 @@ export class ArcGISClient {
     if (!this.destinationObjectId) this.destinationObjectId = await this.findObjectId(this.config.destinationLayerId, `PortCode='${escapeSql(d.portCode)}'`);
     const attrs = { DestinationName: d.name, PortCode: d.portCode, Latitude: d.latitude, Longitude: d.longitude, UpdatedAt: Date.now() };
     if (this.destinationObjectId) attrs.OBJECTID = this.destinationObjectId;
-    const data = await this.post(this.layerUrl(this.config.destinationLayerId), this.destinationObjectId ? 'updateFeatures' : 'addFeatures', new URLSearchParams({ f: 'json', features: JSON.stringify([{ attributes: attrs, geometry: { x: d.longitude, y: d.latitude, spatialReference: { wkid: 4326 } } }]) }));
+    const data = await this.post(this.layerUrl(this.config.destinationLayerId), this.destinationObjectId ? 'updateFeatures' : 'addFeatures', new URLSearchParams({ f: 'json', features: JSON.stringify([{ attributes: attrs, geometry: this.pointGeometryForWebMercatorLayer(d.longitude, d.latitude, 'destination layer') }]) }));
     const result = data.updateResults?.[0] || data.addResults?.[0];
     if (!result?.success) throw new Error(`ArcGIS destination upsert failed: ${JSON.stringify(data)}`);
     if (!this.destinationObjectId) this.destinationObjectId = result.objectId;
@@ -182,7 +226,7 @@ export class ArcGISClient {
     if (!this.estimatedRouteObjectId) this.estimatedRouteObjectId = await this.findObjectId(this.config.estimatedRouteLayerId, `MMSI=${this.config.targetMmsi}`);
     const attrs = { MMSI: position.mmsi, VesselName: position.vesselName || 'Amerigo Vespucci', DestinationName: d.name, RouteType: 'Straight-line estimate', DistanceNM: distanceNM, SpeedKnots: position.speedKnots, EstimatedETA: eta?.getTime() || null, CalculatedAt: Date.now(), Basis: ESTIMATED_ROUTE_BASIS };
     if (this.estimatedRouteObjectId) attrs.OBJECTID = this.estimatedRouteObjectId;
-    const data = await this.post(this.layerUrl(this.config.estimatedRouteLayerId), this.estimatedRouteObjectId ? 'updateFeatures' : 'addFeatures', new URLSearchParams({ f: 'json', features: JSON.stringify([{ attributes: attrs, geometry: buildPolyline([position, d]) }]) }));
+    const data = await this.post(this.layerUrl(this.config.estimatedRouteLayerId), this.estimatedRouteObjectId ? 'updateFeatures' : 'addFeatures', new URLSearchParams({ f: 'json', features: JSON.stringify([{ attributes: attrs, geometry: this.polylineGeometryForWebMercatorLayer([position, d], 'estimated route layer') }]) }));
     const result = data.updateResults?.[0] || data.addResults?.[0];
     if (!result?.success) throw new Error(`ArcGIS estimated route upsert failed: ${JSON.stringify(data)}`);
     if (!this.estimatedRouteObjectId) this.estimatedRouteObjectId = result.objectId;

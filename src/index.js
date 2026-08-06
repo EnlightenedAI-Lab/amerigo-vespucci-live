@@ -5,11 +5,13 @@ import { AISStreamClient } from './aisstream.js';
 import { createServer } from './server.js';
 import { DataDockedClient } from './datadocked.js';
 import { OpenMeteoClient } from './openmeteo.js';
+import { bootstrapHistoryFromVerifiedSources } from './history-bootstrap.js';
 
 const config = loadConfig();
 setLogLevel(config.logLevel);
 const state = {
   lastPosition: null,
+  lastPositionSource: null,
   lastAISStreamPosition: null,
   lastArcGISUpdate: null,
   lastHistoryWrite: null,
@@ -30,9 +32,23 @@ const arcgis = new ArcGISClient(config);
 
 await arcgis.initialize();
 
+if (config.enableHistory) {
+  try {
+    const bootstrap = await bootstrapHistoryFromVerifiedSources(arcgis, config);
+    state.historyPointCount = bootstrap.historyPointCount;
+    if (bootstrap.seeded) {
+      state.lastHistoryWrite = state.lastPosition?.lastAIS || null;
+    }
+    logger.info('History bootstrap complete', bootstrap);
+  } catch (error) {
+    logger.warn('History bootstrap failed', { error: error.message });
+  }
+}
+
 async function handlePosition(position, options = {}) {
   if (options.source === 'aisstream') state.lastAISStreamPosition = position;
   state.lastPosition = position;
+  state.lastPositionSource = options.source || null;
   await arcgis.upsertCurrentPosition(position);
   state.lastArcGISUpdate = new Date();
   try {
@@ -54,11 +70,11 @@ async function handlePosition(position, options = {}) {
     const enoughTime = !state.lastHistoryWrite || position.lastAIS.getTime() - state.lastHistoryWrite.getTime() >= config.historyMinIntervalSeconds * 1000;
     if (enoughTime) {
       try {
-        const history = await arcgis.addHistoryPosition(position, options.source || 'unknown');
+        const history = await arcgis.addHistoryPosition(position, options.source || 'aisstream');
         if (history.inserted) {
           state.lastHistoryWrite = position.lastAIS;
+          state.historyPointCount = await arcgis.countHistoryFeatures();
           const route = await arcgis.upsertTravelledRoute();
-          state.historyPointCount = route.pointCount;
           if (route.updated) state.lastTravelledRouteUpdate = new Date();
         }
       } catch (error) {
@@ -74,10 +90,15 @@ state.aisClient.start();
 state.openMeteoClient = new OpenMeteoClient(config, arcgis, state);
 state.openMeteoClient.start();
 
-state.dataDockedClient = new DataDockedClient(config, handlePosition, state);
-state.dataDockedClient.start();
+if (config.enableDataDocked) {
+  state.dataDockedClient = new DataDockedClient(config, handlePosition, state);
+  state.dataDockedClient.start();
+} else {
+  state.dataDockedClient = null;
+  logger.info('Data Docked disabled — AISStream-only position updates');
+}
 
-createServer(state, config).listen(config.port, () => logger.info('Health server listening', { port: config.port }));
+createServer(state, config, arcgis).listen(config.port, () => logger.info('Health server listening', { port: config.port }));
 
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));

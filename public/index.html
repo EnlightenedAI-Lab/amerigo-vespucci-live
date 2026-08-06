@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Amerigo Vespucci Live Tracker</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <div id="app">
+    <header class="header">
+      <div class="header-brand">
+        <h1>Amerigo Vespucci</h1>
+        <span class="subtitle">Live Maritime Tracker</span>
+      </div>
+      <div class="header-actions">
+        <span id="demo-badge" class="demo-badge hidden">LOCAL DEMO DATA</span>
+        <button type="button" id="btn-theme" class="icon-btn" title="Toggle dark mode" aria-label="Toggle dark mode">☀</button>
+        <div class="header-status" id="header-status">
+          <span class="status-dot" id="status-dot"></span>
+          <span id="status-text">Loading…</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="main">
+      <section class="map-panel" id="map-panel">
+        <div class="map-mode-tabs" role="tablist" aria-label="Map mode">
+          <button type="button" id="btn-mode-tracker" class="map-mode-btn active" role="tab" aria-selected="true">Tracker View</button>
+          <button type="button" id="btn-mode-ocean" class="map-mode-btn" role="tab" aria-selected="false">ArcGIS Ocean View</button>
+        </div>
+
+        <div id="tracker-view" class="map-view-container">
+          <div id="map"></div>
+
+          <div class="map-controls" id="tracker-controls">
+            <button type="button" id="btn-center-vessel" class="map-btn" title="Center on vessel">⊕ Center on vessel</button>
+            <button type="button" id="btn-fit-voyage" class="map-btn" title="Fit voyage">⤢ Fit voyage</button>
+          </div>
+
+          <div class="layer-toggles" id="layer-toggles">
+            <span class="layer-toggles-title">Layers</span>
+            <label><input type="checkbox" data-layer="vessel" checked> Vessel</label>
+            <label><input type="checkbox" data-layer="history" checked> Track history</label>
+            <label><input type="checkbox" data-layer="travelledRoute" checked> Travelled route</label>
+            <label><input type="checkbox" data-layer="destination" checked> Destination</label>
+            <label><input type="checkbox" data-layer="estimatedRoute" checked> Estimated route</label>
+            <label><input type="checkbox" data-layer="conditions" checked> Conditions</label>
+          </div>
+        </div>
+
+        <div id="ocean-view" class="map-view-container hidden">
+          <div id="ocean-map-host" class="ocean-map-host">
+            <arcgis-map id="arcgis-ocean-map" class="arcgis-ocean-map">
+              <arcgis-zoom slot="top-left"></arcgis-zoom>
+              <arcgis-fullscreen slot="top-left"></arcgis-fullscreen>
+            </arcgis-map>
+          </div>
+
+          <div class="map-controls ocean-controls hidden" id="ocean-controls">
+            <button type="button" id="btn-ocean-center" class="map-btn" title="Center on vessel">⊕ Center on vessel</button>
+            <button type="button" id="btn-ocean-fit" class="map-btn" title="Fit voyage">⤢ Fit voyage</button>
+            <button type="button" id="btn-ocean-fullscreen" class="map-btn" title="Fullscreen">⛶ Fullscreen</button>
+            <button type="button" id="ocean-btn-external" class="map-btn" title="Open in new tab">↗ Open in ArcGIS</button>
+          </div>
+
+          <div class="layer-toggles ocean-layer-toggles hidden" id="ocean-layer-toggles">
+            <span class="layer-toggles-title">Layers</span>
+            <label><input type="checkbox" id="ocean-layer-vessel" checked> Vessel</label>
+            <label><input type="checkbox" id="ocean-layer-history" checked> Track History</label>
+            <label><input type="checkbox" id="ocean-layer-travelled" checked> Travelled Route</label>
+            <label><input type="checkbox" id="ocean-layer-destination" checked> Destination</label>
+            <label><input type="checkbox" id="ocean-layer-estimated" checked> Estimated Route</label>
+            <label><input type="checkbox" id="ocean-layer-conditions" checked> Marine Conditions</label>
+            <label><input type="checkbox" id="ocean-layer-currents" checked> Ocean Currents</label>
+          </div>
+
+          <div id="ocean-loading" class="ocean-loading hidden">
+            <div class="spinner"></div>
+            <span>Loading ArcGIS WebMap…</span>
+          </div>
+          <div id="ocean-error" class="ocean-error hidden"></div>
+          <div id="ocean-layer-warnings" class="ocean-layer-warnings hidden"></div>
+          <div id="ocean-embed-fallback" class="ocean-embed-fallback hidden">
+            <p id="ocean-fallback-message">The ArcGIS Ocean View cannot be loaded in this browser.</p>
+            <a id="ocean-fallback-link" href="#" target="_blank" rel="noopener noreferrer" class="map-btn map-btn-primary">Open ArcGIS Ocean View in new tab</a>
+          </div>
+        </div>
+
+        <div id="map-loading" class="map-overlay loading-overlay hidden">
+          <div class="spinner"></div>
+          <span>Loading map data…</span>
+        </div>
+        <div id="map-error" class="map-overlay error-overlay hidden">
+          <span id="map-error-text">Failed to load map data.</span>
+          <button type="button" id="btn-retry" class="map-btn">Retry</button>
+        </div>
+      </section>
+
+      <div class="sidebar-resizer" id="sidebar-resizer" aria-hidden="true"></div>
+
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-toolbar">
+          <h2 class="sidebar-title">Voyage Information</h2>
+          <button type="button" id="btn-panel-collapse" class="icon-btn" title="Collapse panel" aria-label="Collapse panel">◀</button>
+        </div>
+
+        <div class="sidebar-scroll" id="sidebar-scroll">
+          <p class="conditions-warning">Model-derived conditions from the nearest forecast grid cell; not onboard observations and not for navigation.</p>
+
+          <article class="info-card" id="card-vessel">
+            <h3>Current Vessel</h3>
+            <div class="info-card-body" id="info-vessel"><p class="empty-state">Waiting for vessel data…</p></div>
+          </article>
+
+          <article class="info-card" id="card-weather">
+            <h3>Weather</h3>
+            <div class="info-card-body" id="info-weather"><p class="empty-state">No weather data.</p></div>
+          </article>
+
+          <article class="info-card" id="card-sea">
+            <h3>Sea State</h3>
+            <div class="info-card-body" id="info-sea"><p class="empty-state">No sea state data.</p></div>
+          </article>
+
+          <article class="info-card" id="card-current">
+            <h3>Ocean Current</h3>
+            <div class="info-card-body" id="info-current"><p class="empty-state">No current data.</p></div>
+          </article>
+
+          <article class="info-card" id="card-voyage">
+            <h3>Voyage</h3>
+            <div class="info-card-body" id="info-voyage"><p class="empty-state">No voyage data.</p></div>
+          </article>
+
+          <article class="info-card" id="card-forecast">
+            <h3>Forecast</h3>
+            <div class="info-card-body" id="info-forecast"><p class="empty-state">No forecast data.</p></div>
+          </article>
+
+          <p class="attribution" id="conditions-attribution"></p>
+        </div>
+
+        <footer class="sidebar-footer">
+          <p>Data refresh: <span id="last-refresh">—</span></p>
+          <p>Server data: <span id="server-fetched">—</span></p>
+        </footer>
+      </aside>
+
+      <button type="button" id="btn-panel-expand" class="panel-expand-btn hidden" title="Show information panel" aria-label="Show information panel">☰ Info</button>
+    </main>
+
+    <!-- Mobile bottom sheet -->
+    <div class="mobile-sheet" id="mobile-sheet">
+      <div class="mobile-sheet-handle"></div>
+      <div class="mobile-tabs" id="mobile-tabs">
+        <button type="button" class="mobile-tab active" data-tab="vessel">Vessel</button>
+        <button type="button" class="mobile-tab" data-tab="weather">Weather</button>
+        <button type="button" class="mobile-tab" data-tab="voyage">Voyage</button>
+        <button type="button" class="mobile-tab" data-tab="forecast">Forecast</button>
+      </div>
+      <div class="mobile-sheet-content" id="mobile-sheet-content"></div>
+    </div>
+  </div>
+
+  <!-- IQAI Spatial V2 shell (feature-flagged; rollback via button or LEGACY_UI) -->
+  <div id="iqai-v2-app" class="hidden" aria-label="IQAI Spatial Maritime Intelligence">
+    <header class="iqai-topbar">
+      <div class="iqai-brand">IQAI Spatial <small>Maritime Intelligence</small></div>
+      <span class="iqai-badge-nfn" role="status">Situational awareness only — not for navigation</span>
+      <span class="iqai-meta" id="iqai-vessel-meta">Amerigo Vespucci</span>
+      <span class="iqai-meta" id="iqai-dest-meta">—</span>
+      <span class="iqai-meta" id="iqai-ais-meta">AIS —</span>
+      <span class="iqai-meta">Valid: <strong id="iqai-valid-time">—</strong></span>
+      <span class="iqai-health-alert" id="iqai-health"></span>
+      <button type="button" id="iqai-rollback" class="iqai-rollback-btn" title="Return to classic interface">Classic UI</button>
+    </header>
+    <nav class="iqai-mode-rail" aria-label="Map modes">
+      <button type="button" class="iqai-mode-btn active" data-mode="navigation" aria-selected="true">Nav</button>
+      <button type="button" class="iqai-mode-btn" data-mode="ocean">Ocean</button>
+      <button type="button" class="iqai-mode-btn" data-mode="weather">Weather</button>
+      <button type="button" class="iqai-mode-btn" data-mode="satellite">Sat</button>
+      <button type="button" class="iqai-mode-btn" data-mode="intelligence">Intel</button>
+    </nav>
+    <main class="iqai-map-stage">
+      <div id="iqai-arcgis-map" class="arcgis-ocean-map" role="application" aria-label="IQAI map"></div>
+      <div id="iqai-boot-error" class="ocean-error hidden"></div>
+    </main>
+    <aside class="iqai-drawer open" id="iqai-drawer" aria-label="Context drawer">
+      <p class="iqai-meta">Mode: <strong id="iqai-active-mode">Navigation</strong></p>
+      <div id="iqai-layer-list"></div>
+      <div id="iqai-drawer-body"></div>
+    </aside>
+    <footer class="iqai-bottomstrip">
+      <div class="iqai-time-controls">
+        <button type="button" id="iqai-time-step-back" title="Step back" aria-label="Step back">◀</button>
+        <button type="button" id="iqai-time-play" title="Play" aria-label="Play">▶</button>
+        <button type="button" id="iqai-time-step-fwd" title="Step forward" aria-label="Step forward">▶|</button>
+      </div>
+      <button type="button" id="iqai-btn-center" class="iqai-rollback-btn">Center vessel</button>
+      <button type="button" id="iqai-btn-fit" class="iqai-rollback-btn">Fit voyage</button>
+      <span class="iqai-coords" id="iqai-coords">—</span>
+      <span class="iqai-attribution-bar" id="iqai-attribution"></span>
+    </footer>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="/js/theme.js" type="module"></script>
+  <script src="/js/panel.js" type="module"></script>
+  <script src="/js/ocean-view.js" type="module"></script>
+  <script src="/js/info-cards.js" type="module"></script>
+  <script src="/js/app.js" type="module"></script>
+</body>
+</html>
