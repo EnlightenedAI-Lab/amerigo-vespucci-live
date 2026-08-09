@@ -1,0 +1,37 @@
+{
+  "LOCATE": {
+    "labels": ["locate", "put a point at", "place a point at", "map this address", "mark", "localiser", "placer un point"],
+    "requiresLocation": true
+  },
+  "SHOW": {
+    "labels": ["show", "map", "display", "afficher", "montrer"],
+    "requiresLocation": false
+  },
+  "WITHIN": {
+    "labels": ["within", "inside", "in", "around", "radius", "dans un rayon de", "à moins de", "dans"],
+    "requiresLocation": true,
+    "requiresDistance": true
+  },
+  "NEAREST": {
+    "labels": ["nearest", "closest", "plus proche", "plus proches", "les plus proches"],
+    "requiresLocation": true,
+    "requiresLimit": true
+  },
+  "COUNT": {
+    "labels": ["count", "how many", "number of", "combien", "nombre de"],
+    "requiresLocation": true,
+    "requiresDistance": true
+  },
+  "FILTER": {
+    "labels": ["only", "active only", "public only", "seulement"],
+    "requiresLocation": false
+  },
+  "CLEAR": {
+    "labels": ["clear", "clear map", "remove results", "effacer", "supprimer les résultats"],
+    "requiresLocation": false
+  },
+  "INSIDE": {
+    "labels": ["inside", "within boundary", "à l'intérieur", "à l'intérieur de"],
+    "requiresLocation": false
+  }
+}

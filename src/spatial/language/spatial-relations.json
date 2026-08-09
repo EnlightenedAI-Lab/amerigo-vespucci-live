@@ -1,0 +1,28 @@
+{
+  "locationSuffix": [
+    "of",
+    "from",
+    "de",
+    "d'",
+    "à",
+    "around",
+    "autour de",
+    "near",
+    "près de",
+    "to"
+  ],
+  "contextLocation": [
+    "this address",
+    "same address",
+    "there",
+    "same location",
+    "previous location",
+    "cette adresse",
+    "même adresse",
+    "même lieu",
+    "cet endroit",
+    "ici"
+  ],
+  "distanceUnits": ["km", "kilometre", "kilometres", "kilometer", "kilometers", "kilomètre", "kilomètres"],
+  "allQualifier": ["all", "every", "tous", "toutes", "tout"]
+}

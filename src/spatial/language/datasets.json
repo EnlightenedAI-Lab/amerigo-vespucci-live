@@ -1,0 +1,32 @@
+{
+  "FIRE_STATIONS": {
+    "aliases": [
+      "fire station", "fire stations", "fire hall", "fire department", "firehouse",
+      "caserne", "casernes", "caserne de pompiers", "casernes de pompiers", "pompier", "pompiers"
+    ]
+  },
+  "POLICE_STATIONS": {
+    "aliases": [
+      "police", "police station", "police stations", "cops", "cop station", "cop stations",
+      "pdq", "precinct", "poste de police", "postes de police", "poste de quartier",
+      "postes de quartier", "spvm"
+    ]
+  },
+  "HOSPITALS": {
+    "aliases": [
+      "hospital", "hospitals", "er", "emergency room", "urgence", "hôpital", "hôpitaux",
+      "hopital", "hopitaux"
+    ]
+  },
+  "SCHOOLS": {
+    "aliases": [
+      "school", "schools", "école", "écoles", "ecole", "ecoles", "établissement scolaire"
+    ]
+  },
+  "TRANSIT": {
+    "aliases": [
+      "metro", "subway", "transit", "stm", "metro station", "metro stations",
+      "station de métro", "stations de métro", "transport en commun", "bus stop", "bus stops"
+    ]
+  }
+}

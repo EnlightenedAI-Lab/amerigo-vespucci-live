@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>IQAI Spatial</title>
+  <script>
+    // ArcGIS OAuth app is registered for localhost — not 127.0.0.1 — on port 3000.
+    if (location.hostname === '127.0.0.1' && location.port === '3000') {
+      location.replace('http://localhost:3000' + location.pathname + location.search);
+    }
+  </script>
+  <link rel="stylesheet" href="/spatial/spatial.css" />
+</head>
+<body>
+  <div id="spatial-app"></div>
+  <script type="module" src="/spatial/spatial.js"></script>
+</body>
+</html>

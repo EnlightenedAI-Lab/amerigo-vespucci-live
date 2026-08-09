@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>IQAI Spatial — Investigation</title>
+  <link rel="icon" href="/spatial/assets/iqai-logo.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="https://js.arcgis.com/5.1/esri/themes/light/main.css" />
+  <link rel="stylesheet" href="/spatial/iqai-spatial-brand.css" />
+  <link rel="stylesheet" href="/spatial/intelligence-lab/intelligence-lab.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="iqai-spatial-brand app-header__brand" data-iqai-workspace="investigation">
+      <img
+        class="iqai-spatial-brand__logo"
+        src="/spatial/assets/iqai-logo.svg"
+        width="72"
+        height="23"
+        alt="IQAI"
+      />
+      <div class="iqai-spatial-brand__lockup" aria-label="IQAI Spatial Investigation">
+        <span class="iqai-spatial-brand__product">SPATIAL</span>
+        <span class="iqai-spatial-brand__sep" aria-hidden="true">·</span>
+        <span class="iqai-spatial-brand__workspace">INVESTIGATION</span>
+      </div>
+    </div>
+    <div class="app-header__context">
+      <span id="ctx-category" class="ctx-pill">—</span>
+      <span id="ctx-week" class="ctx-pill">—</span>
+      <span id="ctx-recent" class="ctx-pill ctx-pill--muted lab-hidden">—</span>
+    </div>
+    <nav class="mode-nav" id="mode-nav" aria-label="Analytical mode"></nav>
+  </header>
+
+  <main class="app-body" id="app-body">
+    <aside class="control-rail">
+      <details class="case-panel" id="case-panel">
+        <summary class="field__label">Demo case workspace</summary>
+        <p class="case-rail-note">DEMO CASE — SYNTHETIC DATA</p>
+        <button type="button" class="btn-secondary" id="case-create-btn">Create demo case</button>
+      </details>
+
+      <details class="layers-panel" id="layers-panel" open>
+        <summary>Layers</summary>
+        <div class="layers-panel__body" id="layers-toggles"></div>
+      </details>
+
+      <label class="field">
+        <span class="field__label">Map display</span>
+        <select id="lab-gis-mode"></select>
+      </label>
+
+      <label class="field field--grid lab-hidden" id="grid-res-field">
+        <span class="field__label">Grid resolution</span>
+        <select id="lab-grid-resolution"></select>
+      </label>
+
+      <label class="field">
+        <span class="field__label">Category</span>
+        <select id="lab-category"></select>
+      </label>
+
+      <label class="field">
+        <span class="field__label">Time window</span>
+        <select id="lab-time-window"></select>
+      </label>
+
+      <label class="field">
+        <span class="field__label">Shift</span>
+        <select id="lab-shift"></select>
+      </label>
+
+      <label class="field">
+        <span class="field__label">Area</span>
+        <select id="lab-area-type"></select>
+      </label>
+
+      <label class="field field--area-id lab-hidden" id="area-id-field">
+        <span class="field__label" id="area-id-label">Area</span>
+        <select id="lab-area-id"></select>
+      </label>
+
+      <label class="field">
+        <span class="field__label">Historical analytics · week</span>
+        <select id="lab-week-select"></select>
+      </label>
+
+      <details class="calendar-panel" id="calendar-panel" open>
+        <summary class="field__label">Reported activity calendar</summary>
+        <div id="activity-calendar-host" class="activity-calendar-host"></div>
+      </details>
+
+      <label class="field field--comparison" id="comparison-field">
+        <span class="field__label">Comparison</span>
+        <select id="lab-baseline"></select>
+      </label>
+
+      <label class="field field--time-metric lab-hidden" id="time-metric-field">
+        <span class="field__label">Time shows</span>
+        <select id="lab-time-metric">
+          <option value="observed">Observed</option>
+          <option value="deviation">Deviation</option>
+        </select>
+      </label>
+
+      <button type="button" class="btn-secondary" id="view-records-btn">View records (0)</button>
+      <button type="button" class="btn-ghost" id="view-historical-records-btn">View underlying records</button>
+      <button type="button" class="btn-ghost" id="lab-clear-selection">Clear selection</button>
+    </aside>
+
+    <section class="map-stage">
+      <p class="map-headline" id="map-headline"></p>
+      <div class="map-frame">
+        <div id="lab-map-host"></div>
+        <div id="lab-legend-host" class="map-legend"></div>
+        <div id="lab-gis-legend" class="map-gis-legend lab-hidden"></div>
+        <div id="lab-f1-banner" class="status-badge lab-hidden">
+          F1 forecast map · one week ahead only · experimental
+        </div>
+        <div id="lab-time-slider-host" class="time-slider-host lab-hidden"></div>
+      </div>
+    </section>
+
+    <aside class="intel-panel">
+      <div id="case-workspace-host" class="case-workspace-host lab-hidden"></div>
+      <div id="intel-analytics-block">
+      <div id="reported-activity-header" class="reported-activity-header lab-hidden"></div>
+      <div id="day-summary-host" class="day-summary-host lab-hidden"></div>
+      <div id="intel-card-host" class="intel-card-host lab-hidden"></div>
+      <h2 class="intel-section-label">Historical analytics</h2>
+      <h2 class="intel-headline" id="intel-headline">—</h2>
+      <div class="metric-cards" id="metric-cards"></div>
+      <p class="intel-interpretation" id="intel-interpretation"></p>
+      </div>
+      <section class="ask-iqai" id="ask-iqai" aria-label="Ask IQAI">
+        <h2 class="ask-iqai__label">Ask IQAI</h2>
+        <form class="ask-iqai__form" id="explain-form">
+          <input
+            type="text"
+            class="ask-iqai__input"
+            id="explain-input"
+            placeholder="Ask IQAI about this view..."
+            autocomplete="off"
+            maxlength="1200"
+          />
+          <button type="submit" class="ask-iqai__submit" id="explain-submit">Ask</button>
+        </form>
+        <div class="ask-iqai__response lab-hidden" id="explain-response" aria-live="polite"></div>
+      </section>
+    </aside>
+
+    <section class="chart-drawer" id="chart-drawer">
+      <div class="chart-drawer__bar">
+        <button type="button" class="chart-drawer__toggle" id="chart-toggle" aria-expanded="true">Weekly history</button>
+        <label class="chart-scope">
+          <span class="field__label">Chart area</span>
+          <select id="chart-scope">
+            <option value="pdq">Selected sector</option>
+            <option value="montreal">Montréal total</option>
+          </select>
+        </label>
+        <label class="chart-scope chart-horizon-select-wrap lab-hidden">
+          <span class="field__label">Horizon</span>
+          <select id="chart-horizon" aria-hidden="true" tabindex="-1"></select>
+        </label>
+        <span class="outlook-badge" id="outlook-badge">Experimental outlook — not operational</span>
+        <button type="button" class="btn-link" id="view-all-sectors">View all sectors</button>
+      </div>
+      <div class="chart-drawer__forecast-strip lab-hidden" id="chart-forecast-strip">
+        <div class="chart-horizon-tabs" id="chart-horizon-tabs" role="tablist" aria-label="Forecast horizon"></div>
+        <div class="chart-model-legend">
+          <span class="model-tag model-tag--b4">B4 planning outlook — through Dec 2027</span>
+          <span class="model-tag model-tag--f1">F1 forecast map — one week ahead</span>
+        </div>
+      </div>
+      <div class="chart-drawer__body">
+        <div class="chart-head lab-hidden" id="chart-head">
+          <h3 class="chart-head__title" id="chart-head-title"></h3>
+          <p class="chart-horizon-status" id="chart-horizon-status">FORECAST HORIZON · THROUGH DEC 2027</p>
+        </div>
+        <div id="chart-container"></div>
+      </div>
+    </section>
+  </main>
+
+  <dialog class="case-create-dialog" id="case-create-dialog">
+    <div class="case-create-dialog__header">
+      <h2>Create demo case</h2>
+      <span class="case-form-banner-inline">DEMO CASE — SYNTHETIC DATA</span>
+    </div>
+    <div class="case-form-body" id="case-form-body"></div>
+    <p class="case-coverage-warn lab-hidden" id="case-coverage-warn" role="status"></p>
+    <div class="case-create-dialog__actions">
+      <button type="button" class="btn-ghost" id="case-load-sample">Load sample case</button>
+      <button type="button" class="btn-ghost" id="case-form-cancel">Cancel</button>
+      <button type="button" class="btn-primary" id="case-form-submit">Open investigation</button>
+    </div>
+  </dialog>
+
+  <section class="records-drawer lab-hidden" id="records-drawer">
+    <div class="records-drawer__bar">
+      <strong id="records-drawer-title">Records</strong>
+      <button type="button" class="btn-ghost" id="close-records-drawer">Close</button>
+    </div>
+    <div class="records-drawer__body" id="records-table-wrap"></div>
+    <div class="records-drawer__raw lab-hidden" id="raw-fields-host"></div>
+  </section>
+
+  <dialog class="sectors-modal" id="sectors-modal">
+    <div class="sectors-modal__header">
+      <h2>All sectors</h2>
+      <button type="button" class="btn-ghost" id="close-sectors-modal">Close</button>
+    </div>
+    <div class="sectors-modal__table-wrap" id="sectors-table-wrap"></div>
+  </dialog>
+
+  <script type="module" src="/spatial/intelligence-lab/intelligence-lab.js"></script>
+</body>
+</html>

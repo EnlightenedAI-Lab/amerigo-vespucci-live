@@ -9,6 +9,7 @@
   },
   "scripts": {
     "start": "node src/index.js",
+    "spatial": "node src/preview.js",
     "preview": "node src/preview.js",
     "open:iqai": "node scripts/open-iqai.mjs",
     "setup:arcgis": "node scripts/setup-arcgis-layer.js",
@@ -21,12 +22,18 @@
     "smoke:gis": "node scripts/live-gis-smoke.js",
     "verify:v2": "node scripts/verify-v2-visual.mjs",
     "verify:classic": "node scripts/verify-classic-visual.mjs",
+    "build:intelligence-lab": "node scripts/build-intelligence-lab-bundle.mjs",
+    "verify:intelligence-lab": "node scripts/verify-intelligence-lab-browser.mjs",
     "check": "node --check src/arcgis.js src/arcgis-geometry.js src/arcgis-sharing.js src/aisstream.js src/arcgis-diagnostics.js src/arcgis-renderers.js src/geometry-sr-repair.js src/history-bootstrap.js src/public-arcgis-client.js src/vespucci-layer-repair.js src/config.js src/datadocked.js src/demo-map-api.js src/freshness.js src/index.js src/logger.js src/map-api.js src/map-cache.js src/navigation.js src/ocean-view-config.js src/openmeteo.js src/preview.js src/security.js src/server.js src/webmap-repair.js src/spatial/layer-catalog.js src/spatial/cost-policy.js src/spatial/provenance-registry.js src/spatial/provider-health.js src/spatial/time-controller.js src/spatial/mode-controller.js src/spatial/attribution-manager.js src/spatial/vessel-state.js src/spatial/map-adapter.js src/spatial/wpi-ports.js src/spatial/wmts-parse.js src/spatial/spatial-api.js scripts/setup-arcgis-layer.js scripts/diagnose-arcgis-layers.js scripts/repair-webmap.js scripts/repair-vespucci-layers.js scripts/repair-geometry-sr.js scripts/seed-history.js scripts/share-arcgis-public.js scripts/live-gis-smoke.js scripts/verify-v2-visual.mjs",
     "test": "node --test"
   },
   "dependencies": {
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "gtfs-realtime-bindings": "^2.2.0",
     "ws": "^8.18.0"
+  },
+  "optionalDependencies": {
+    "@huggingface/transformers": "^3.4.0"
   }
 }

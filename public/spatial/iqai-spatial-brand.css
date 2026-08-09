@@ -1,0 +1,76 @@
+/**
+ * IQAI Spatial — shared product identity shell (workspace-agnostic).
+ * Link from workspace pages; set data-iqai-workspace on .iqai-spatial-brand.
+ */
+
+.iqai-spatial-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+  flex-shrink: 0;
+}
+
+.iqai-spatial-brand__logo {
+  display: block;
+  width: 72px;
+  height: auto;
+  max-height: 23px;
+  flex-shrink: 0;
+}
+
+.iqai-spatial-brand__lockup {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.iqai-spatial-brand__product {
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-weight: 700;
+  font-size: 0.88rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--iqai-brand-text, #0f172a);
+  line-height: 1;
+}
+
+.iqai-spatial-brand__sep {
+  color: var(--iqai-brand-muted, #64748b);
+  font-weight: 400;
+  font-size: 0.9rem;
+  line-height: 1;
+  opacity: 0.55;
+  user-select: none;
+}
+
+.iqai-spatial-brand__workspace {
+  font-weight: 500;
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--iqai-brand-muted, #64748b);
+  line-height: 1.2;
+  opacity: 0.88;
+}
+
+@media (max-width: 1180px) {
+  .iqai-spatial-brand__workspace {
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+  }
+}
+
+@media (max-width: 980px) {
+  .iqai-spatial-brand__sep {
+    margin: 0 0.05rem;
+  }
+
+  .iqai-spatial-brand__workspace {
+    max-width: 7.5rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}

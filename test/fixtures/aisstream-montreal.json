@@ -1,0 +1,77 @@
+[
+  {
+    "MessageType": "PositionReport",
+    "MetaData": {
+      "MMSI": 316041833,
+      "ShipName": "MONTREAL EXPRESS",
+      "latitude": 45.5088,
+      "longitude": -73.5542,
+      "time_utc": "2026-08-08T16:00:00.000Z"
+    },
+    "Message": {
+      "PositionReport": {
+        "UserID": 316041833,
+        "Latitude": 45.5088,
+        "Longitude": -73.5542,
+        "Sog": 6.2,
+        "Cog": 215.4,
+        "TrueHeading": 210,
+        "NavigationalStatus": 0
+      }
+    }
+  },
+  {
+    "MessageType": "ShipStaticData",
+    "MetaData": {
+      "MMSI": 316041833,
+      "ShipName": "MONTREAL EXPRESS"
+    },
+    "Message": {
+      "ShipStaticData": {
+        "UserID": 316041833,
+        "Name": "MONTREAL EXPRESS",
+        "CallSign": "CFAB1234",
+        "ImoNumber": 9123456,
+        "Type": 70,
+        "Destination": "MONTREAL",
+        "Eta": { "Month": 8, "Day": 10, "Hour": 14, "Minute": 30 },
+        "MaximumStaticDraught": 8.5
+      }
+    }
+  },
+  {
+    "MessageType": "PositionReport",
+    "MetaData": {
+      "MMSI": 316023456,
+      "ShipName": "ST LAWRENCE TUG",
+      "latitude": 45.4201,
+      "longitude": -73.7123,
+      "time_utc": "2026-08-08T16:00:30.000Z"
+    },
+    "Message": {
+      "PositionReport": {
+        "UserID": 316023456,
+        "Latitude": 45.4201,
+        "Longitude": -73.7123,
+        "Sog": 3.1,
+        "Cog": 88.2,
+        "TrueHeading": 511,
+        "NavigationalStatus": 5
+      }
+    }
+  },
+  {
+    "MessageType": "ShipStaticData",
+    "MetaData": {
+      "MMSI": 316023456
+    },
+    "Message": {
+      "ShipStaticData": {
+        "UserID": 316023456,
+        "Name": "ST LAWRENCE TUG",
+        "CallSign": "CFZZ9999",
+        "Type": 52
+      }
+    }
+  }
+]

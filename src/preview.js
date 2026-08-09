@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { logger, setLogLevel } from './logger.js';
@@ -24,5 +25,6 @@ export function startPreviewServer(port = 3000) {
 
 const isDirectRun = process.argv[1] && path.resolve(process.argv[1]) === __filename;
 if (isDirectRun) {
-  startPreviewServer(3000);
+  const port = Number(process.env.PORT || 3000);
+  startPreviewServer(port);
 }

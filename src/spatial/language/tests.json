@@ -1,0 +1,96 @@
+[
+  {
+    "id": "compound-0",
+    "text": "map 3 nearest police stations and all fire stations within 4 km of 997 de la Commune",
+    "expect": {
+      "compound": true,
+      "commands": 2
+    }
+  },
+  {
+    "id": "compound-1",
+    "text": "show the 3 nearest police stations and hospitals within 5 km of 997 de la Commune",
+    "expect": {
+      "compound": true,
+      "commands": 2
+    }
+  },
+  {
+    "id": "compound-2",
+    "text": "map fire stations within 4 km and the 3 nearest police stations of 997 de la Commune",
+    "expect": {
+      "compound": true,
+      "commands": 2
+    }
+  },
+  {
+    "id": "compound-3",
+    "text": "put a point at 997 de la Commune and show the nearest 3 police stations",
+    "expect": {
+      "compound": true,
+      "commands": 2
+    }
+  },
+  {
+    "id": "compound-4",
+    "text": "montre les postes de police et les casernes dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "compound": true,
+      "commands": 2
+    }
+  },
+  {
+    "id": "clarify-show-me",
+    "text": "show me",
+    "expect": {
+      "clarification": true
+    }
+  },
+  {
+    "id": "clarify-important",
+    "text": "show me important places nearby",
+    "expect": {
+      "clarification": true
+    }
+  },
+  {
+    "id": "clarify-important-fr",
+    "text": "montre des lieux importants",
+    "expect": {
+      "clarification": true
+    }
+  },
+  {
+    "id": "regression-decarie-fire",
+    "text": "Map fire stations within 3 km of 6939 Décarie Boulevard.",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "id": "gateway-pharmacy-grammatical-noise",
+    "text": "show me pharmacies are within 1km of 997 de la commune",
+    "expect": {
+      "action": "WITHIN",
+      "dynamicAmenity": "pharmacy",
+      "distanceKm": 1,
+      "location": "997 de la Commune"
+    }
+  },
+  {
+    "id": "gateway-ambiguous-hospitals-pharmacy",
+    "text": "show hospitals pharmacy around commune 3",
+    "expect": {
+      "clarification": true
+    }
+  },
+  {
+    "id": "gateway-deictic-no-context",
+    "text": "show those things near there",
+    "expect": {
+      "clarification": true
+    }
+  }
+]

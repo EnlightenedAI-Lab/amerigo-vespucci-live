@@ -9,3 +9,10 @@ pnpm-debug.log*
 .DS_Store
 coverage/
 dist/
+
+# IQAI Spatial — generated debug / conformance artifacts (not runtime)
+artifacts/
+
+# IQAI Spatial — disposable screenshot captures from verify scripts
+public/spatial/intelligence-lab/screenshots*/
+public/spatial/intelligence-lab/screenshots-*/

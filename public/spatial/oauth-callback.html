@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>ArcGIS OAuth Callback</title>
+</head>
+<body>
+  <script type="module">
+    async function finishOAuth() {
+      if (!window.opener) return;
+      const hash = window.location.hash;
+      const search = window.location.search;
+      try {
+        if (hash && window.opener.$arcgis) {
+          const mod = await window.opener.$arcgis.import('@arcgis/core/identity/IdentityManager.js');
+          const IdentityManager = mod?.default || mod;
+          IdentityManager.setOAuthResponseHash(hash);
+        } else if (hash) {
+          window.opener.dispatchEvent(new CustomEvent('arcgis:auth:hash', { detail: hash }));
+        } else if (search) {
+          window.opener.dispatchEvent(new CustomEvent('arcgis:auth:location:search', { detail: search }));
+        }
+      } catch (error) {
+        console.error('OAuth callback failed', error);
+      }
+      window.close();
+    }
+    finishOAuth();
+  </script>
+</body>
+</html>

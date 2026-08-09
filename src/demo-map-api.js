@@ -48,6 +48,9 @@ export function createPreviewConfig(port = 3000) {
     radarEnabled: false,
     preview: true,
     oceanViewWebmapId: '86f1b6a9b6124da5b362964749b5d797',
+    arcgisPortalUrl: process.env.ARCGIS_PORTAL_URL || 'https://www.arcgis.com',
+    montrealArcgisOAuthAppId: process.env.MONTREAL_ARCGIS_OAUTH_APP_ID || process.env.ARCGIS_OAUTH_APP_ID || '',
+    montrealOperationalWebmapId: process.env.MONTREAL_OPERATIONAL_WEBMAP_ID || '2ec27986ecfb4dd188d058cae620be0d',
     arcgisFeatureServiceUrl: 'https://services9.arcgis.com/HWLvgMBDdrPG7U8N/arcgis/rest/services/Amerigo_Vespucci_Live/FeatureServer',
     currentLayerId: 0,
     historyLayerId: 1,
@@ -59,7 +62,9 @@ export function createPreviewConfig(port = 3000) {
     destinationPortCode: 'PTPDL',
     destinationLatitude: '37.734722',
     destinationLongitude: '-25.664444',
-    etaMinSpeedKnots: 1
+    etaMinSpeedKnots: 1,
+    aisstreamApiKey: process.env.AISSTREAM_API_KEY || '',
+    aisstreamUrl: process.env.AISSTREAM_URL || 'wss://stream.aisstream.io/v0/stream'
   };
 }
 

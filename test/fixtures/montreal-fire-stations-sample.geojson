@@ -1,0 +1,65 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "CASERNE": "65",
+        "NO_CIVIQUE": "6939",
+        "RUE": "Boul. Décarie",
+        "LATITUDE": 45.49295,
+        "LONGITUDE": -73.64884,
+        "ARRONDISSEMENT": "Côte-des-Neiges–Notre-Dame-de-Grâce",
+        "VILLE": "Montréal",
+        "DATE_DEBUT": "2015-01-01T07:00:00",
+        "DATE_FIN": "NaT"
+      },
+      "geometry": { "type": "Point", "coordinates": [-73.64884, 45.49295] }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "CASERNE": "42",
+        "NO_CIVIQUE": "1000",
+        "RUE": "Rue Jean-Talon Ouest",
+        "LATITUDE": 45.505,
+        "LONGITUDE": -73.62,
+        "ARRONDISSEMENT": "Villeray–Saint-Michel–Parc-Extension",
+        "VILLE": "Montréal",
+        "DATE_DEBUT": "2010-01-01T07:00:00",
+        "DATE_FIN": "NaT"
+      },
+      "geometry": { "type": "Point", "coordinates": [-73.62, 45.505] }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "CASERNE": "79",
+        "NO_CIVIQUE": "5520",
+        "RUE": "avenue MacDonald",
+        "LATITUDE": 45.483486932873,
+        "LONGITUDE": -73.6393318377964,
+        "ARRONDISSEMENT": null,
+        "VILLE": "HAMPSTEAD",
+        "DATE_DEBUT": "1900-01-01T07:00:00",
+        "DATE_FIN": "2009-11-05T06:59:59"
+      },
+      "geometry": { "type": "Point", "coordinates": [-73.6393318377964, 45.483486932873] }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "CASERNE": "12",
+        "NO_CIVIQUE": "5000",
+        "RUE": "Rue Sherbrooke Est",
+        "LATITUDE": 45.58,
+        "LONGITUDE": -73.55,
+        "ARRONDISSEMENT": "Mercier–Hochelaga-Maisonneuve",
+        "VILLE": "Montréal",
+        "DATE_DEBUT": "2005-01-01T07:00:00",
+        "DATE_FIN": "NaT"
+      },
+      "geometry": { "type": "Point", "coordinates": [-73.55, 45.58] }
+    }
+  ]
+}

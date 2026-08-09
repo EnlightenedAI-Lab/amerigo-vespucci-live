@@ -1,0 +1,6554 @@
+[
+  {
+    "text": "montre-moi les casernes dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "montre-moi les casernes dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "montre-moi les casernes dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "montre-moi les casernes dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "montre-moi les casernes dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "montre-moi les casernes dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "montre-moi les casernes dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "montre-moi les casernes dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "montre-moi les casernes dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "montre-moi les casernes dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "montre-moi les casernes de pompiers dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "montre-moi les casernes de pompiers dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "montre-moi les casernes de pompiers dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "montre-moi les casernes de pompiers dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "montre-moi les casernes de pompiers dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "montre-moi les casernes de pompiers dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "montre-moi les casernes de pompiers dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "montre-moi les casernes de pompiers dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "montre-moi les casernes de pompiers dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "montre-moi les casernes de pompiers dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "montre-moi les postes de pompiers dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "montre-moi les postes de pompiers dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "montre-moi les postes de pompiers dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "montre-moi les postes de pompiers dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "montre-moi les postes de pompiers dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "montre-moi les postes de pompiers dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "montre-moi les postes de pompiers dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "montre-moi les postes de pompiers dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "montre-moi les postes de pompiers dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "montre-moi les postes de pompiers dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "montre-moi les postes de police dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "montre-moi les postes de police dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "montre-moi les postes de police dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "montre-moi les postes de police dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "montre-moi les postes de police dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "montre-moi les postes de police dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "montre-moi les postes de police dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "montre-moi les postes de police dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "montre-moi les postes de police dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "montre-moi les postes de police dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "montre-moi les postes de quartier dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "montre-moi les postes de quartier dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "montre-moi les postes de quartier dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "montre-moi les postes de quartier dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "montre-moi les postes de quartier dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "montre-moi les postes de quartier dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "montre-moi les postes de quartier dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "montre-moi les postes de quartier dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "montre-moi les postes de quartier dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "montre-moi les postes de quartier dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "montre-moi les police dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "montre-moi les police dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "montre-moi les police dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "montre-moi les police dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "montre-moi les police dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "montre-moi les police dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "montre-moi les police dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "montre-moi les police dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "montre-moi les police dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "montre-moi les police dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "montre-moi les hôpitaux dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "montre-moi les hôpitaux dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "montre-moi les hôpitaux dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "montre-moi les hôpitaux dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "montre-moi les hôpitaux dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "montre-moi les hôpitaux dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "montre-moi les hôpitaux dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "montre-moi les hôpitaux dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "montre-moi les hôpitaux dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "montre-moi les hôpitaux dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "montre-moi les urgences dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "montre-moi les urgences dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "montre-moi les urgences dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "montre-moi les urgences dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "montre-moi les urgences dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "montre-moi les urgences dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "montre-moi les urgences dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "montre-moi les urgences dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "montre-moi les urgences dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "montre-moi les urgences dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "montre-moi les écoles dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "montre-moi les écoles dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "montre-moi les écoles dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "montre-moi les écoles dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "montre-moi les écoles dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "montre-moi les écoles dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "montre-moi les écoles dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "montre-moi les écoles dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "montre-moi les écoles dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "montre-moi les écoles dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "montre-moi les écoles publiques dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "montre-moi les écoles publiques dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "montre-moi les écoles publiques dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "montre-moi les écoles publiques dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "montre-moi les écoles publiques dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "montre-moi les écoles publiques dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "montre-moi les écoles publiques dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "montre-moi les écoles publiques dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "montre-moi les écoles publiques dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "montre-moi les écoles publiques dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "montre-moi les stations de métro dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "montre-moi les stations de métro dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "montre-moi les stations de métro dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "montre-moi les stations de métro dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "montre-moi les stations de métro dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "montre-moi les stations de métro dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "montre-moi les stations de métro dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "montre-moi les stations de métro dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "montre-moi les stations de métro dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "montre-moi les stations de métro dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "montre-moi les arrêts STM dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "montre-moi les arrêts STM dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "montre-moi les arrêts STM dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "montre-moi les arrêts STM dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "montre-moi les arrêts STM dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "montre-moi les arrêts STM dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "montre-moi les arrêts STM dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "montre-moi les arrêts STM dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "montre-moi les arrêts STM dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "montre-moi les arrêts STM dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "montre-moi les transport en commun dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "montre-moi les transport en commun dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "montre-moi les transport en commun dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "montre-moi les transport en commun dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "montre-moi les transport en commun dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "montre-moi les transport en commun dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "montre-moi les transport en commun dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "montre-moi les transport en commun dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "montre-moi les transport en commun dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "montre-moi les transport en commun dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "montre moi les casernes dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "montre moi les casernes dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "montre moi les casernes dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "montre moi les casernes dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "montre moi les casernes dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "montre moi les casernes dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "montre moi les casernes dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "montre moi les casernes dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "montre moi les casernes dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "montre moi les casernes dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "montre moi les casernes de pompiers dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "montre moi les casernes de pompiers dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "montre moi les casernes de pompiers dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "montre moi les casernes de pompiers dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "montre moi les casernes de pompiers dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "montre moi les casernes de pompiers dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "montre moi les casernes de pompiers dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "montre moi les casernes de pompiers dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "montre moi les casernes de pompiers dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "montre moi les casernes de pompiers dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "montre moi les postes de pompiers dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "montre moi les postes de pompiers dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "montre moi les postes de pompiers dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "montre moi les postes de pompiers dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "montre moi les postes de pompiers dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "montre moi les postes de pompiers dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "montre moi les postes de pompiers dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "montre moi les postes de pompiers dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "montre moi les postes de pompiers dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "montre moi les postes de pompiers dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "montre moi les postes de police dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "montre moi les postes de police dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "montre moi les postes de police dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "montre moi les postes de police dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "montre moi les postes de police dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "montre moi les postes de police dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "montre moi les postes de police dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "montre moi les postes de police dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "montre moi les postes de police dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "montre moi les postes de police dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "montre moi les postes de quartier dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "montre moi les postes de quartier dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "montre moi les postes de quartier dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "montre moi les postes de quartier dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "montre moi les postes de quartier dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "montre moi les postes de quartier dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "montre moi les postes de quartier dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "montre moi les postes de quartier dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "montre moi les postes de quartier dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "montre moi les postes de quartier dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "montre moi les police dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "montre moi les police dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "montre moi les police dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "montre moi les police dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "montre moi les police dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "montre moi les police dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "montre moi les police dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "montre moi les police dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "montre moi les police dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "montre moi les police dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "montre moi les hôpitaux dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "montre moi les hôpitaux dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "montre moi les hôpitaux dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "montre moi les hôpitaux dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "montre moi les hôpitaux dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "montre moi les hôpitaux dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "montre moi les hôpitaux dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "montre moi les hôpitaux dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "montre moi les hôpitaux dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "montre moi les hôpitaux dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "montre moi les urgences dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "montre moi les urgences dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "montre moi les urgences dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "montre moi les urgences dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "montre moi les urgences dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "montre moi les urgences dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "montre moi les urgences dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "montre moi les urgences dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "montre moi les urgences dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "montre moi les urgences dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "montre moi les écoles dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "montre moi les écoles dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "montre moi les écoles dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "montre moi les écoles dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "montre moi les écoles dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "montre moi les écoles dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "montre moi les écoles dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "montre moi les écoles dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "montre moi les écoles dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "montre moi les écoles dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "montre moi les écoles publiques dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "montre moi les écoles publiques dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "montre moi les écoles publiques dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "montre moi les écoles publiques dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "montre moi les écoles publiques dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "montre moi les écoles publiques dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "montre moi les écoles publiques dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "montre moi les écoles publiques dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "montre moi les écoles publiques dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "montre moi les écoles publiques dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "montre moi les stations de métro dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "montre moi les stations de métro dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "montre moi les stations de métro dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "montre moi les stations de métro dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "montre moi les stations de métro dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "montre moi les stations de métro dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "montre moi les stations de métro dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "montre moi les stations de métro dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "montre moi les stations de métro dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "montre moi les stations de métro dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "montre moi les arrêts STM dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "montre moi les arrêts STM dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "montre moi les arrêts STM dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "montre moi les arrêts STM dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "montre moi les arrêts STM dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "montre moi les arrêts STM dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "montre moi les arrêts STM dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "montre moi les arrêts STM dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "montre moi les arrêts STM dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "montre moi les arrêts STM dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "montre moi les transport en commun dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "montre moi les transport en commun dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "montre moi les transport en commun dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "montre moi les transport en commun dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "montre moi les transport en commun dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "montre moi les transport en commun dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "montre moi les transport en commun dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "montre moi les transport en commun dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "montre moi les transport en commun dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "montre moi les transport en commun dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "peux-tu montrer les casernes dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "peux-tu montrer les casernes dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "peux-tu montrer les casernes dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "peux-tu montrer les casernes dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "peux-tu montrer les casernes dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "peux-tu montrer les casernes dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "peux-tu montrer les casernes dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "peux-tu montrer les casernes dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "peux-tu montrer les casernes dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "peux-tu montrer les casernes dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "peux-tu montrer les casernes de pompiers dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "peux-tu montrer les casernes de pompiers dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "peux-tu montrer les casernes de pompiers dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "peux-tu montrer les casernes de pompiers dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "peux-tu montrer les casernes de pompiers dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "peux-tu montrer les casernes de pompiers dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "peux-tu montrer les casernes de pompiers dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "peux-tu montrer les casernes de pompiers dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "peux-tu montrer les casernes de pompiers dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "peux-tu montrer les casernes de pompiers dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "peux-tu montrer les postes de pompiers dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "peux-tu montrer les postes de pompiers dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "peux-tu montrer les postes de pompiers dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "peux-tu montrer les postes de pompiers dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "peux-tu montrer les postes de pompiers dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "peux-tu montrer les postes de pompiers dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "peux-tu montrer les postes de pompiers dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "peux-tu montrer les postes de pompiers dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "peux-tu montrer les postes de pompiers dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "peux-tu montrer les postes de pompiers dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "peux-tu montrer les postes de police dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "peux-tu montrer les postes de police dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "peux-tu montrer les postes de police dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "peux-tu montrer les postes de police dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "peux-tu montrer les postes de police dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "peux-tu montrer les postes de police dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "peux-tu montrer les postes de police dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "peux-tu montrer les postes de police dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "peux-tu montrer les postes de police dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "peux-tu montrer les postes de police dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "peux-tu montrer les postes de quartier dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "peux-tu montrer les postes de quartier dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "peux-tu montrer les postes de quartier dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "peux-tu montrer les postes de quartier dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "peux-tu montrer les postes de quartier dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "peux-tu montrer les postes de quartier dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "peux-tu montrer les postes de quartier dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "peux-tu montrer les postes de quartier dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "peux-tu montrer les postes de quartier dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "peux-tu montrer les postes de quartier dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "peux-tu montrer les police dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "peux-tu montrer les police dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "peux-tu montrer les police dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "peux-tu montrer les police dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "peux-tu montrer les police dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "peux-tu montrer les police dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "peux-tu montrer les police dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "peux-tu montrer les police dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "peux-tu montrer les police dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "peux-tu montrer les police dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "peux-tu montrer les hôpitaux dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "peux-tu montrer les hôpitaux dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "peux-tu montrer les hôpitaux dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "peux-tu montrer les hôpitaux dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "peux-tu montrer les hôpitaux dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "peux-tu montrer les hôpitaux dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "peux-tu montrer les hôpitaux dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "peux-tu montrer les hôpitaux dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "peux-tu montrer les hôpitaux dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "peux-tu montrer les hôpitaux dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "peux-tu montrer les urgences dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "peux-tu montrer les urgences dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "peux-tu montrer les urgences dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "peux-tu montrer les urgences dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "peux-tu montrer les urgences dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "peux-tu montrer les urgences dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "peux-tu montrer les urgences dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "peux-tu montrer les urgences dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "peux-tu montrer les urgences dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "peux-tu montrer les urgences dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "peux-tu montrer les écoles dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "peux-tu montrer les écoles dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "peux-tu montrer les écoles dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "peux-tu montrer les écoles dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "peux-tu montrer les écoles dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "peux-tu montrer les écoles dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "peux-tu montrer les écoles dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "peux-tu montrer les écoles dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "peux-tu montrer les écoles dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "peux-tu montrer les écoles dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "peux-tu montrer les écoles publiques dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "peux-tu montrer les écoles publiques dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "peux-tu montrer les écoles publiques dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "peux-tu montrer les écoles publiques dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "peux-tu montrer les écoles publiques dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "peux-tu montrer les écoles publiques dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "peux-tu montrer les écoles publiques dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "peux-tu montrer les écoles publiques dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "peux-tu montrer les écoles publiques dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "peux-tu montrer les écoles publiques dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "peux-tu montrer les stations de métro dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "peux-tu montrer les stations de métro dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "peux-tu montrer les stations de métro dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "peux-tu montrer les stations de métro dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "peux-tu montrer les stations de métro dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "peux-tu montrer les stations de métro dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "peux-tu montrer les stations de métro dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "peux-tu montrer les stations de métro dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "peux-tu montrer les stations de métro dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "peux-tu montrer les stations de métro dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "peux-tu montrer les arrêts STM dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "peux-tu montrer les arrêts STM dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "peux-tu montrer les arrêts STM dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "peux-tu montrer les arrêts STM dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "peux-tu montrer les arrêts STM dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "peux-tu montrer les arrêts STM dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "peux-tu montrer les arrêts STM dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "peux-tu montrer les arrêts STM dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "peux-tu montrer les arrêts STM dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "peux-tu montrer les arrêts STM dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "peux-tu montrer les transport en commun dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "peux-tu montrer les transport en commun dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "peux-tu montrer les transport en commun dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "peux-tu montrer les transport en commun dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "peux-tu montrer les transport en commun dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "peux-tu montrer les transport en commun dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "peux-tu montrer les transport en commun dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "peux-tu montrer les transport en commun dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "peux-tu montrer les transport en commun dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "peux-tu montrer les transport en commun dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "affiche-moi les casernes dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "affiche-moi les casernes dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "affiche-moi les casernes dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "affiche-moi les casernes dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "affiche-moi les casernes dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "affiche-moi les casernes dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "affiche-moi les casernes dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "affiche-moi les casernes dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "affiche-moi les casernes dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "affiche-moi les casernes dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "affiche-moi les casernes de pompiers dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "affiche-moi les casernes de pompiers dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "affiche-moi les casernes de pompiers dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "affiche-moi les casernes de pompiers dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "affiche-moi les casernes de pompiers dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "affiche-moi les casernes de pompiers dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "affiche-moi les casernes de pompiers dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "affiche-moi les casernes de pompiers dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "affiche-moi les casernes de pompiers dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "affiche-moi les casernes de pompiers dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "affiche-moi les postes de pompiers dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "affiche-moi les postes de pompiers dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "affiche-moi les postes de pompiers dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "affiche-moi les postes de pompiers dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "affiche-moi les postes de pompiers dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "affiche-moi les postes de pompiers dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "affiche-moi les postes de pompiers dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "affiche-moi les postes de pompiers dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "affiche-moi les postes de pompiers dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "affiche-moi les postes de pompiers dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "affiche-moi les postes de police dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "affiche-moi les postes de police dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "affiche-moi les postes de police dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "affiche-moi les postes de police dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "affiche-moi les postes de police dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "affiche-moi les postes de police dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "affiche-moi les postes de police dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "affiche-moi les postes de police dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "affiche-moi les postes de police dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "affiche-moi les postes de police dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "affiche-moi les postes de quartier dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "affiche-moi les postes de quartier dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "affiche-moi les postes de quartier dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "affiche-moi les postes de quartier dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "affiche-moi les postes de quartier dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "affiche-moi les postes de quartier dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "affiche-moi les postes de quartier dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "affiche-moi les postes de quartier dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "affiche-moi les postes de quartier dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "affiche-moi les postes de quartier dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "affiche-moi les police dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "affiche-moi les police dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "affiche-moi les police dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "affiche-moi les police dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "affiche-moi les police dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "affiche-moi les police dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "affiche-moi les police dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "affiche-moi les police dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "affiche-moi les police dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "affiche-moi les police dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "affiche-moi les hôpitaux dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "affiche-moi les hôpitaux dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "affiche-moi les hôpitaux dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "affiche-moi les hôpitaux dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "affiche-moi les hôpitaux dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "affiche-moi les hôpitaux dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "affiche-moi les hôpitaux dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "affiche-moi les hôpitaux dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "affiche-moi les hôpitaux dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "affiche-moi les hôpitaux dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "affiche-moi les urgences dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "affiche-moi les urgences dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "affiche-moi les urgences dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "affiche-moi les urgences dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "affiche-moi les urgences dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "affiche-moi les urgences dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "affiche-moi les urgences dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "affiche-moi les urgences dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "affiche-moi les urgences dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "affiche-moi les urgences dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "affiche-moi les écoles dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "affiche-moi les écoles dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "affiche-moi les écoles dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "affiche-moi les écoles dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "affiche-moi les écoles dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "affiche-moi les écoles dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "affiche-moi les écoles dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "affiche-moi les écoles dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "affiche-moi les écoles dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "affiche-moi les écoles dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "affiche-moi les écoles publiques dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "affiche-moi les écoles publiques dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "affiche-moi les écoles publiques dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "affiche-moi les écoles publiques dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "affiche-moi les écoles publiques dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "affiche-moi les écoles publiques dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "affiche-moi les écoles publiques dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "affiche-moi les écoles publiques dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "affiche-moi les écoles publiques dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "affiche-moi les écoles publiques dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "affiche-moi les stations de métro dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "affiche-moi les stations de métro dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "affiche-moi les stations de métro dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "affiche-moi les stations de métro dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "affiche-moi les stations de métro dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "affiche-moi les stations de métro dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "affiche-moi les stations de métro dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "affiche-moi les stations de métro dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "affiche-moi les stations de métro dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "affiche-moi les stations de métro dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "affiche-moi les arrêts STM dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "affiche-moi les arrêts STM dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "affiche-moi les arrêts STM dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "affiche-moi les arrêts STM dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "affiche-moi les arrêts STM dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "affiche-moi les arrêts STM dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "affiche-moi les arrêts STM dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "affiche-moi les arrêts STM dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "affiche-moi les arrêts STM dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "affiche-moi les arrêts STM dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "affiche-moi les transport en commun dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "affiche-moi les transport en commun dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "affiche-moi les transport en commun dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "affiche-moi les transport en commun dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "affiche-moi les transport en commun dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "affiche-moi les transport en commun dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "affiche-moi les transport en commun dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "affiche-moi les transport en commun dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "affiche-moi les transport en commun dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "affiche-moi les transport en commun dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "trouve-moi les casernes dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "trouve-moi les casernes dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "trouve-moi les casernes dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "trouve-moi les casernes dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "trouve-moi les casernes dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "trouve-moi les casernes dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "trouve-moi les casernes dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "trouve-moi les casernes dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "trouve-moi les casernes dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "trouve-moi les casernes dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "trouve-moi les casernes de pompiers dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "trouve-moi les casernes de pompiers dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "trouve-moi les casernes de pompiers dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "trouve-moi les casernes de pompiers dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "trouve-moi les casernes de pompiers dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "trouve-moi les casernes de pompiers dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "trouve-moi les casernes de pompiers dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "trouve-moi les casernes de pompiers dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "trouve-moi les casernes de pompiers dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "trouve-moi les casernes de pompiers dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "trouve-moi les postes de pompiers dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "trouve-moi les postes de pompiers dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "trouve-moi les postes de pompiers dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "trouve-moi les postes de pompiers dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "trouve-moi les postes de pompiers dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "trouve-moi les postes de pompiers dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "trouve-moi les postes de pompiers dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "trouve-moi les postes de pompiers dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "trouve-moi les postes de pompiers dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "trouve-moi les postes de pompiers dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "trouve-moi les postes de police dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "trouve-moi les postes de police dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "trouve-moi les postes de police dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "trouve-moi les postes de police dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "trouve-moi les postes de police dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "trouve-moi les postes de police dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "trouve-moi les postes de police dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "trouve-moi les postes de police dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "trouve-moi les postes de police dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "trouve-moi les postes de police dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "trouve-moi les postes de quartier dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "trouve-moi les postes de quartier dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "trouve-moi les postes de quartier dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "trouve-moi les postes de quartier dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "trouve-moi les postes de quartier dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "trouve-moi les postes de quartier dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "trouve-moi les postes de quartier dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "trouve-moi les postes de quartier dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "trouve-moi les postes de quartier dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "trouve-moi les postes de quartier dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "trouve-moi les police dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "trouve-moi les police dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "trouve-moi les police dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "trouve-moi les police dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "trouve-moi les police dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "trouve-moi les police dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "trouve-moi les police dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "trouve-moi les police dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "trouve-moi les police dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "trouve-moi les police dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "trouve-moi les hôpitaux dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "trouve-moi les hôpitaux dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "trouve-moi les hôpitaux dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "trouve-moi les hôpitaux dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "trouve-moi les hôpitaux dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "trouve-moi les hôpitaux dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "trouve-moi les hôpitaux dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "trouve-moi les hôpitaux dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "trouve-moi les hôpitaux dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "trouve-moi les hôpitaux dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "trouve-moi les urgences dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "trouve-moi les urgences dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "trouve-moi les urgences dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "trouve-moi les urgences dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "trouve-moi les urgences dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "trouve-moi les urgences dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "trouve-moi les urgences dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "trouve-moi les urgences dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "trouve-moi les urgences dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "trouve-moi les urgences dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "trouve-moi les écoles dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "trouve-moi les écoles dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "trouve-moi les écoles dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "trouve-moi les écoles dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "trouve-moi les écoles dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "trouve-moi les écoles dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "trouve-moi les écoles dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "trouve-moi les écoles dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "trouve-moi les écoles dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "trouve-moi les écoles dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "trouve-moi les écoles publiques dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "trouve-moi les écoles publiques dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "trouve-moi les écoles publiques dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "trouve-moi les écoles publiques dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "trouve-moi les écoles publiques dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "trouve-moi les écoles publiques dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "trouve-moi les écoles publiques dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "trouve-moi les écoles publiques dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "trouve-moi les écoles publiques dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "trouve-moi les écoles publiques dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "trouve-moi les stations de métro dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "trouve-moi les stations de métro dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "trouve-moi les stations de métro dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "trouve-moi les stations de métro dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "trouve-moi les stations de métro dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "trouve-moi les stations de métro dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "trouve-moi les stations de métro dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "trouve-moi les stations de métro dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "trouve-moi les stations de métro dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "trouve-moi les stations de métro dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "trouve-moi les arrêts STM dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "trouve-moi les arrêts STM dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "trouve-moi les arrêts STM dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "trouve-moi les arrêts STM dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "trouve-moi les arrêts STM dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "trouve-moi les arrêts STM dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "trouve-moi les arrêts STM dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "trouve-moi les arrêts STM dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "trouve-moi les arrêts STM dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "trouve-moi les arrêts STM dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "trouve-moi les transport en commun dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "trouve-moi les transport en commun dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "trouve-moi les transport en commun dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "trouve-moi les transport en commun dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "trouve-moi les transport en commun dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "trouve-moi les transport en commun dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "trouve-moi les transport en commun dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "trouve-moi les transport en commun dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "trouve-moi les transport en commun dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "trouve-moi les transport en commun dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "où sont les casernes dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "où sont les casernes dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "où sont les casernes dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "où sont les casernes dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "où sont les casernes dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "où sont les casernes dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "où sont les casernes dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "où sont les casernes dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "où sont les casernes dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "où sont les casernes dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "où sont les casernes de pompiers dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "où sont les casernes de pompiers dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "où sont les casernes de pompiers dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "où sont les casernes de pompiers dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "où sont les casernes de pompiers dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "où sont les casernes de pompiers dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "où sont les casernes de pompiers dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "où sont les casernes de pompiers dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "où sont les casernes de pompiers dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "où sont les casernes de pompiers dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "où sont les postes de pompiers dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "où sont les postes de pompiers dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "où sont les postes de pompiers dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "où sont les postes de pompiers dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "où sont les postes de pompiers dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "où sont les postes de pompiers dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "où sont les postes de pompiers dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "où sont les postes de pompiers dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "où sont les postes de pompiers dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "où sont les postes de pompiers dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "où sont les postes de police dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "où sont les postes de police dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "où sont les postes de police dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "où sont les postes de police dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "où sont les postes de police dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "où sont les postes de police dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "où sont les postes de police dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "où sont les postes de police dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "où sont les postes de police dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "où sont les postes de police dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "où sont les postes de quartier dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "où sont les postes de quartier dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "où sont les postes de quartier dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "où sont les postes de quartier dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "où sont les postes de quartier dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "où sont les postes de quartier dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "où sont les postes de quartier dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "où sont les postes de quartier dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "où sont les postes de quartier dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "où sont les postes de quartier dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "où sont les police dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "où sont les police dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "où sont les police dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "où sont les police dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "où sont les police dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "où sont les police dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "où sont les police dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "où sont les police dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "où sont les police dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "où sont les police dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "POLICE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "où sont les hôpitaux dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "où sont les hôpitaux dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "où sont les hôpitaux dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "où sont les hôpitaux dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "où sont les hôpitaux dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "où sont les hôpitaux dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "où sont les hôpitaux dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "où sont les hôpitaux dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "où sont les hôpitaux dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "où sont les hôpitaux dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "où sont les urgences dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "où sont les urgences dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "où sont les urgences dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "où sont les urgences dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "où sont les urgences dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "où sont les urgences dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "où sont les urgences dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "où sont les urgences dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "où sont les urgences dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "où sont les urgences dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "HOSPITALS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "où sont les écoles dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "où sont les écoles dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "où sont les écoles dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "où sont les écoles dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "où sont les écoles dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "où sont les écoles dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "où sont les écoles dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "où sont les écoles dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "où sont les écoles dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "où sont les écoles dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "où sont les écoles publiques dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "où sont les écoles publiques dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "où sont les écoles publiques dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "où sont les écoles publiques dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "où sont les écoles publiques dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "où sont les écoles publiques dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "où sont les écoles publiques dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "où sont les écoles publiques dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "où sont les écoles publiques dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "où sont les écoles publiques dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "SCHOOLS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "où sont les stations de métro dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "où sont les stations de métro dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "où sont les stations de métro dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "où sont les stations de métro dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "où sont les stations de métro dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "où sont les stations de métro dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "où sont les stations de métro dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "où sont les stations de métro dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "où sont les stations de métro dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "où sont les stations de métro dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "où sont les arrêts STM dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "où sont les arrêts STM dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "où sont les arrêts STM dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "où sont les arrêts STM dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "où sont les arrêts STM dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "où sont les arrêts STM dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "où sont les arrêts STM dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "où sont les arrêts STM dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "où sont les arrêts STM dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "où sont les arrêts STM dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "où sont les transport en commun dans un rayon de 1 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "où sont les transport en commun dans un rayon de 1 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 1
+    }
+  },
+  {
+    "text": "où sont les transport en commun dans un rayon de 2 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "où sont les transport en commun dans un rayon de 2 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 2
+    }
+  },
+  {
+    "text": "où sont les transport en commun dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "où sont les transport en commun dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "où sont les transport en commun dans un rayon de 4 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "où sont les transport en commun dans un rayon de 4 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 4
+    }
+  },
+  {
+    "text": "où sont les transport en commun dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "où sont les transport en commun dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "WITHIN",
+      "dataset": "TRANSIT",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "montre les 1 postes de police les plus proches de 997 de la Commune",
+    "expect": {
+      "action": "NEAREST",
+      "dataset": "POLICE_STATIONS",
+      "limit": 1
+    }
+  },
+  {
+    "text": "montre les 1 postes de police les plus proches de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "NEAREST",
+      "dataset": "POLICE_STATIONS",
+      "limit": 1
+    }
+  },
+  {
+    "text": "montre les 1 postes de police les plus proches de Old Montreal",
+    "expect": {
+      "action": "NEAREST",
+      "dataset": "POLICE_STATIONS",
+      "limit": 1
+    }
+  },
+  {
+    "text": "montre les 1 postes de quartier les plus proches de 997 de la Commune",
+    "expect": {
+      "action": "NEAREST",
+      "dataset": "POLICE_STATIONS",
+      "limit": 1
+    }
+  },
+  {
+    "text": "montre les 1 postes de quartier les plus proches de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "NEAREST",
+      "dataset": "POLICE_STATIONS",
+      "limit": 1
+    }
+  },
+  {
+    "text": "montre les 1 postes de quartier les plus proches de Old Montreal",
+    "expect": {
+      "action": "NEAREST",
+      "dataset": "POLICE_STATIONS",
+      "limit": 1
+    }
+  },
+  {
+    "text": "montre les 1 police les plus proches de 997 de la Commune",
+    "expect": {
+      "action": "NEAREST",
+      "dataset": "POLICE_STATIONS",
+      "limit": 1
+    }
+  },
+  {
+    "text": "montre les 1 police les plus proches de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "NEAREST",
+      "dataset": "POLICE_STATIONS",
+      "limit": 1
+    }
+  },
+  {
+    "text": "montre les 1 police les plus proches de Old Montreal",
+    "expect": {
+      "action": "NEAREST",
+      "dataset": "POLICE_STATIONS",
+      "limit": 1
+    }
+  },
+  {
+    "text": "montre les 2 postes de police les plus proches de 997 de la Commune",
+    "expect": {
+      "action": "NEAREST",
+      "dataset": "POLICE_STATIONS",
+      "limit": 2
+    }
+  },
+  {
+    "text": "montre les 2 postes de police les plus proches de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "NEAREST",
+      "dataset": "POLICE_STATIONS",
+      "limit": 2
+    }
+  },
+  {
+    "text": "montre les 2 postes de police les plus proches de Old Montreal",
+    "expect": {
+      "action": "NEAREST",
+      "dataset": "POLICE_STATIONS",
+      "limit": 2
+    }
+  },
+  {
+    "text": "montre les 2 postes de quartier les plus proches de 997 de la Commune",
+    "expect": {
+      "action": "NEAREST",
+      "dataset": "POLICE_STATIONS",
+      "limit": 2
+    }
+  },
+  {
+    "text": "montre les 2 postes de quartier les plus proches de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "NEAREST",
+      "dataset": "POLICE_STATIONS",
+      "limit": 2
+    }
+  },
+  {
+    "text": "montre les 2 postes de quartier les plus proches de Old Montreal",
+    "expect": {
+      "action": "NEAREST",
+      "dataset": "POLICE_STATIONS",
+      "limit": 2
+    }
+  },
+  {
+    "text": "montre les 2 police les plus proches de 997 de la Commune",
+    "expect": {
+      "action": "NEAREST",
+      "dataset": "POLICE_STATIONS",
+      "limit": 2
+    }
+  },
+  {
+    "text": "montre les 2 police les plus proches de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "NEAREST",
+      "dataset": "POLICE_STATIONS",
+      "limit": 2
+    }
+  },
+  {
+    "text": "montre les 2 police les plus proches de Old Montreal",
+    "expect": {
+      "action": "NEAREST",
+      "dataset": "POLICE_STATIONS",
+      "limit": 2
+    }
+  },
+  {
+    "text": "montre les 3 postes de police les plus proches de 997 de la Commune",
+    "expect": {
+      "action": "NEAREST",
+      "dataset": "POLICE_STATIONS",
+      "limit": 3
+    }
+  },
+  {
+    "text": "montre les 3 postes de police les plus proches de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "NEAREST",
+      "dataset": "POLICE_STATIONS",
+      "limit": 3
+    }
+  },
+  {
+    "text": "montre les 3 postes de police les plus proches de Old Montreal",
+    "expect": {
+      "action": "NEAREST",
+      "dataset": "POLICE_STATIONS",
+      "limit": 3
+    }
+  },
+  {
+    "text": "montre les 3 postes de quartier les plus proches de 997 de la Commune",
+    "expect": {
+      "action": "NEAREST",
+      "dataset": "POLICE_STATIONS",
+      "limit": 3
+    }
+  },
+  {
+    "text": "montre les 3 postes de quartier les plus proches de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "NEAREST",
+      "dataset": "POLICE_STATIONS",
+      "limit": 3
+    }
+  },
+  {
+    "text": "montre les 3 postes de quartier les plus proches de Old Montreal",
+    "expect": {
+      "action": "NEAREST",
+      "dataset": "POLICE_STATIONS",
+      "limit": 3
+    }
+  },
+  {
+    "text": "montre les 3 police les plus proches de 997 de la Commune",
+    "expect": {
+      "action": "NEAREST",
+      "dataset": "POLICE_STATIONS",
+      "limit": 3
+    }
+  },
+  {
+    "text": "montre les 3 police les plus proches de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "NEAREST",
+      "dataset": "POLICE_STATIONS",
+      "limit": 3
+    }
+  },
+  {
+    "text": "montre les 3 police les plus proches de Old Montreal",
+    "expect": {
+      "action": "NEAREST",
+      "dataset": "POLICE_STATIONS",
+      "limit": 3
+    }
+  },
+  {
+    "text": "placer un point à 997 de la Commune",
+    "expect": {
+      "action": "LOCATE"
+    }
+  },
+  {
+    "text": "placer un point à 6939 Décarie Boulevard",
+    "expect": {
+      "action": "LOCATE"
+    }
+  },
+  {
+    "text": "placer un point à Old Montreal",
+    "expect": {
+      "action": "LOCATE"
+    }
+  },
+  {
+    "text": "placer un point à Place Jacques-Cartier",
+    "expect": {
+      "action": "LOCATE"
+    }
+  },
+  {
+    "text": "placer un point à McGill University",
+    "expect": {
+      "action": "LOCATE"
+    }
+  },
+  {
+    "text": "placer un point à Jean-Talon Market",
+    "expect": {
+      "action": "LOCATE"
+    }
+  },
+  {
+    "text": "combien de casernes dans un rayon de 3 km de 997 de la Commune",
+    "expect": {
+      "action": "COUNT",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "combien de casernes dans un rayon de 3 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "COUNT",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "combien de casernes dans un rayon de 3 km de Old Montreal",
+    "expect": {
+      "action": "COUNT",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 3
+    }
+  },
+  {
+    "text": "combien de casernes dans un rayon de 5 km de 997 de la Commune",
+    "expect": {
+      "action": "COUNT",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "combien de casernes dans un rayon de 5 km de 6939 Décarie Boulevard",
+    "expect": {
+      "action": "COUNT",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "combien de casernes dans un rayon de 5 km de Old Montreal",
+    "expect": {
+      "action": "COUNT",
+      "dataset": "FIRE_STATIONS",
+      "distanceKm": 5
+    }
+  },
+  {
+    "text": "effacer",
+    "expect": {
+      "action": "CLEAR"
+    }
+  },
+  {
+    "text": "supprimer les résultats",
+    "expect": {
+      "action": "CLEAR"
+    }
+  }
+]
