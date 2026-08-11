@@ -34,6 +34,116 @@
   justify-content: flex-end;
 }
 
+.spatial-header__reliability {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.reliability-top-bar {
+  width: 100%;
+  min-width: 0;
+  position: relative;
+}
+
+.reliability-top-bar__trigger {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  width: 100%;
+  min-width: 0;
+  padding: 0.15rem 0.35rem;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.reliability-top-bar__pill {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.25rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.reliability-top-bar__pill-key {
+  color: var(--iqai-muted);
+  font-weight: 600;
+}
+
+.reliability-top-bar__pill-value {
+  color: var(--iqai-text);
+  font-weight: 700;
+}
+
+.reliability-top-bar__pill--warn .reliability-top-bar__pill-value {
+  color: #b45309;
+}
+
+.reliability-top-bar__pill--ok .reliability-top-bar__pill-value {
+  color: #047857;
+}
+
+.reliability-top-bar__sep {
+  color: #cbd5e1;
+  font-size: 0.65rem;
+  padding: 0 0.1rem;
+}
+
+.reliability-top-bar__detail {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  min-width: 280px;
+  max-width: min(92vw, 420px);
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--iqai-border);
+  border-radius: var(--iqai-radius-sm);
+  background: var(--iqai-surface);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+}
+
+.reliability-top-bar__detail.is-open {
+  display: block;
+}
+
+.reliability-top-bar__detail-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  margin-bottom: 0.45rem;
+}
+
+.reliability-top-bar__detail-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.75rem;
+  font-size: 0.72rem;
+  padding: 0.18rem 0;
+  border-top: 1px solid #f1f5f9;
+}
+
+.reliability-top-bar__detail-row:first-of-type {
+  border-top: 0;
+}
+
+.reliability-top-bar__detail-row span {
+  color: var(--iqai-muted);
+}
+
+.reliability-top-bar__detail-row strong {
+  font-weight: 600;
+  text-align: right;
+}
+
 .spatial-system {
   font-size: 0.72rem;
   color: var(--iqai-muted);

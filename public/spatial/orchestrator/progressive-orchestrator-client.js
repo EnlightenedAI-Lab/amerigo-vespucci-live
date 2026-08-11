@@ -535,6 +535,12 @@ async function postAiMapRunReceiptClientCompletion(payload = {}) {
         interactiveDeadlineReached: Boolean(payload.interactiveDeadlineReached),
         clientCompletedAt: new Date().toISOString()
       })
+    }).then(async (response) => {
+      const body = await response.json().catch(() => ({}));
+      if (body?.receipt) {
+        const { publishAiMapReceiptUpdated } = await import('../reliability-top-bar.js');
+        publishAiMapReceiptUpdated(body.receipt);
+      }
     });
   } catch (error) {
     console.warn('[iqai-progressive] Failed to persist AI MAP run receipt completion', error?.message || error);

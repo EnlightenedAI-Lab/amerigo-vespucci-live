@@ -361,6 +361,7 @@ export class AppShell {
     if (typeof window !== 'undefined') {
       window.__IQAI_LAST_PROGRESSIVE_RECEIPT__ = null;
       window.__IQAI_ORCHESTRATOR_STATUS__ = null;
+      void import('../reliability-top-bar.js').then(({ publishReliabilityClear }) => publishReliabilityClear());
     }
   }
 
@@ -694,6 +695,8 @@ export class AppShell {
   }
 
   async executeDeterministicGisViaAiMap(prompt, { commandId, capabilityPlan }) {
+    const { publishReliabilityContext } = await import('../reliability-top-bar.js');
+    publishReliabilityContext('DETERMINISTIC_GIS');
     this.commandBar._suppressDeterministicFeedback = true;
     this.commandBar?.setAiPhase('Executing GIS…');
     try {
@@ -1306,6 +1309,7 @@ export class AppShell {
             <span class="iqai-spatial-brand__workspace">INTELLIGENCE</span>
           </div>
         </div>
+        <div class="spatial-header__reliability" id="spatial-reliability-top-bar"></div>
         <div class="spatial-header__actions">
           <span class="spatial-system" id="spatial-system-indicator">ArcGIS loading…</span>
           <a class="spatial-header-action" href="/spatial/intelligence-lab/">Open Investigation →</a>
@@ -1363,6 +1367,11 @@ export class AppShell {
     void import('../fidelity-strip.js').then(({ mountFidelityStrip }) => {
       this.fidelityStrip = mountFidelityStrip(
         this.root.querySelector('#spatial-fidelity-strip')
+      );
+    });
+    void import('../reliability-top-bar.js').then(({ mountReliabilityTopBar }) => {
+      this.reliabilityTopBar = mountReliabilityTopBar(
+        this.root.querySelector('#spatial-reliability-top-bar')
       );
     });
     this.detailPanel = new DetailPanel(this.root.querySelector('#spatial-detail-panel'));
@@ -1784,6 +1793,12 @@ export class AppShell {
       : beginDeterministicCommand({ command: prompt });
     this.activeCommandId = commandId;
 
+    if (!options.suppressDeterministicUi && !options.viaAiMap) {
+      void import('../reliability-top-bar.js').then(({ publishReliabilityContext }) => {
+        publishReliabilityContext('DETERMINISTIC_GIS');
+      });
+    }
+
     if (!options.suppressDeterministicUi) {
       this.commandBar?.setRunning(true);
     }
@@ -1990,6 +2005,9 @@ export class AppShell {
 
     const priorPresentationTarget = this._presentationTarget;
     this._presentationTarget = 'ai-map';
+    void import('../reliability-top-bar.js').then(({ publishReliabilityContext }) => {
+      publishReliabilityContext('INTELLIGENCE');
+    });
     const { commandId } = beginDeterministicCommand({ command: prompt, source: 'ai-map' });
     this.activeCommandId = commandId;
 
