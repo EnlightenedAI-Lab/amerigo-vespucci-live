@@ -1,0 +1,21 @@
+{
+  "enabled": false,
+  "repository": "EnlightenedAI-Lab/amerigo-vespucci-live",
+  "repoRoot": ".",
+  "authorAllowlist": [
+    "EnlightenedAI-Lab"
+  ],
+  "marker": "IQAI_CONTROL_TOWER_V1",
+  "target": "AGENT_1",
+  "pollIntervalMs": 5000,
+  "agentCommand": "agent",
+  "agentExtraArgs": [
+    "--trust",
+    "--force"
+  ],
+  "outputFormat": "json",
+  "sessionLabel": "IQAI CONTROL TOWER — AGENT 1",
+  "maxCommentChars": 60000,
+  "commentChunkChars": 55000,
+  "dryRunAgentCommand": null
+}

@@ -20,3 +20,9 @@ public/spatial/intelligence-lab/screenshots-*/
 # Playwright persistent ArcGIS OAuth profile (one-time manual sign-in)
 .playwright-auth/
 .local-runtime/
+
+# IQAI Control Tower bridge — local runtime (not product)
+control-tower/bridge.config.json
+control-tower/state/
+control-tower/reports/
+control-tower/test/
