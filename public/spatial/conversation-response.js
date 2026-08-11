@@ -116,6 +116,7 @@ export function formatCategoryCountsReadout(mapResult, maxRows = 25) {
 }
 
 export function responseForMapResult(mapResult, expansion) {
+  if (!mapResult) return responseForResultCleared();
   if (mapResult.action === 'CATEGORY_COUNTS_WITHIN' || mapResult.summary?.displayMode === 'category_counts') {
     return responseForCategoryCounts(mapResult);
   }
@@ -124,10 +125,36 @@ export function responseForMapResult(mapResult, expansion) {
   }
   const count = mapResult.summary?.matchedFeatures ?? mapResult.features?.length ?? 0;
   const dataset = mapResult.summary?.dataset || mapResult.datasetResults?.[0]?.displayName || 'results';
-  if (mapResult.summary?.action === 'COUNT' || mapResult.request?.action === 'COUNT') {
-    return `${count} ${dataset} within search area.`;
+  const datasetLabel = String(dataset).toLowerCase();
+  if (count === 0) {
+    return `No matching ${datasetLabel} found.`;
   }
-  return `${count} ${dataset} result${count === 1 ? '' : 's'}.`;
+  if (mapResult.summary?.resultTruncated) {
+    return `Results may be incomplete — source service limit encountered.`;
+  }
+  if (mapResult.summary?.action === 'COUNT' || mapResult.request?.action === 'COUNT') {
+    return `${count.toLocaleString()} ${datasetLabel} within search area.`;
+  }
+  const radiusMeters = mapResult.summary?.radiusMeters;
+  if (radiusMeters) {
+    const km = radiusMeters / 1000;
+    const kmLabel = Number.isInteger(km) ? String(km) : km.toFixed(1);
+    return `${count.toLocaleString()} ${datasetLabel} found within ${kmLabel} km.`;
+  }
+  return `${count.toLocaleString()} ${datasetLabel} found.`;
+}
+
+export function responseForCategoryFilter(categoryLabel, count) {
+  if (!categoryLabel || categoryLabel.toLowerCase().includes('all')) {
+    return 'All categories shown.';
+  }
+  const label = categoryLabel.toLowerCase();
+  const countLabel = count != null ? Number(count).toLocaleString() : '';
+  return countLabel ? `${countLabel} ${label} shown.` : `${label} shown.`;
+}
+
+export function responseForResultCleared() {
+  return 'Result cleared.';
 }
 
 export function responseForScopedVisibility(action) {
