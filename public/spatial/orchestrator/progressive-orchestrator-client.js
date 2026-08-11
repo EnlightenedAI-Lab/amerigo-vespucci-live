@@ -16,6 +16,7 @@ import {
 } from '../governed-event-store.js';
 
 const PROGRESSIVE_PATH = '/api/spatial/orchestrator/progressive-intelligence';
+const AI_MAP_RECEIPT_COMPLETION_PATH = '/api/spatial/ai-map/last-receipt/client-completion';
 const INTERACTIVE_DEADLINE_MS = Number(
   (typeof window !== 'undefined' && window.__IQAI_SPATIAL_RUNTIME_INFO__?.interactiveIntelligenceDeadlineMs)
   || 30_000
@@ -225,6 +226,20 @@ export async function runProgressiveIntelligenceCommand(intent = {}, options = {
       : (serverBody?.interactiveDeadlineReached
         ? 'Research deadline reached — no admissible governed events mapped yet.'
         : 'No admissible events mapped for this query.'));
+
+  await postAiMapRunReceiptClientCompletion({
+    query: intent.query || intent.prompt || intent.originalText || null,
+    traceId: trace.traceId,
+    receiptId: serverBody?.taskGraphReceipt?.receiptId || null,
+    mappedCount,
+    governedCandidateCount: governedCount,
+    governanceStats: governance,
+    governedEvents: serverBody?.governedEvents || [],
+    finalState: serverBody?.finalState || finalPhase,
+    statusMessage: message,
+    streamed: streamedOk,
+    interactiveDeadlineReached: serverBody?.interactiveDeadlineReached === true
+  });
 
   return {
     handled: true,
@@ -470,6 +485,60 @@ async function runClientMapExecutions(serverBody, options) {
     timeToFirstRenderedFeatureMs: serverBody.performance?.timeToFirstRenderedFeatureMs,
     mappedCount
   };
+}
+
+function buildClientCandidateDiagnostics(governedEvents = []) {
+  return governedEvents.map((entry) => {
+    const eventId = entry.governedEventId
+      || entry.candidate?.eventId
+      || entry.admissionDecision?.eventId
+      || null;
+    const admission = entry.admissionDecision || entry.admission || {};
+    const outcome = admission.outcome || null;
+    const reasonCodes = Array.isArray(admission.reasonCodes) ? [...admission.reasonCodes] : [];
+    const rejectionSummary = (outcome === 'REJECT' || outcome === 'HOLD')
+      ? (reasonCodes.length ? reasonCodes.join(', ') : outcome)
+      : null;
+    return { eventId, outcome, reasonCodes, rejectionSummary };
+  }).filter((row) => row.eventId);
+}
+
+async function postAiMapRunReceiptClientCompletion(payload = {}) {
+  if (typeof window === 'undefined' || typeof fetch !== 'function') return;
+  try {
+    const { getFidelitySelection } = await import('../fidelity-selection-hub.js');
+    const selection = getFidelitySelection?.() || null;
+    const candidates = buildClientCandidateDiagnostics(payload.governedEvents || []);
+    const stats = payload.governanceStats || {};
+    await fetch(AI_MAP_RECEIPT_COMPLETION_PATH, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: payload.query || null,
+        traceId: payload.traceId || null,
+        receiptId: payload.receiptId || null,
+        mappedCount: payload.mappedCount ?? 0,
+        governedCandidateCount: payload.governedCandidateCount ?? candidates.length,
+        governanceCounts: {
+          ADMIT: stats.admit || 0,
+          ADMIT_WITH_CAUTION: stats.admitWithCaution || 0,
+          HOLD: stats.hold || 0,
+          REJECT: stats.reject || 0
+        },
+        candidateIds: candidates.map((c) => c.eventId),
+        candidates,
+        rejectionDiagnostics: candidates.filter((c) => c.outcome === 'REJECT' || c.outcome === 'HOLD'),
+        selectedEventId: selection?.eventId || selection?.governedEventId || null,
+        finalState: payload.finalState || null,
+        statusMessage: payload.statusMessage || null,
+        streamed: payload.streamed ?? null,
+        interactiveDeadlineReached: Boolean(payload.interactiveDeadlineReached),
+        clientCompletedAt: new Date().toISOString()
+      })
+    });
+  } catch (error) {
+    console.warn('[iqai-progressive] Failed to persist AI MAP run receipt completion', error?.message || error);
+  }
 }
 
 export { isProgressiveIntelligenceV1Enabled };

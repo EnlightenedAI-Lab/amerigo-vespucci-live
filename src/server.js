@@ -18,6 +18,10 @@ import {
   buildSpatialIndexHtml
 } from './spatial/spatial-runtime-info.js';
 import {
+  getLastAiMapRunReceipt,
+  mergeLastAiMapRunReceipt
+} from './spatial/ai-map-run-receipt.js';
+import {
   registerAgent1SpatialRoutes,
   isPointIntelligenceRouteRegistered,
   arePointIntelligenceRoutesRegistered,
@@ -131,6 +135,48 @@ export function createServer(state, config, arcgis, options = {}) {
   app.get('/api/spatial/runtime-info', (_req, res) => {
     res.set('Cache-Control', 'no-store');
     res.json(getRuntimeInfoResponse());
+  });
+
+  app.get('/api/spatial/ai-map/last-receipt', (_req, res) => {
+    res.set('Cache-Control', 'no-store');
+    const receipt = getLastAiMapRunReceipt();
+    if (!receipt) {
+      return res.status(404).json({
+        ok: false,
+        available: false,
+        error: 'No AI MAP run receipt persisted yet'
+      });
+    }
+    return res.json({ ok: true, available: true, receipt });
+  });
+
+  app.post('/api/spatial/ai-map/last-receipt/client-completion', (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    const body = req.body || {};
+    const allowed = [
+      'mappedCount',
+      'selectedEventId',
+      'statusMessage',
+      'streamed',
+      'governedCandidateCount',
+      'candidateIds',
+      'candidates',
+      'rejectionDiagnostics',
+      'governanceCounts',
+      'traceId',
+      'receiptId',
+      'query',
+      'finalState',
+      'interactiveDeadlineReached',
+      'clientCompletedAt'
+    ];
+    const partial = {};
+    for (const key of allowed) {
+      if (key in body) partial[key] = body[key];
+    }
+    partial.clientCompletedAt = partial.clientCompletedAt || new Date().toISOString();
+    const receipt = mergeLastAiMapRunReceipt(partial);
+    return res.json({ ok: true, receipt });
   });
 
   if (options.preview) {

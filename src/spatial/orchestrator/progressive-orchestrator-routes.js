@@ -6,6 +6,10 @@ import { createSpatialLatencyTrace } from '../spatial-latency-trace.js';
 import { resolveResearchExecution } from '../intelligence-layer-research-contract.js';
 
 import { resolveProgressiveIntelligenceV1Enabled, INTERACTIVE_INTELLIGENCE_DEADLINE_MS } from './progressive-intelligence-config.js';
+import {
+  buildProgressiveRunReceipt,
+  persistLastAiMapRunReceipt
+} from '../ai-map-run-receipt.js';
 
 export const ORCHESTRATOR_PROGRESSIVE_PATH = '/api/spatial/orchestrator/progressive-intelligence';
 
@@ -60,6 +64,7 @@ export async function handleOrchestratorProgressiveIntelligence(req, res) {
   });
   trace.mark('serverReceipt');
   const request = buildProgressiveRequest(body, query);
+  const runStartedAt = new Date().toISOString();
 
   try {
     if (stream) {
@@ -122,6 +127,16 @@ export async function handleOrchestratorProgressiveIntelligence(req, res) {
       interactiveDeadlineMs: INTERACTIVE_INTELLIGENCE_DEADLINE_MS,
       ...result
     };
+
+    persistLastAiMapRunReceipt(buildProgressiveRunReceipt({
+      query,
+      traceId: trace.traceId,
+      startedAt: runStartedAt,
+      completedAt: new Date().toISOString(),
+      result,
+      sessionScope: body.sessionScope || null,
+      trigger: stream ? 'progressive-intelligence-stream' : 'progressive-intelligence-api'
+    }));
 
     if (stream) {
       safeWrite({ type: 'complete', body: payload });
