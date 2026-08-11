@@ -1,72 +1,120 @@
 import { ResultsTable } from './ResultsTable.js';
 
-const TABS = ['ALL', 'MAPPED', 'UNRESOLVED'];
+const TABS = ['RESULTS', 'EXECUTION', 'AUDIT'];
 
 export class EventTray {
   /** @param {HTMLElement} root */
   constructor(root) {
     this.root = root;
-    this.activeTab = 'ALL';
+    this.activeTab = 'RESULTS';
     this.mode = 'map';
     this.lastMapResult = null;
-    this.resultsOpen = false;
-    this.onResultsToggle = null;
+    this.dockOpen = false;
+    this.resultCount = 0;
+    this.executionReady = false;
+    this.onDockToggle = null;
     this.render();
     this.bind();
     this.resultsTable = new ResultsTable(this.resultsHostEl);
   }
 
+  renderTabButtons() {
+    const tabLabels = {
+      RESULTS: this.resultCount > 0 ? `RESULTS ${this.resultCount.toLocaleString()}` : 'RESULTS',
+      EXECUTION: this.executionReady ? 'EXECUTION ✓' : 'EXECUTION',
+      AUDIT: 'AUDIT'
+    };
+    return TABS.map((tab) => `
+      <button type="button" class="context-dock__tab${tab === this.activeTab && this.dockOpen ? ' is-active' : ''}"
+        data-tab="${tab}" role="tab" aria-selected="${tab === this.activeTab && this.dockOpen}">${tabLabels[tab]}</button>`).join('');
+  }
+
   render() {
     if (!this.root) return;
-    const tabs = TABS.map((tab) => `
-      <button type="button" class="event-tab${tab === this.activeTab ? ' is-active' : ''}"
-        data-tab="${tab}" aria-selected="${tab === this.activeTab}">${tab}</button>`).join('');
 
     this.root.innerHTML = `
-      <header class="event-tray-header">
-        <span class="event-tray-title" id="spatial-event-tray-title">IQAI EXECUTION LEDGER</span>
-        <div class="event-tray-actions">
-          <button type="button" class="results-table-toggle" id="spatial-results-table-toggle" aria-pressed="false">RESULTS TABLE</button>
-          <div class="event-tabs" role="tablist" id="spatial-event-tabs" hidden>${tabs}</div>
-          <button type="button" class="panel-collapse-btn" data-collapse="bottom" aria-label="Collapse events tray">×</button>
+      <header class="context-dock__bar">
+        <div class="context-dock__tabs" role="tablist" id="spatial-context-tabs">${this.renderTabButtons()}</div>
+        <div class="context-dock__actions">
+          <button type="button" class="context-dock__btn rail-collapse-btn" data-collapse="bottom" aria-label="Collapse context dock">×</button>
         </div>
       </header>
-      <div class="event-tray-body" role="tabpanel" id="spatial-event-tray-body">
-        <p class="event-empty" id="spatial-event-empty">No MAP operations yet</p>
-        <div class="execution-ledger-host" id="spatial-ledger-host"></div>
-        <div class="spvm-explorer-host" id="spatial-spvm-explorer-host"></div>
-        <div class="results-table-host" id="spatial-results-table-host"></div>
+      <div class="context-dock__body" role="tabpanel">
+        <p class="context-dock__empty" id="spatial-event-empty" hidden>No context yet — run a map command to populate results.</p>
+        <div class="context-dock__panel" id="spatial-results-panel" data-panel="RESULTS"></div>
+        <div class="context-dock__panel" id="spatial-execution-panel" data-panel="EXECUTION" hidden>
+          <div class="execution-summary" id="spatial-execution-summary"></div>
+        </div>
+        <div class="context-dock__panel" id="spatial-audit-panel" data-panel="AUDIT" hidden>
+          <div class="execution-ledger-host" id="spatial-ledger-host"></div>
+        </div>
       </div>
     `;
-    this.titleEl = this.root.querySelector('#spatial-event-tray-title');
-    this.bodyEl = this.root.querySelector('#spatial-event-tray-body');
-    this.ledgerHostEl = this.root.querySelector('#spatial-ledger-host');
-    this.spvmExplorerHostEl = this.root.querySelector('#spatial-spvm-explorer-host');
-    this.resultsHostEl = this.root.querySelector('#spatial-results-table-host');
+    this.bodyEl = this.root.querySelector('.context-dock__body');
     this.emptyEl = this.root.querySelector('#spatial-event-empty');
-    this.tabsEl = this.root.querySelector('#spatial-event-tabs');
-    this.resultsToggleBtn = this.root.querySelector('#spatial-results-table-toggle');
+    this.resultsPanel = this.root.querySelector('#spatial-results-panel');
+    this.executionPanel = this.root.querySelector('#spatial-execution-panel');
+    this.executionSummaryEl = this.root.querySelector('#spatial-execution-summary');
+    this.auditPanel = this.root.querySelector('#spatial-audit-panel');
+    this.ledgerHostEl = this.root.querySelector('#spatial-ledger-host');
+    this.resultsHostEl = this.resultsPanel;
+  }
+
+  refreshTabBadges() {
+    const host = this.root?.querySelector('#spatial-context-tabs');
+    if (host) host.innerHTML = this.renderTabButtons();
+    this.bindTabs();
+  }
+
+  bindTabs() {
+    this.root?.querySelectorAll('.context-dock__tab').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        this.setActiveTab(btn.dataset.tab || 'RESULTS');
+        this.openDock();
+      });
+    });
   }
 
   bind() {
-    this.root?.querySelectorAll('.event-tab').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        this.activeTab = btn.dataset.tab || 'ALL';
-        this.root.querySelectorAll('.event-tab').forEach((el) => {
-          const active = el.dataset.tab === this.activeTab;
-          el.classList.toggle('is-active', active);
-          el.setAttribute('aria-selected', String(active));
-        });
-      });
+    this.bindTabs();
+  }
+
+  setDockToggleHandler(handler) {
+    this.onDockToggle = handler;
+  }
+
+  setActiveTab(tab) {
+    const next = TABS.includes(tab) ? tab : 'RESULTS';
+    this.activeTab = next;
+    this.root?.querySelectorAll('.context-dock__tab').forEach((el) => {
+      const active = el.dataset.tab === next;
+      el.classList.toggle('is-active', active);
+      el.setAttribute('aria-selected', String(active));
     });
-    this.resultsToggleBtn?.addEventListener('click', () => {
-      this.setResultsOpen(!this.resultsOpen);
-      if (this.onResultsToggle) this.onResultsToggle(this.resultsOpen);
-    });
+    if (this.resultsPanel) this.resultsPanel.hidden = next !== 'RESULTS';
+    if (this.executionPanel) this.executionPanel.hidden = next !== 'EXECUTION';
+    if (this.auditPanel) this.auditPanel.hidden = next !== 'AUDIT';
+  }
+
+  openDock(tab = this.activeTab) {
+    this.dockOpen = true;
+    this.setActiveTab(tab);
+    this.root?.classList.add('is-open');
+    if (this.onDockToggle) this.onDockToggle(true);
+  }
+
+  closeDock() {
+    this.dockOpen = false;
+    this.root?.classList.remove('is-open');
+    if (this.onDockToggle) this.onDockToggle(false);
+  }
+
+  isDockOpen() {
+    return this.dockOpen;
   }
 
   setResultsToggleHandler(handler) {
-    this.onResultsToggle = handler;
+    this.onDockToggle = handler;
   }
 
   setRowSelectHandler(handler) {
@@ -74,30 +122,25 @@ export class EventTray {
   }
 
   setResultsOpen(open) {
-    this.resultsOpen = Boolean(open);
-    if (this.resultsToggleBtn) {
-      this.resultsToggleBtn.classList.toggle('is-active', this.resultsOpen);
-      this.resultsToggleBtn.setAttribute('aria-pressed', String(this.resultsOpen));
+    if (open) {
+      this.resultsTable?.setOpen(true);
+      this.openDock('RESULTS');
+    } else {
+      this.resultsTable?.setOpen(false);
+      this.closeDock();
     }
-    if (this.resultsHostEl) this.resultsHostEl.hidden = !this.resultsOpen;
-    if (this.ledgerHostEl) this.ledgerHostEl.hidden = this.resultsOpen;
-    this.resultsTable?.setOpen(this.resultsOpen);
   }
 
   isResultsOpen() {
-    return this.resultsOpen;
+    return this.dockOpen && this.activeTab === 'RESULTS';
   }
 
   setMode(mode) {
     this.mode = mode;
-    if (this.titleEl) {
-      this.titleEl.textContent = mode === 'map' ? 'IQAI EXECUTION LEDGER' : 'EVENTS';
-    }
-    if (this.tabsEl) this.tabsEl.hidden = mode === 'map';
     if (mode !== 'map') {
       this.showEmpty('No operational events');
     } else if (!this.lastMapResult) {
-      this.showEmpty('No MAP operations yet');
+      this.showEmpty('No context yet — run a map command to populate results.');
     } else {
       this.setMapLedger(this.lastMapResult);
     }
@@ -106,10 +149,8 @@ export class EventTray {
   showEmpty(message) {
     if (this.emptyEl) {
       this.emptyEl.textContent = message;
-      this.emptyEl.hidden = false;
+      this.emptyEl.hidden = Boolean(this.lastMapResult?.supported);
     }
-    if (this.ledgerHostEl) this.ledgerHostEl.hidden = true;
-    if (this.resultsHostEl) this.resultsHostEl.hidden = true;
   }
 
   operationLabel(cmd) {
@@ -144,8 +185,25 @@ export class EventTray {
     return ids.size;
   }
 
+  getLegendDiagnosticHosts() {
+    return this.resultsTable?.getLegendDiagnosticHosts?.() || null;
+  }
+
   setMapResults(mapResult, options = {}) {
-    this.resultsTable?.setMapResult(mapResult, options);
+    const resultMeta = options.resultMeta || {
+      operation: mapResult?.summary?.spatialOperation,
+      radiusMeters: mapResult?.summary?.radiusMeters,
+      dataset: mapResult?.summary?.dataset
+        || mapResult?.datasetResults?.[0]?.displayName
+    };
+    this.resultsTable?.setMapResult(mapResult, { ...options, resultMeta });
+    if (mapResult) {
+      this.resultsTable?.setOpen(true);
+    }
+    this.resultCount = mapResult?.summary?.matchedFeatures
+      ?? mapResult?.features?.length
+      ?? 0;
+    this.refreshTabBadges();
   }
 
   setCategorySelectHandler(handler) {
@@ -156,12 +214,23 @@ export class EventTray {
     this.resultsTable?.setCategoryToggleHandler(handler);
   }
 
+  setClearResultHandler(handler) {
+    this.resultsTable?.setClearResultHandler(handler);
+  }
+
+  setCategoryFilterHandler(handler) {
+    this.resultsTable?.setCategoryFilterHandler(handler);
+  }
+
+  setCategoryFilterChangeHandler(handler) {
+    this.resultsTable?.setCategoryFilterChangeHandler(handler);
+  }
+
   setOperationalActionHandler(handler) {
     this.resultsTable?.setOperationalActionHandler(handler);
   }
 
   setBackToCategoriesHandler(handler) {
-    // legacy — operational mode uses CATEGORIES button
     void handler;
   }
 
@@ -179,6 +248,7 @@ export class EventTray {
     if (options.viewMode) {
       this.resultsTable?.setViewMode(options.viewMode);
     }
+    this.openDock('RESULTS');
   }
 
   updateVisibilityStatus(visibleCount, totalCount) {
@@ -187,12 +257,12 @@ export class EventTray {
 
   applyOperationalFeaturesModel(model, truncated = false) {
     this.resultsTable?.applyOperationalFeaturesModel(model, truncated);
-    this.setResultsOpen(true);
+    this.openDock('RESULTS');
   }
 
   applyLiveFeedModel(model) {
     this.resultsTable?.applyLiveFeedModel(model);
-    this.setResultsOpen(true);
+    this.openDock('RESULTS');
   }
 
   updateCategorySelection(selectedCategories) {
@@ -205,17 +275,10 @@ export class EventTray {
 
   clearResults() {
     this.resultsTable?.clear();
-    if (this.resultsToggleBtn) {
-      this.resultsToggleBtn.classList.remove('is-active');
-      this.resultsToggleBtn.setAttribute('aria-pressed', 'false');
-    }
-    this.resultsOpen = false;
-    if (this.resultsHostEl) this.resultsHostEl.hidden = true;
-    if (this.ledgerHostEl) this.ledgerHostEl.hidden = false;
   }
 
   highlightResultsRowFromMap(attributes) {
-    if (!this.resultsOpen) return;
+    if (!this.isResultsOpen()) return;
     this.resultsTable?.highlightFromMapAttributes(attributes);
   }
 
@@ -223,22 +286,41 @@ export class EventTray {
   setMapLedger(mapResult) {
     if (!mapResult?.supported) {
       this.lastMapResult = null;
-      this.showEmpty('No MAP operations yet');
+      this.showEmpty('No context yet — run a map command to populate results.');
       this.clearResults();
+      if (this.executionSummaryEl) this.executionSummaryEl.innerHTML = '';
+      if (this.ledgerHostEl) this.ledgerHostEl.innerHTML = '';
       return;
     }
     this.lastMapResult = mapResult;
+    const total = mapResult.summary?.matchedFeatures ?? mapResult.features?.length ?? 0;
+    this.resultCount = total;
+    this.executionReady = true;
+    this.refreshTabBadges();
     if (this.mode !== 'map') return;
 
     const commands = mapResult.summary?.commands || (
       mapResult.summary?.action !== 'COMPOUND' ? [mapResult.summary] : []
     );
-    const total = mapResult.summary?.matchedFeatures ?? mapResult.features?.length ?? 0;
     const opCount = commands.length || mapResult.commandCount || 1;
     const sourceCount = this.uniqueSourceCount(mapResult);
 
     if (this.emptyEl) this.emptyEl.hidden = true;
-    if (this.ledgerHostEl) this.ledgerHostEl.hidden = this.resultsOpen;
+
+    const summaryHtml = `
+      <div class="execution-ledger-summary">
+        <span>CONTROLLED</span>
+        <span>${mapResult.summary?.execution || 'DETERMINISTIC GIS'}</span>
+        <span>${opCount} OPERATIONS</span>
+        <span>${total} RESULTS</span>
+        <span>${sourceCount} VERIFIED SOURCES</span>
+        <span>${mapResult.summary?.unresolved || '0 UNRESOLVED'}</span>
+        <span>AI COST ${mapResult.summary?.aiCost || '$0.00'}</span>
+      </div>`;
+
+    if (this.executionSummaryEl) {
+      this.executionSummaryEl.innerHTML = summaryHtml;
+    }
 
     const rows = commands.map((cmd) => {
       const dataset = cmd.dataset || '—';
@@ -263,15 +345,7 @@ export class EventTray {
     if (this.ledgerHostEl) {
       this.ledgerHostEl.innerHTML = `
         <div class="execution-ledger">
-          <div class="execution-ledger-summary">
-            <span>CONTROLLED</span>
-            <span>DETERMINISTIC GIS</span>
-            <span>${opCount} OPERATIONS</span>
-            <span>${total} RESULTS</span>
-            <span>${sourceCount} VERIFIED SOURCES</span>
-            <span>0 UNRESOLVED</span>
-            <span>AI COST $0.00</span>
-          </div>
+          ${summaryHtml}
           <table class="execution-ledger-table">
             <thead>
               <tr>
@@ -292,46 +366,15 @@ export class EventTray {
 
   clearLedger() {
     this.lastMapResult = null;
+    this.resultCount = 0;
+    this.executionReady = false;
+    this.refreshTabBadges();
     this.clearResults();
     if (this.mode === 'map') {
-      this.showEmpty('No MAP operations yet');
+      this.showEmpty('No context yet — run a map command to populate results.');
     }
+    if (this.executionSummaryEl) this.executionSummaryEl.innerHTML = '';
     if (this.ledgerHostEl) this.ledgerHostEl.innerHTML = '';
-  }
-
-  setSpvmExplorerMode(active) {
-    this.setWorkspaceMode(active ? 'SPVM_CRIME' : 'NONE');
-  }
-
-  /**
-   * @param {string} workspace
-   */
-  setWorkspaceMode(workspace) {
-    const spvm = workspace === 'SPVM_CRIME';
-    if (this.titleEl) {
-      this.titleEl.textContent = spvm ? 'SPVM INTELLIGENCE WORKSPACE' : 'IQAI EXECUTION LEDGER';
-    }
-    if (this.root) this.root.classList.toggle('is-spvm-workspace', spvm);
-    if (this.titleEl) this.titleEl.hidden = spvm;
-    if (this.emptyEl) this.emptyEl.hidden = spvm;
-    if (this.ledgerHostEl) this.ledgerHostEl.hidden = spvm || this.resultsOpen;
-    if (this.spvmExplorerHostEl) this.spvmExplorerHostEl.hidden = !spvm;
-    if (this.resultsToggleBtn) this.resultsToggleBtn.hidden = spvm;
-    if (spvm) {
-      this.setResultsOpen(false);
-    }
-    if (this.spvmPanel?.setVisible) {
-      this.spvmPanel.setVisible(spvm);
-    }
-  }
-
-  setSpvmPanel(panel) {
-    this.spvmPanel = panel;
-  }
-
-  highlightSpvmRowFromMap(attributes) {
-    if (this.spvmPanel?.highlightFromMapAttributes) {
-      this.spvmPanel.highlightFromMapAttributes(attributes);
-    }
+    this.closeDock();
   }
 }

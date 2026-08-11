@@ -423,6 +423,12 @@ export class LabArcgisRuntime {
       return;
     }
 
+    // Filled PDQ choropleth competes with point-density views — keep boundaries/labels only.
+    if (this._activeGisMode === 'heatmap') {
+      this.layer.renderer = this._outlineOnlyPdqRenderer();
+      return;
+    }
+
     this.layer.renderer = this._applyFillPresentation(spec, true, v.pdqBoundaries);
   }
 
@@ -580,15 +586,30 @@ export class LabArcgisRuntime {
       });
 
       await this.spvmLayer.load();
-      applySpvmPresentation(this.spvmLayer, gisMode);
+      applySpvmPresentation(this.spvmLayer, gisMode, features.length);
       this.view.map.add(this.spvmLayer);
       this._lastGisMode = gisMode;
       this.spvmLayer.visible = this.layerVisibility.recentReports !== false;
+      await this.view.whenLayerView(this.spvmLayer);
+      this._syncPdqPresentation();
     }
 
     if ((gisMode === 'grid' && showGrid) && features?.length) {
       await this._buildGridLayer(features, gridResolution);
     }
+  }
+
+  getSpvmDiagnostics() {
+    const layer = this.spvmLayer;
+    return {
+      activeGisMode: this._activeGisMode,
+      featureCount: this._filteredFeatures?.length ?? 0,
+      layerVisible: layer?.visible ?? false,
+      rendererType: layer?.renderer?.type ?? null,
+      featureReductionType: layer?.featureReduction?.type ?? null,
+      maxDensity: layer?.renderer?.maxDensity ?? layer?.featureReduction?.renderer?.maxDensity ?? null,
+      radius: layer?.renderer?.radius ?? layer?.featureReduction?.renderer?.radius ?? null
+    };
   }
 
   /** Hide hover tooltip and disable grid hit-testing outside grid mode. */

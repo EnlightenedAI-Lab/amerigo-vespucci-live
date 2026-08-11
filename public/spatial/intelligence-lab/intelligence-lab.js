@@ -10,6 +10,11 @@ import { LabHistoryChart } from './lab-chart.js';
 import { buildHistoryWithOutlook, OUTLOOK_METHOD, historyWeeksForHorizon, OUTLOOK_END } from './lab-outlook.js';
 import { buildOutlookSummary } from './lab-outlook-summary.js';
 import {
+  isF1CategorySupported,
+  isF1MapMode,
+  buildCategorySupportMatrix
+} from './lab-category-support.js';
+import {
   fetchSpvmGeojsonForLab,
   filterSpvmFeatures,
   dailyCountsForMonth,
@@ -385,12 +390,28 @@ function populateAreaIdOptions() {
   }
 }
 
-function f1SupportedCategory() {
-  return manifest?.f1?.category || manifest?.defaultCategory || 'Vol de véhicule à moteur';
+function isF1CategorySelected() {
+  return isF1CategorySupported(manifest, labState.crimeCategory);
 }
 
-function isF1CategorySelected() {
-  return labState.crimeCategory === f1SupportedCategory();
+function syncF1CoverageUi() {
+  const inF1MapMode = isF1MapMode(labState.visualMode);
+  const f1Ok = isF1CategorySelected();
+
+  els['lab-f1-banner']?.classList.toggle('lab-hidden', !(inF1MapMode && f1Ok && labState.visualMode === 'forecast'));
+
+  const unavailable = els['lab-f1-unavailable'];
+  if (!unavailable) return;
+  if (inF1MapMode && !f1Ok) {
+    const catLabel = categoryLabel(labState.crimeCategory);
+    unavailable.innerHTML =
+      `F1 one-week forecast is not available for ${catLabel}.`
+      + '<span class="map-f1-unavailable__sub">B4 planning outlook remains available below.</span>';
+    unavailable.classList.remove('lab-hidden');
+  } else {
+    unavailable.classList.add('lab-hidden');
+    unavailable.textContent = '';
+  }
 }
 
 function refreshInternalExplainMetadata() {
@@ -656,11 +677,85 @@ function updateForecastChrome() {
   els['app-body']?.classList.toggle('is-forecast-mode', forecast);
   els['chart-drawer']?.classList.toggle('is-forecast-emphasis', forecast);
   els['chart-forecast-strip']?.classList.toggle('lab-hidden', !forecast);
+  els['chart-outlook-summary']?.classList.toggle('lab-hidden', !forecast);
   if (forecast) {
     els['chart-drawer']?.classList.remove('is-collapsed');
     els['chart-toggle']?.setAttribute('aria-expanded', 'true');
+  } else {
+    closeOutlookDerivedPopover();
   }
   syncHorizonTabs();
+}
+
+const OUTLOOK_DERIVED_HELP = {
+  title: 'How the planning outlook is derived',
+  steps: [
+    'Uses the selected crime category and police sector / PDQ (or Montréal total when that chart scope is selected).',
+    'Looks at reported counts from equivalent calendar weeks in prior years in the frozen weekly panel.',
+    'Uses the historical median of those comparable weeks as the outlook for each future week.',
+    'Repeats this process across the selected forecast horizon, including through December 2027 when END 2027 is selected.'
+  ],
+  disclaimer: 'Experimental planning outlook — not an operational forecast.',
+  footnote: 'Ask IQAI for the underlying values for any forecast week.'
+};
+
+let outlookDerivedPopoverOpen = false;
+let outlookDerivedOutsideHandler = null;
+let outlookDerivedEscapeHandler = null;
+
+function closeOutlookDerivedPopover() {
+  const host = els['chart-outlook-summary'];
+  const trigger = host?.querySelector('.outlook-derived-trigger');
+  const popover = host?.querySelector('.outlook-derived-popover');
+  if (!trigger || !popover) {
+    outlookDerivedPopoverOpen = false;
+    return;
+  }
+  popover.classList.add('lab-hidden');
+  trigger.setAttribute('aria-expanded', 'false');
+  outlookDerivedPopoverOpen = false;
+  if (outlookDerivedOutsideHandler) {
+    document.removeEventListener('pointerdown', outlookDerivedOutsideHandler, true);
+    outlookDerivedOutsideHandler = null;
+  }
+  if (outlookDerivedEscapeHandler) {
+    document.removeEventListener('keydown', outlookDerivedEscapeHandler, true);
+    outlookDerivedEscapeHandler = null;
+  }
+}
+
+function bindOutlookDerivedHelp(host) {
+  const trigger = host.querySelector('.outlook-derived-trigger');
+  const popover = host.querySelector('.outlook-derived-popover');
+  if (!trigger || !popover) return;
+
+  const open = () => {
+    popover.classList.remove('lab-hidden');
+    trigger.setAttribute('aria-expanded', 'true');
+    outlookDerivedPopoverOpen = true;
+    popover.focus();
+
+    outlookDerivedOutsideHandler = (event) => {
+      if (!host.contains(event.target)) closeOutlookDerivedPopover();
+    };
+    outlookDerivedEscapeHandler = (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeOutlookDerivedPopover();
+        trigger.focus();
+      }
+    };
+    document.addEventListener('pointerdown', outlookDerivedOutsideHandler, true);
+    document.addEventListener('keydown', outlookDerivedEscapeHandler, true);
+  };
+
+  trigger.addEventListener('click', () => {
+    if (outlookDerivedPopoverOpen) {
+      closeOutlookDerivedPopover();
+    } else {
+      open();
+    }
+  });
 }
 
 function renderChart() {
@@ -700,7 +795,11 @@ function renderChart() {
 function renderOutlookSummary(summary) {
   const host = els['chart-outlook-summary'];
   if (!host || !summary) return;
+  closeOutlookDerivedPopover();
   const fmt = (v) => (v == null ? '—' : `${Number(v).toFixed(1)}`);
+  const steps = OUTLOOK_DERIVED_HELP.steps
+    .map((step, i) => `<li>${i + 1}. ${step}</li>`)
+    .join('');
   host.innerHTML = `
     <div class="outlook-summary__title">${summary.title}</div>
     <div class="outlook-summary__grid">
@@ -709,8 +808,29 @@ function renderOutlookSummary(summary) {
       <div><span class="outlook-summary__label">Direction</span><strong>${summary.direction}${summary.directionPct != null && summary.direction !== '~' ? ` ${Math.abs(Math.round(summary.directionPct))}%` : ''}</strong></div>
     </div>
     <p class="outlook-summary__sentence">${summary.sentence}</p>
-    <p class="outlook-summary__basis">MODEL BASIS — ${summary.modelBasis}</p>
+    <div class="outlook-summary__basis-wrap">
+      <p class="outlook-summary__basis">MODEL BASIS — ${summary.modelBasis}</p>
+      <button
+        type="button"
+        class="outlook-derived-trigger"
+        aria-expanded="false"
+        aria-controls="outlook-derived-popover"
+      >How is this derived?</button>
+      <div
+        id="outlook-derived-popover"
+        class="outlook-derived-popover lab-hidden"
+        role="dialog"
+        aria-labelledby="outlook-derived-title"
+        tabindex="-1"
+      >
+        <p class="outlook-derived-popover__title" id="outlook-derived-title">${OUTLOOK_DERIVED_HELP.title}</p>
+        <ol class="outlook-derived-popover__steps">${steps}</ol>
+        <p class="outlook-derived-popover__disclaimer">${OUTLOOK_DERIVED_HELP.disclaimer}</p>
+        <p class="outlook-derived-popover__footnote">${OUTLOOK_DERIVED_HELP.footnote}</p>
+      </div>
+    </div>
   `;
+  bindOutlookDerivedHelp(host);
 }
 
 function showIntelligenceCard(record) {
@@ -794,7 +914,7 @@ async function loadHistoricalUnderlying() {
 async function updateMapLayers() {
   const mapMode = effectiveMapMode();
   const renderState = { ...labState, visualMode: mapMode };
-  lastMetrics = computeMetricsForMode(store, renderState);
+  lastMetrics = computeMetricsForMode(store, renderState, manifest);
 
   const attrs = {};
   for (const [pdqId, m] of Object.entries(lastMetrics)) {
@@ -866,22 +986,14 @@ async function syncTimeSliderUi() {
 
 async function refreshMap() {
   const mapMode = effectiveMapMode();
-  const f1Modes = ['forecast', 'forecastError', 'modelAdvantage'];
-  els['lab-f1-banner'].classList.toggle('lab-hidden', !f1Modes.includes(labState.visualMode));
-
   const needsComparison = ['deviation', 'baseline', 'persistence', 'bivariate', 'change', 'timeTravel'].includes(mapMode)
     || labState.visualMode === 'timeTravel';
   els['comparison-field'].classList.toggle('lab-hidden', !needsComparison);
 
   els['grid-res-field'].classList.toggle('lab-hidden', labState.gisDisplayMode !== 'grid');
 
-  if (f1Modes.includes(labState.visualMode)) {
-    labState.crimeCategory = manifest.defaultCategory;
-    els['lab-category'].value = labState.crimeCategory;
-    els['lab-category'].disabled = true;
-  } else {
-    els['lab-category'].disabled = false;
-  }
+  els['lab-category'].disabled = false;
+  syncF1CoverageUi();
 
   await updateMapLayers();
   await syncTimeSliderUi();
@@ -1277,6 +1389,7 @@ async function main() {
     onDaySelect: onCalendarDaySelect
   });
   wireEvents();
+  await loadExplainRuntimeConfig();
   await ensureAllSpvmFeatures();
   const savedCase = loadWorkspace();
   if (savedCase?.case?.caseId) {
@@ -1287,7 +1400,9 @@ async function main() {
 
   window.__iqaiIntelligenceLab = {
     state: labState,
+    categorySupport: () => buildCategorySupportMatrix(store, manifest),
     filteredFeatures: () => filteredFeatures,
+    getSpvmDiagnostics: () => runtime.getSpvmDiagnostics(),
     getLayerDiagnostics: () => ({
       pdqVisible: runtime.layer?.visible,
       pdqLabelsVisible: runtime.layer?.labelsVisible,

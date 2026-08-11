@@ -1,9 +1,15 @@
 import 'dotenv/config';
+import { loadSharedProviderEnv } from './spatial/intelligence-layer-shared-env.js';
+
+loadSharedProviderEnv();
+
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { logger, setLogLevel } from './logger.js';
 import { createServer } from './server.js';
 import { createPreviewConfig, createPreviewState } from './demo-map-api.js';
+import { getSpatialRuntimeSnapshot } from './spatial/spatial-runtime-info.js';
+import { POINT_INTELLIGENCE_QUERY_PATH } from './spatial/agent1-spatial-routes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 
@@ -19,7 +25,23 @@ export function startPreviewServer(port = 3000) {
   const state = createPreviewState();
   const server = createServer(state, config, null, { preview: true });
   return server.listen(port, () => {
-    logger.info('Local demo preview listening', { port, url: `http://localhost:${port}` });
+    const runtime = getSpatialRuntimeSnapshot();
+    logger.info('Local demo preview listening', {
+      port,
+      url: `http://localhost:${port}`,
+      agent1SpatialRoutes: [POINT_INTELLIGENCE_QUERY_PATH],
+      spatialRuntime: {
+        agent: runtime.agent,
+        gitHead: runtime.gitHead,
+        gitBranch: runtime.gitBranch,
+        gitDirty: runtime.gitDirty,
+        runtimeBuildId: runtime.runtimeBuildId,
+        spatialSourceFingerprint: runtime.spatialSourceFingerprint,
+        repoPath: runtime.repoPath,
+        processCwdAtStart: runtime.processCwdAtStart,
+        serverPid: runtime.serverPid
+      }
+    });
   });
 }
 

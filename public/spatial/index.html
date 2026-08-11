@@ -3,14 +3,20 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>IQAI Spatial</title>
+  <title>IQAI Spatial — Intelligence</title>
   <script>
     // ArcGIS OAuth app is registered for localhost — not 127.0.0.1 — on port 3000.
     if (location.hostname === '127.0.0.1' && location.port === '3000') {
       location.replace('http://localhost:3000' + location.pathname + location.search);
     }
   </script>
+  <link rel="icon" href="/spatial/assets/iqai-logo.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="https://js.arcgis.com/5.1/esri/themes/light/main.css" />
+  <link rel="stylesheet" href="/spatial/iqai-spatial-tokens.css" />
+  <link rel="stylesheet" href="/spatial/iqai-spatial-brand.css" />
   <link rel="stylesheet" href="/spatial/spatial.css" />
+  <link rel="stylesheet" href="/spatial/iqai-spatial-shell.css" />
+  <link rel="stylesheet" href="/spatial/iqai-results-workspace.css" />
 </head>
 <body>
   <div id="spatial-app"></div>

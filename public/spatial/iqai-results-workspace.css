@@ -1,0 +1,421 @@
+/**
+ * IQAI Spatial — Results workspace (Intelligence Lab family).
+ * Presentation only; does not affect map/GIS architecture.
+ */
+
+.results-table-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+.results-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-height: 0;
+  height: 100%;
+}
+
+/* —— Summary metric cards —— */
+.results-workspace-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+  flex-shrink: 0;
+}
+
+@media (max-width: 900px) {
+  .results-workspace-summary {
+    grid-template-columns: 1fr;
+  }
+}
+
+.results-metric-card {
+  background: #f8fafc;
+  border: 1px solid var(--iqai-border);
+  border-radius: 10px;
+  padding: 0.75rem 0.85rem;
+  min-width: 0;
+}
+
+.results-metric-card__label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--iqai-muted);
+  margin-bottom: 0.25rem;
+}
+
+.results-metric-card__value {
+  font-size: 1.55rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--iqai-text);
+}
+
+.results-metric-card__sub {
+  margin-top: 0.2rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--iqai-text-secondary);
+}
+
+/* —— Workspace header / tabs —— */
+.results-workspace-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--iqai-border);
+}
+
+.results-workspace-tabs {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.results-workspace-tab {
+  border: 1px solid var(--iqai-border);
+  background: var(--iqai-surface);
+  color: var(--iqai-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.45rem 0.85rem;
+  border-radius: var(--iqai-radius-md);
+  cursor: pointer;
+}
+
+.results-workspace-tab:hover {
+  background: var(--iqai-surface-muted);
+  color: var(--iqai-text-secondary);
+}
+
+.results-workspace-tab.is-active {
+  background: var(--iqai-accent-soft);
+  border-color: #bfdbfe;
+  color: #1e40af;
+}
+
+.results-workspace-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.results-workspace-clear {
+  border: 1px solid var(--iqai-border);
+  background: var(--iqai-surface);
+  color: var(--iqai-text-secondary);
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.4rem 0.7rem;
+  border-radius: var(--iqai-radius-sm);
+  cursor: pointer;
+}
+
+.results-workspace-clear:hover {
+  background: var(--iqai-surface-muted);
+}
+
+/* —— Category grid —— */
+.results-categories-pane {
+  flex: 0 0 auto;
+  max-height: min(48vh, 420px);
+  min-height: 0;
+  overflow: auto;
+  padding: 0.15rem 0.1rem 0.5rem;
+}
+
+.results-category-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.65rem;
+}
+
+@media (min-width: 1200px) {
+  .results-category-grid {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  }
+}
+
+.results-category-card {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  text-align: left;
+  border: 1px solid var(--iqai-border);
+  background: var(--iqai-surface);
+  border-radius: 10px;
+  padding: 0.7rem 0.85rem;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+  min-height: 4.25rem;
+}
+
+.results-category-card:hover {
+  border-color: var(--iqai-border-strong);
+  background: #fafbfc;
+  box-shadow: var(--iqai-shadow-sm);
+}
+
+.results-category-card.is-active {
+  border-color: #93c5fd;
+  background: var(--iqai-accent-soft);
+  box-shadow: 0 0 0 1px #bfdbfe;
+}
+
+.results-category-card--all {
+  grid-column: 1 / -1;
+  max-width: 420px;
+}
+
+.results-category-card__symbol {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+.results-category-card__symbol--neutral {
+  display: block;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--iqai-radius-sm);
+  background: linear-gradient(135deg, #e2e8f0 0%, #f1f5f9 100%);
+  border: 1px solid var(--iqai-border);
+}
+
+.results-category-card__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.results-category-card__label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--iqai-text);
+  line-height: 1.25;
+}
+
+.results-category-card__count {
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--iqai-text-secondary);
+}
+
+.results-category-more {
+  margin-top: 0.65rem;
+  border: none;
+  background: transparent;
+  color: var(--iqai-accent);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.25rem 0;
+}
+
+/* —— Features pane —— */
+.results-features-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex: 1;
+  min-height: 0;
+}
+
+.results-features-pane[hidden] {
+  display: none !important;
+}
+
+.results-categories-pane[hidden] {
+  display: none !important;
+}
+
+/* —— Operational toolbar (x-ray) —— */
+.results-table-operational {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+
+.results-table-op-btn {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border: 1px solid var(--iqai-border);
+  background: var(--iqai-surface);
+  color: var(--iqai-text-secondary);
+  padding: 0.35rem 0.6rem;
+  border-radius: var(--iqai-radius-sm);
+  cursor: pointer;
+}
+
+.results-table-op-btn.is-active {
+  background: var(--iqai-accent-soft);
+  border-color: #bfdbfe;
+  color: #1e40af;
+}
+
+.results-table-op-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.results-table-visibility-status {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--iqai-accent);
+}
+
+.results-table-op-hint {
+  font-size: 0.68rem;
+  color: var(--iqai-muted);
+}
+
+/* —— Features table (readable) —— */
+.results-table-toolbar {
+  display: flex;
+  gap: 0.65rem;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.results-table-search {
+  flex: 1;
+  min-width: 140px;
+  max-width: 360px;
+  font-size: 0.88rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--iqai-border);
+  border-radius: var(--iqai-radius-md);
+  background: var(--iqai-surface);
+}
+
+.results-table-meta {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--iqai-muted);
+  white-space: nowrap;
+}
+
+.results-table-scroll {
+  flex: 1;
+  min-height: 120px;
+  max-height: none;
+  overflow: auto;
+  border: 1px solid var(--iqai-border);
+  border-radius: var(--iqai-radius-md);
+  background: var(--iqai-surface);
+}
+
+.results-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.84rem;
+}
+
+.results-table th,
+.results-table td {
+  border-bottom: 1px solid var(--iqai-border);
+  padding: 0.55rem 0.75rem;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.results-table th {
+  position: sticky;
+  top: 0;
+  background: #f8fafc;
+  z-index: 1;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--iqai-muted);
+}
+
+.results-table-sort {
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+
+.results-table-row {
+  cursor: pointer;
+}
+
+.results-table-row:hover {
+  background: #f8fafc;
+}
+
+.results-table-row.is-selected {
+  background: var(--iqai-accent-soft);
+}
+
+.results-table-symbol {
+  width: 22px;
+  height: 22px;
+  display: block;
+}
+
+.results-table-footer {
+  display: flex;
+  gap: 0.65rem;
+  align-items: center;
+  flex-shrink: 0;
+  font-size: 0.82rem;
+  color: var(--iqai-text-secondary);
+}
+
+.results-table-page-prev,
+.results-table-page-next {
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--iqai-border);
+  background: var(--iqai-surface);
+  border-radius: var(--iqai-radius-sm);
+  cursor: pointer;
+}
+
+.results-table-page-prev:disabled,
+.results-table-page-next:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Hide legacy chip strip — replaced by category grid */
+.results-category-strip {
+  display: none !important;
+}
+
+/* Diagnostic panel — dev only, never shown in normal UI */
+.iqai-legend-diagnostic {
+  display: none !important;
+}

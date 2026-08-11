@@ -26,6 +26,23 @@ test('layer panel uses ArcGIS LayerList host not fake layers', async () => {
   assert.doesNotMatch(layerPanel, /VERIFIED GIS/);
 });
 
+test('layer panel toggles use authoritative executeLayerControl contract', async () => {
+  const controller = await readFile(new URL('../public/spatial/shell/layer-panel-controller.js', import.meta.url), 'utf8');
+  assert.match(controller, /operation: input\.checked \? 'SHOW_LAYER' : 'HIDE_LAYER'/);
+  assert.match(controller, /catalogId/);
+  assert.doesNotMatch(controller, /webmapCatalogId/);
+  assert.doesNotMatch(controller, /layer-row__meta/);
+});
+
+test('deterministic map results use a single guaranteed-visible FeatureLayer', async () => {
+  const mapCommand = await readFile(new URL('../public/spatial/spatial-map-command.js', import.meta.url), 'utf8');
+  assert.match(mapCommand, /iqai-deterministic-results/);
+  assert.match(mapCommand, /buildSafeResultRenderer/);
+  assert.match(mapCommand, /buildCleanOsmPopupTemplate/);
+  assert.match(mapCommand, /buildDeterministicResultsLayer/);
+  assert.doesNotMatch(mapCommand, /buildIqaiResultClusterReduction/);
+  assert.doesNotMatch(mapCommand, /buildWebMapScopedFeatureLayer/);
+});
 test('montreal oauth config exposes WebMap item id', async () => {
   const { buildMontrealOAuthPublicConfig } = await import('../src/spatial/montreal-oauth-config.js');
   const cfg = buildMontrealOAuthPublicConfig({

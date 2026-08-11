@@ -1,0 +1,7 @@
+{
+  "schemaVersion": "2.0.0",
+  "operation": "WITHIN",
+  "dataset": "fire_stations",
+  "location": { "type": "address", "text": "997 de la Commune" },
+  "radius": { "value": 3, "unit": "km" }
+}

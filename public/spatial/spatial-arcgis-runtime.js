@@ -9,12 +9,15 @@ import {
 import {
   fetchMontrealOAuthConfig,
   ensureMontrealOAuthRegistered,
+  registerMontrealPreauthTokenIfPresent,
   getMontrealArcgisSession,
   signInToMontrealArcgis,
   buildMontrealUserDiagnostics,
   isMontrealAccessDeniedError,
   formatArcgisOAuthError
 } from './montreal-arcgis-oauth.js';
+import { isUserAddedLayerId, getUserAddedEntry } from './arcgis-data-add-registry.js';
+import { isIntelligenceLayerId } from './intelligence-layer-registry.js';
 
 const ARCGIS_CDN_URL = 'https://js.arcgis.com/5.1/';
 
@@ -366,28 +369,25 @@ async function mountArcgisShellWidgets(view, hosts = {}) {
 
   if (mapControlsHost) {
     mapControlsHost.replaceChildren();
+    mapControlsHost.hidden = true;
+    mapControlsHost.setAttribute('aria-hidden', 'true');
     const [Zoom, Home, Search] = await Promise.all([
       importArc('@arcgis/core/widgets/Zoom.js'),
       importArc('@arcgis/core/widgets/Home.js'),
       importArc('@arcgis/core/widgets/Search.js')
     ]);
 
-    const zoomSlot = document.createElement('div');
-    const homeSlot = document.createElement('div');
-    const searchSlot = document.createElement('div');
-    mapControlsHost.append(zoomSlot, homeSlot, searchSlot);
-
     const zoom = new Zoom({ view });
-    zoom.container = zoomSlot;
+    view.ui.add(zoom, { position: 'top-left', index: 0 });
 
     const home = new Home({ view });
-    home.container = homeSlot;
+    view.ui.add(home, { position: 'top-left', index: 1 });
 
     try {
       const search = new Search({ view });
-      search.container = searchSlot;
+      view.ui.add(search, { position: 'top-left', index: 2 });
     } catch {
-      searchSlot.hidden = true;
+      // Search widget unavailable
     }
   }
 
@@ -454,6 +454,10 @@ async function bootstrapRuntime(mapContainer, options) {
   }
 
   const oauthRegistration = await ensureMontrealOAuthRegistered(oauthConfig);
+  registerMontrealPreauthTokenIfPresent(
+    oauthRegistration.IdentityManager,
+    oauthRegistration.sharingUrl
+  );
 
   emit({ status: 'loading', message: 'Loading Montreal 1 WebMap…' });
 
@@ -561,7 +565,11 @@ async function bootstrapRuntime(mapContainer, options) {
 
 export async function clearRuntimeLayers() {
   if (!webMap) return;
-  const runtimeLayers = webMap.layers.filter((layer) => layer.id?.startsWith('iqai-'));
+  const runtimeLayers = webMap.layers.filter((layer) => (
+    layer.id?.startsWith('iqai-')
+    && !isUserAddedLayerId(layer.id)
+    && !isIntelligenceLayerId(layer.id)
+  ));
   for (const layer of runtimeLayers) {
     webMap.remove(layer);
   }

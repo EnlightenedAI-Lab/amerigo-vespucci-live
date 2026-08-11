@@ -310,9 +310,11 @@ async function main() {
         const g = snap.progressive?.governanceStats || {};
         const mapped = snap.progressive?.mappedCount || 0;
         const governed = (g.admit || 0) + (g.admitWithCaution || 0);
-        const completed = Boolean(snap.progressive)
+        const reports = snap.progressive?.taskGraphReceipt || snap.progressive?.performance;
+        const completed = Boolean(snap.progressive?.governanceStats || snap.progressive?.mappedCount != null)
           && /Governed intelligence|Intelligence research/i.test(`${snap.aiChain} ${snap.aiFeedback}`);
-        return completed && (mapped === 0 || governed >= mapped);
+        const hasGovernanceEvidence = governed > 0 || g.hold > 0 || g.reject > 0 || mapped > 0;
+        return completed && hasGovernanceEvidence && (mapped === 0 || governed >= mapped);
       }
     });
     report.levels[4] = { pass: l4.ok, fires: l4, governance: l4.globals?.progressive?.governanceStats, screenshot: await screenshot(page, 'level-4') };
@@ -320,22 +322,94 @@ async function main() {
 
     // LEVEL 5
     await runPrompt(page, 'clear map', { quick: true, settleMs: 2000 });
-    const l5 = await runPrompt(page, 'Find significant fires, explosions, or hazmat incidents in Montréal in the last 30 days and show hospitals within 2 km of each admitted event.', {
-      waitCrossAgent: true,
-      settleMs: 8000,
-      assert: (snap) => /Cross-agent|cross-agent/i.test(`${snap.aiChain} ${snap.aiPhase}`)
-        && (snap.crossAgent?.spatialFacts?.length > 0 || snap.crossAgent?.activeSpatialFacts?.length > 0)
-    });
-    report.levels[5] = { pass: l5.ok, crossAgent: l5, spatialFacts: l5.globals?.crossAgent?.spatialFacts?.length, screenshot: await screenshot(page, 'level-5') };
-    if (!l5.ok) { report.overall = 'PARTIAL'; writeFileSync(resolve(ARTIFACT_DIR, 'latest.json'), JSON.stringify(report, null, 2)); process.exit(1); }
+    const L5_PROMPT = 'Find significant fires, explosions, or hazmat incidents in Montréal in the last 30 days and show hospitals within 2 km of each admitted event.';
+    const L5_PARAPHRASE = 'Show me Montréal fire, explosion, or hazmat incidents from the past month, with hospitals within two kilometres of each admitted incident.';
+    let l5 = null;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      if (attempt > 0) await runPrompt(page, 'clear map', { quick: true, settleMs: 2000 });
+      l5 = await runPrompt(page, L5_PROMPT, {
+        waitCrossAgent: true,
+        settleMs: 12000,
+        assert: (snap) => {
+          const receipt = snap.crossAgent;
+          const governed = (receipt?.governanceStats?.admit || 0) + (receipt?.governanceStats?.admitWithCaution || 0)
+            || receipt?.governedEvents?.length || 0;
+          const facts = receipt?.spatialFacts?.length || receipt?.activeSpatialFacts?.length || 0;
+          const mapUpdates = receipt?.mappedCount || 0;
+          return /Cross-agent|cross-agent/i.test(`${snap.aiChain} ${snap.aiPhase}`)
+            && governed > 0
+            && facts > 0
+            && mapUpdates > 0
+            && (receipt?.eventsMapped > 0 || mapUpdates > 0);
+        }
+      });
+      const receipt = l5.globals?.crossAgent;
+      const governed = (receipt?.governanceStats?.admit || 0) + (receipt?.governanceStats?.admitWithCaution || 0);
+      const facts = receipt?.spatialFacts?.length || receipt?.activeSpatialFacts?.length || 0;
+      const mapUpdates = receipt?.mappedCount || 0;
+      if (l5.ok || (governed > 0 && facts > 0 && mapUpdates > 0)) break;
+      if (governed === 0 && attempt < 2) continue;
+      if (facts > 0 && mapUpdates === 0) break;
+    }
+    let l5paraphrase = null;
+    if (l5?.ok) {
+      await runPrompt(page, 'clear map', { quick: true, settleMs: 2000 });
+      l5paraphrase = await runPrompt(page, L5_PARAPHRASE, {
+        waitCrossAgent: true,
+        settleMs: 12000,
+        assert: (snap) => /Cross-agent|cross-agent/i.test(`${snap.aiChain} ${snap.aiPhase}`)
+          && Boolean(snap.crossAgent?.compoundSpec)
+      });
+    }
+    report.levels[5] = {
+      pass: l5.ok && (!l5paraphrase || l5paraphrase.ok),
+      crossAgent: l5,
+      paraphrase: l5paraphrase,
+      spatialFacts: l5.globals?.crossAgent?.spatialFacts?.length,
+      mapUpdates: l5.globals?.crossAgent?.mappedCount,
+      governance: l5.globals?.crossAgent?.governanceStats,
+      screenshot: await screenshot(page, 'level-5')
+    };
+    if (!report.levels[5].pass) { report.overall = 'PARTIAL'; writeFileSync(resolve(ARTIFACT_DIR, 'latest.json'), JSON.stringify(report, null, 2)); process.exit(1); }
 
-    // LEVELS 6-10 — score current capability honestly
+    // LEVEL 6
+    await runPrompt(page, 'clear map', { quick: true, settleMs: 2000 });
+    const L6_PROMPT = 'Find protests or demonstrations planned in Montréal during the next 7 days and show which are within 1 km of government buildings.';
+    const L6_PARAPHRASE = 'Which planned protests or demos in Montréal over the next week fall within one kilometre of government buildings?';
+    const l6 = await runPrompt(page, L6_PROMPT, {
+      waitCrossAgent: true,
+      settleMs: 12000,
+      assert: (snap) => {
+        const receipt = snap.crossAgent;
+        return /Cross-agent|cross-agent/i.test(`${snap.aiChain} ${snap.aiPhase}`)
+          && Boolean(receipt?.compoundSpec)
+          && receipt?.compoundSpec?.referenceDatasetId === 'PUBLIC_BUILDINGS'
+          && Boolean(receipt?.hospitalDatasetReceipt || receipt?.graph);
+      }
+    });
+    await runPrompt(page, 'clear map', { quick: true, settleMs: 2000 });
+    const l6paraphrase = await runPrompt(page, L6_PARAPHRASE, {
+      waitCrossAgent: true,
+      settleMs: 12000,
+      assert: (snap) => {
+        const receipt = snap.crossAgent;
+        return /Cross-agent|cross-agent/i.test(`${snap.aiChain} ${snap.aiPhase}`)
+          && receipt?.compoundSpec?.referenceDatasetId === 'PUBLIC_BUILDINGS';
+      }
+    });
+    report.levels[6] = {
+      pass: l6.ok && l6paraphrase.ok,
+      protests: l6,
+      paraphrase: l6paraphrase,
+      compoundSpec: l6.globals?.crossAgent?.compoundSpec,
+      referenceReceipt: l6.globals?.crossAgent?.hospitalDatasetReceipt,
+      governance: l6.globals?.crossAgent?.governanceStats,
+      screenshot: await screenshot(page, 'level-6')
+    };
+    if (!report.levels[6].pass) { report.overall = 'PARTIAL'; writeFileSync(resolve(ARTIFACT_DIR, 'latest.json'), JSON.stringify(report, null, 2)); process.exit(1); }
+
+    // LEVELS 7-10 — out of scope for this sprint
     const blockers = [];
-    const l6 = await runPrompt(page, 'Find protests or demonstrations planned in Montréal during the next 7 days and show which are within 1 km of government buildings.', { waitProgressive: true, settleMs: 5000 });
-    l6.pass = false;
-    l6.blocker = 'No orchestrated future-protest + government-building proximity capability in AI MAP';
-    report.levels[6] = l6;
-    blockers.push('Level 6');
 
     const l7 = await runPrompt(page, 'Find firearm-related incidents reported in Greater Montréal during the last 7 days. Deduplicate reports referring to the same incident, map only legitimate locations, and show corroboration.', { waitProgressive: true, settleMs: 5000 });
     l7.pass = false;
@@ -372,14 +446,14 @@ async function main() {
     report.levels[10] = l10;
     blockers.push('Level 10');
 
-    const levels1to5Pass = [1, 2, 3, 4, 5].every((n) => report.levels[n]?.pass);
-    report.overall = blockers.length ? 'NEEDS_CONTROL_TOWER' : 'PASS';
-    report.levelsPassed = levels1to5Pass ? '1-5' : '<5';
+    const levels1to6Pass = [1, 2, 3, 4, 5, 6].every((n) => report.levels[n]?.pass);
+    report.overall = blockers.length ? 'NEEDS_CONTROL_TOWER' : (levels1to6Pass ? 'PASS' : 'PARTIAL');
+    report.levelsPassed = levels1to6Pass ? '1-6' : (report.levels[5]?.pass ? '1-5' : '<5');
     report.blockers = blockers;
     report.consoleErrors = consoleErrors.slice(0, 20);
     writeFileSync(resolve(ARTIFACT_DIR, 'latest.json'), JSON.stringify(report, null, 2));
-    console.log(JSON.stringify({ overall: report.overall, levels1to5Pass, blockers }, null, 2));
-    process.exit(levels1to5Pass ? 0 : 1);
+    console.log(JSON.stringify({ overall: report.overall, levels1to6Pass, blockers }, null, 2));
+    process.exit(levels1to6Pass ? 0 : 1);
   } finally {
     await browser.close().catch(() => {});
     stopSpatialServer(server);

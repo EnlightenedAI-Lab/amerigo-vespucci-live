@@ -1,0 +1,7 @@
+{
+  "schemaVersion": "1.0.0",
+  "operation": "NEAREST",
+  "dataset": "police_stations",
+  "location": { "type": "address", "text": "997 de la Commune" },
+  "limit": 3
+}

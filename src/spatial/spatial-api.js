@@ -3,6 +3,7 @@ import { parseDestinationConfig } from '../navigation.js';
 
 export function getSpatialPublicConfig(config, options = {}) {
   const destination = parseDestinationConfig(config);
+  const googleMapsBrowserApiKey = String(config.googleMapsBrowserApiKey || '').trim();
   return {
     v2ShellEnabled: config.iqaiV2Enabled === true,
     v2Enabled: config.iqaiV2Enabled === true,
@@ -25,7 +26,13 @@ export function getSpatialPublicConfig(config, options = {}) {
       conditions: config.conditionsLayerId
     },
     modes: ['navigation', 'ocean', 'weather', 'satellite', 'intelligence'],
-    defaultMode: 'navigation'
+    defaultMode: 'navigation',
+    // Browser-restricted Maps JS key only (HTTP referrer restricted). Optional Street View V1.
+    streetLevelContext: {
+      configured: Boolean(googleMapsBrowserApiKey),
+      provider: 'google-street-view',
+      googleMapsBrowserApiKey: googleMapsBrowserApiKey || null
+    }
   };
 }
 

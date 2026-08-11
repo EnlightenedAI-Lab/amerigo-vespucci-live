@@ -10,7 +10,8 @@ export const DATASET_IDS = {
   POLICE_STATIONS: 'POLICE_STATIONS',
   SCHOOLS: 'SCHOOLS',
   HOSPITALS: 'HOSPITALS',
-  TRANSIT: 'TRANSIT'
+  TRANSIT: 'TRANSIT',
+  PUBLIC_BUILDINGS: 'PUBLIC_BUILDINGS'
 };
 
 /** Approximate Island of Montréal bounding box (WGS84). */
@@ -174,6 +175,37 @@ export const VERIFIED_DATASETS = [
       { label: 'Spatial precision', attribute: 'spatialPrecision', defaultValue: 'Deterministic GIS' }
     ],
     provenance: 'STM GTFS stops.txt — bus and metro stop locations'
+  },
+  {
+    id: DATASET_IDS.PUBLIC_BUILDINGS,
+    sourceId: 'MTL_PUBLIC_BUILDINGS_001',
+    displayName: 'Public Buildings',
+    pluralLabel: 'government buildings',
+    aliases: [
+      'government building', 'government buildings', 'public building', 'public buildings',
+      'municipal building', 'municipal buildings', 'government facility', 'government facilities',
+      'points of service', 'points de service', 'bâtiment public', 'batiment public'
+    ],
+    authority: 'Ville de Montréal',
+    publisher: 'Ville de Montréal — Données ouvertes',
+    catalogueUrl: 'https://donnees.montreal.ca/en/dataset/lieux-batiments-vocation-publique',
+    dataUrl: 'https://donnees.montreal.ca/dataset/43146e84-aaed-4552-87bf-e03954b81c20/resource/c58457eb-b4e7-46c4-abce-21137839bcd8/download/lieux-en.geojson',
+    dataFormat: 'geojson',
+    geometryType: 'point',
+    coordinateSystem: 'EPSG:4326',
+    coverage: 'Island of Montréal — public-purpose places and buildings',
+    operationalFilter: 'government_public_building',
+    iqaiType: 'public_building',
+    symbol: getResultSymbol(DATASET_IDS.PUBLIC_BUILDINGS),
+    detailFields: [
+      { label: 'Name', attribute: 'name' },
+      { label: 'Type', attribute: 'buildingType' },
+      { label: 'Address', attribute: 'address' },
+      { label: 'Distance from query', attribute: 'distanceLabel' },
+      { label: 'Source', attribute: 'sourceName' },
+      { label: 'Spatial precision', attribute: 'spatialPrecision', defaultValue: 'Deterministic GIS' }
+    ],
+    provenance: 'Lieux et bâtiments à vocation publique — Ville de Montréal open data (Points of service subset)'
   }
 ];
 

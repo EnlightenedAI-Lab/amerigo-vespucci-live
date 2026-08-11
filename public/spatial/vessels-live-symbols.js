@@ -29,6 +29,12 @@ export async function buildVesselLayerRenderer(importArc) {
     };
     return cachedRenderer;
   } catch (error) {
+    const { recordWebStyleSymbolEvent } = await import('./spatial-auth-native-diagnostic.js');
+    recordWebStyleSymbolEvent('vessels-live-symbols', {
+      styleName: 'Esri2DPointSymbolsStyle',
+      symbolName: 'Ferry',
+      message: error?.message || String(error)
+    });
     console.warn('[IQAI] Esri vessel symbol fetch failed; using fallback marker', error?.message || error);
     cachedRenderer = {
       type: 'simple',

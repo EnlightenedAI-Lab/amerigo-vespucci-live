@@ -8,8 +8,11 @@ import {
   paginateRows,
   getRowCellValue,
   computeMapFeatureIdentity,
+  deriveResultCategoryCounts,
+  buildResultScopedLegend,
   RESULTS_TABLE_PAGE_SIZE
 } from '../public/spatial/results-table-model.js';
+import { getSourcePresentation } from '../public/spatial/source-presentation.js';
 
 const EXTERNAL_RESULT = {
   datasetId: 'concept:AMENITY:bank',
@@ -89,11 +92,12 @@ test('columns derive from actual attributes not hard-coded dataset fields', () =
     datasetResults: [EXTERNAL_RESULT]
   });
   const columnIds = model.columns.map((c) => c.id);
+  const advancedIds = (model.advancedColumns || []).map((c) => c.id);
   assert.ok(columnIds.includes('name'));
-  assert.ok(columnIds.includes('city'));
-  assert.ok(columnIds.includes('operator'));
   assert.ok(columnIds.includes('amenity'));
   assert.ok(!columnIds.includes('stationNumber'));
+  assert.ok(advancedIds.includes('operator') || advancedIds.includes('city'));
+  assert.equal(model.columns.filter((c) => c.defaultVisible).length, 4);
 });
 
 test('missing values render safely', () => {
@@ -149,7 +153,7 @@ test('computeMapFeatureIdentity matches external OBJECTID', () => {
   const feature = EXTERNAL_RESULT.features[0];
   const identity = computeMapFeatureIdentity(EXTERNAL_RESULT, feature, 0, { scopedFallback: 1 });
   assert.equal(identity.mapObjectId, 1000);
-  assert.equal(identity.layerId, 'iqai-concept-AMENITY:bank');
+  assert.equal(identity.layerId, 'iqai-deterministic-results');
 });
 
 test('changing query replaces table model row set', () => {
@@ -166,6 +170,51 @@ test('changing query replaces table model row set', () => {
   assert.equal(bankModel.rows.length, 78);
   assert.equal(pharmacyModel.rows.length, 31);
   assert.notEqual(bankModel.rows[0].datasetId, pharmacyModel.rows[0].datasetId);
+});
+
+test('deriveResultCategoryCounts uses only returned feature categories', () => {
+  const mapResult = {
+    supported: true,
+    action: 'WITHIN',
+    datasetResults: [EXTERNAL_RESULT],
+    summary: { matchedFeatures: 78 }
+  };
+  const summary = deriveResultCategoryCounts(mapResult);
+  assert.equal(summary.field, 'amenity');
+  assert.equal(summary.categories.length, 1);
+  assert.equal(summary.categories[0].value, 'bank');
+  assert.equal(summary.categories[0].count, 78);
+  const model = buildResultsTableModel(mapResult);
+  assert.ok(model.categorySummary);
+  assert.equal(model.categorySummary.categories[0].count, 78);
+});
+
+test('buildResultScopedLegend intersects result categories with source symbols', async () => {
+  const presentation = await getSourcePresentation();
+  const mapResult = {
+    supported: true,
+    action: 'WITHIN',
+    summary: { matchedFeatures: 3 },
+    datasetResults: [{
+      renderMeta: { semanticField: 'amenity' },
+      features: [
+        { rawAttributes: { amenity: 'bench' } },
+        { rawAttributes: { amenity: 'bench' } },
+        { rawAttributes: { amenity: 'restaurant' } }
+      ]
+    }]
+  };
+  const legend = buildResultScopedLegend(mapResult, presentation);
+  assert.equal(legend.field, 'amenity');
+  assert.equal(legend.entries.length, 2);
+  assert.equal(legend.entries.find((entry) => entry.categoryValue === 'bench')?.resultCount, 2);
+  assert.equal(legend.entries.find((entry) => entry.categoryValue === 'restaurant')?.resultCount, 1);
+  assert.ok(legend.entries.every((entry) => entry.symbolUrl));
+  assert.ok(legend.sourceRendererClassCount >= 30);
+  assert.equal(
+    legend.entries.length,
+    deriveResultCategoryCounts(mapResult).categories.length
+  );
 });
 
 test('compound query adds dataset column', () => {

@@ -65,13 +65,27 @@ export async function ensureMontrealOAuthRegistered(oauthConfig) {
 export function registerMontrealPreauthTokenIfPresent(IdentityManager, sharingUrl) {
   const preauth = window.__MONTREAL_PREAUTH_TOKEN;
   if (!preauth?.token) return false;
-  IdentityManager.registerToken({
-    server: sharingUrl,
-    token: preauth.token,
-    expires: preauth.expires || Date.now() + 3600000,
-    ssl: true
-  });
+  const expires = normalizePreauthExpires(preauth.expires);
+  const servers = new Set([
+    sharingUrl,
+    sharingUrl.replace(/\/sharing\/?$/, ''),
+    `${sharingUrl.replace(/\/$/, '')}/rest/services`
+  ].filter(Boolean));
+  for (const server of servers) {
+    IdentityManager.registerToken({
+      server,
+      token: preauth.token,
+      expires,
+      ssl: true
+    });
+  }
   return true;
+}
+
+function normalizePreauthExpires(raw) {
+  const value = Number(raw);
+  if (!Number.isFinite(value)) return Date.now() + 3600000;
+  return value > 1e12 ? value : value * 1000;
 }
 
 export async function getMontrealArcgisSession(IdentityManager, sharingUrl) {

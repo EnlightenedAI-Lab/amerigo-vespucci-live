@@ -10,11 +10,30 @@ import { runArcGISDiagnostics } from './arcgis-diagnostics.js';
 import { getSanitizedCatalog, getSpatialPublicConfig } from './spatial/spatial-api.js';
 import { WpiPortService } from './spatial/wpi-ports.js';
 import { registerIntelligenceLabRoutes } from './spatial/intelligence-lab-routes.js';
+import { registerAgent2IntelligenceRoutes } from './spatial/intelligence-routes-loader.js';
+import {
+  initSpatialRuntimeInfo,
+  getRuntimeInfoResponse,
+  updateClientRuntimeState,
+  buildSpatialIndexHtml
+} from './spatial/spatial-runtime-info.js';
+import {
+  registerAgent1SpatialRoutes,
+  isPointIntelligenceRouteRegistered,
+  arePointIntelligenceRoutesRegistered,
+  POINT_INTELLIGENCE_QUERY_PATH,
+  POINT_INTELLIGENCE_QUERY_BUNDLE_PATH
+} from './spatial/agent1-spatial-routes.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 
 export function createServer(state, config, arcgis, options = {}) {
+  initSpatialRuntimeInfo({
+    preview: options.preview === true,
+    pid: process.pid
+  });
+
   const app = express();
   const mapApi = options.preview
     ? new DemoMapApiService()
@@ -109,6 +128,36 @@ export function createServer(state, config, arcgis, options = {}) {
     res.json(getSpatialPublicConfig(config, { preview: options.preview === true }));
   });
 
+  app.get('/api/spatial/runtime-info', (_req, res) => {
+    res.set('Cache-Control', 'no-store');
+    res.json(getRuntimeInfoResponse());
+  });
+
+  if (options.preview) {
+    app.post('/api/spatial/runtime-info/client-state', (req, res) => {
+      res.set('Cache-Control', 'no-store');
+      const allowed = [
+        'rendererMode',
+        'displayLayerId',
+        'displayLayerTitle',
+        'usesLayerViewFilter',
+        'usesObjectIdFilter',
+        'runtimeFallbackActive',
+        'authoritativeWebMapLayerActive',
+        'iqaiDeterministicResultsActive',
+        'fallbackReason',
+        'authNativeShortReason',
+        'authNativeDiagnostic',
+        'usesObjectIdFilter'
+      ];
+      const partial = {};
+      for (const key of allowed) {
+        if (key in (req.body || {})) partial[key] = req.body[key];
+      }
+      res.json(updateClientRuntimeState(partial));
+    });
+  }
+
   app.get('/api/spatial/catalog', (_req, res) => {
     res.json({ layers: getSanitizedCatalog() });
   });
@@ -170,6 +219,223 @@ export function createServer(state, config, arcgis, options = {}) {
       });
     }
   });
+
+  app.post('/api/spatial/gis-plan/validate', async (req, res) => {
+    res.type('application/json');
+    res.set('Cache-Control', 'no-store');
+    try {
+      const { validateAndAdaptGisPlan } = await import('./spatial/a1-gis-plan-service.js');
+      const { GIS_CAPABILITY_REGISTRY } = await import('./spatial/a1-gis-capability-registry.js');
+      const { formatPlanContractTrail } = await import('./spatial/a1-gis-plan-provenance.js');
+      const context = {
+        previousLocationText: String(req.body?.previousLocationText || '').trim()
+          || String(req.body?.context?.previousLocationText || '').trim()
+          || String(req.body?.conversationState?.lastLocationText || '').trim()
+          || undefined,
+        conversationState: req.body?.conversationState || req.body?.context?.conversationState || null
+      };
+      const processed = validateAndAdaptGisPlan(req.body?.plan ?? req.body, context);
+      const audit = processed.audit || null;
+      res.status(processed.valid ? 200 : 422).json({
+        ...processed,
+        contractVersion: GIS_CAPABILITY_REGISTRY.contractVersion,
+        contractTrail: formatPlanContractTrail(audit)
+      });
+    } catch (error) {
+      res.status(500).json({
+        valid: false,
+        errors: [{ code: 'VALIDATION_ERROR', message: error.message || 'GIS plan validation failed.' }]
+      });
+    }
+  });
+
+  app.post('/api/spatial/gis-plan/execute', async (req, res) => {
+    res.type('application/json');
+    res.set('Cache-Control', 'no-store');
+    try {
+      const { executeValidatedGisPlan } = await import('./spatial/a1-gis-plan-service.js');
+      const { buildMapFromPrompt, clearMapDataCaches } = await import('./spatial/iqai-mapper.js');
+      const { normalizeMapRequestCatalog } = await import('./spatial/webmap-layer-catalog.js');
+      const { GIS_CAPABILITY_REGISTRY } = await import('./spatial/a1-gis-capability-registry.js');
+      const { formatPlanContractTrail } = await import('./spatial/a1-gis-plan-provenance.js');
+      clearMapDataCaches();
+      const context = {
+        previousLocationText: String(req.body?.previousLocationText || '').trim()
+          || String(req.body?.context?.previousLocationText || '').trim()
+          || String(req.body?.conversationState?.lastLocationText || '').trim()
+          || undefined,
+        previousMatchedAddress: String(req.body?.previousMatchedAddress || '').trim()
+          || String(req.body?.context?.previousMatchedAddress || '').trim()
+          || undefined,
+        webmapLayerCatalog: normalizeMapRequestCatalog(req.body?.webmapLayerCatalog || null),
+        conversationState: req.body?.conversationState || req.body?.context?.conversationState || null
+      };
+      const result = await executeValidatedGisPlan(req.body?.plan ?? req.body, context, buildMapFromPrompt);
+      if (!result.valid) {
+        return res.status(422).json({
+          ...result,
+          contractVersion: GIS_CAPABILITY_REGISTRY.contractVersion,
+          contractTrail: formatPlanContractTrail(result.audit)
+        });
+      }
+      res.json({
+        ...result,
+        contractVersion: GIS_CAPABILITY_REGISTRY.contractVersion,
+        contractTrail: formatPlanContractTrail(result.audit)
+      });
+    } catch (error) {
+      res.status(503).json({
+        valid: false,
+        executed: false,
+        supported: false,
+        errors: [{ code: 'EXECUTION_ERROR', message: error.message || 'GIS plan execution failed.' }]
+      });
+    }
+  });
+
+  app.get('/api/spatial/ai-config', async (_req, res) => {
+    res.set('Cache-Control', 'no-store');
+    try {
+      const { getNaturalLanguageGisRuntimeConfig } = await import('./spatial/a1-gis-plan-natural-language-service.js');
+      const { isSemanticFallbackAvailable } = await import('./spatial/spatial-semantic-fallback.js');
+      const semanticFallback = await isSemanticFallbackAvailable();
+      const ai = getNaturalLanguageGisRuntimeConfig();
+      res.json({
+        ai: {
+          ...ai,
+          role: 'GIS_PLAN_CANDIDATE_GENERATOR',
+          governedPath: 'natural-language → envelope → validateGISPlan → adapter → engine'
+        },
+        deterministic: {
+          path: 'deterministic-nlp',
+          semanticFallback,
+          semanticModel: semanticFallback ? 'Xenova/multilingual-e5-small' : null,
+          llmCost: '$0.00'
+        }
+      });
+    } catch (error) {
+      res.status(503).json(sanitizeError(error));
+    }
+  });
+
+  app.post('/api/spatial/ai-map/plan', async (req, res) => {
+    res.type('application/json');
+    res.set('Cache-Control', 'no-store');
+    const prompt = String(req.body?.prompt || req.body?.text || '').trim();
+    if (!prompt) {
+      return res.status(400).json({ status: 'INVALID_MODEL_OUTPUT', message: 'Prompt is required.' });
+    }
+    if (prompt.length > 800) {
+      return res.status(400).json({ status: 'INVALID_MODEL_OUTPUT', message: 'Prompt exceeds maximum length.' });
+    }
+    if (req.body?.alreadyValidated || req.body?.skipValidation) {
+      return res.status(400).json({
+        status: 'INVALID_MODEL_OUTPUT',
+        failureCode: 'TRUST_BYPASS_REJECTED',
+        message: 'Client trust-bypass flags are not permitted.'
+      });
+    }
+    try {
+      const { planNaturalLanguageGISRequest } = await import('./spatial/a1-gis-plan-natural-language-service.js');
+      const { normalizeMapRequestCatalog } = await import('./spatial/webmap-layer-catalog.js');
+      const { formatLiveModelContractTrail } = await import('./spatial/a1-gis-plan-provenance.js');
+      const context = {
+        previousLocationText: String(req.body?.previousLocationText || '').trim()
+          || String(req.body?.conversationState?.lastLocationText || '').trim()
+          || undefined,
+        previousMatchedAddress: String(req.body?.previousMatchedAddress || '').trim()
+          || String(req.body?.conversationState?.lastMatchedAddress || '').trim()
+          || undefined,
+        webmapLayerCatalog: normalizeMapRequestCatalog(req.body?.webmapLayerCatalog || null),
+        conversationState: req.body?.conversationState || null
+      };
+      const result = await planNaturalLanguageGISRequest({ text: prompt, context });
+      const statusCode = result.status === 'VALID_PLAN' ? 200 : 422;
+      res.status(statusCode).json({
+        ...result,
+        gisExecuted: false,
+        contractTrail: formatLiveModelContractTrail(result.audit)
+      });
+    } catch (error) {
+      res.status(503).json({
+        status: 'PROVIDER_ERROR',
+        failureCode: 'MODEL_PROVIDER_ERROR',
+        message: error.message || 'AI MAP planning failed',
+        gisExecuted: false
+      });
+    }
+  });
+
+  app.post('/api/spatial/ai-map', async (req, res) => {
+    res.type('application/json');
+    res.set('Cache-Control', 'no-store');
+    const prompt = String(req.body?.prompt || req.body?.text || '').trim();
+    if (!prompt) {
+      return res.status(400).json({ supported: false, status: 'INVALID_MODEL_OUTPUT', message: 'Prompt is required.' });
+    }
+    if (prompt.length > 800) {
+      return res.status(400).json({ supported: false, status: 'INVALID_MODEL_OUTPUT', message: 'Prompt exceeds maximum length.' });
+    }
+    if (req.body?.alreadyValidated || req.body?.skipValidation) {
+      return res.status(400).json({
+        supported: false,
+        status: 'INVALID_MODEL_OUTPUT',
+        failureCode: 'TRUST_BYPASS_REJECTED',
+        message: 'Client trust-bypass flags are not permitted.'
+      });
+    }
+    try {
+      const { executeNaturalLanguageGISRequest } = await import('./spatial/a1-gis-plan-natural-language-service.js');
+      const { buildMapFromPrompt, clearMapDataCaches } = await import('./spatial/iqai-mapper.js');
+      const { normalizeMapRequestCatalog } = await import('./spatial/webmap-layer-catalog.js');
+      const { formatLiveModelContractTrail } = await import('./spatial/a1-gis-plan-provenance.js');
+      const context = {
+        previousLocationText: String(req.body?.previousLocationText || '').trim()
+          || String(req.body?.conversationState?.lastLocationText || '').trim()
+          || undefined,
+        previousMatchedAddress: String(req.body?.previousMatchedAddress || '').trim()
+          || String(req.body?.conversationState?.lastMatchedAddress || '').trim()
+          || undefined,
+        webmapLayerCatalog: normalizeMapRequestCatalog(req.body?.webmapLayerCatalog || null),
+        conversationState: req.body?.conversationState || null
+      };
+      clearMapDataCaches();
+      const result = await executeNaturalLanguageGISRequest({ text: prompt, context }, buildMapFromPrompt);
+      if (result.status !== 'VALID_PLAN' || !result.supported) {
+        return res.status(422).json({
+          supported: false,
+          ...result,
+          contractTrail: formatLiveModelContractTrail(result.audit)
+        });
+      }
+      res.json({
+        ...result.execution,
+        supported: true,
+        prompt,
+        gisExecuted: true,
+        aiPlan: {
+          requestId: result.requestId,
+          status: result.status,
+          normalizedPlan: result.normalizedPlan,
+          adaptation: result.adaptation,
+          provider: result.provider,
+          model: result.model,
+          planId: result.planId
+        },
+        contractTrail: formatLiveModelContractTrail(result.audit)
+      });
+    } catch (error) {
+      res.status(503).json({
+        supported: false,
+        status: 'PROVIDER_ERROR',
+        failureCode: 'MODEL_PROVIDER_ERROR',
+        message: error.message || 'AI Spatial map generation failed',
+        gisExecuted: false
+      });
+    }
+  });
+
+  registerAgent1SpatialRoutes(app, options);
 
   app.get('/api/spatial/stm/live-buses', async (_req, res) => {
     res.set('Cache-Control', 'no-store');
@@ -383,6 +649,9 @@ export function createServer(state, config, arcgis, options = {}) {
   });
 
   registerIntelligenceLabRoutes(app);
+  void registerAgent2IntelligenceRoutes(app).catch((error) => {
+    console.warn('[IQAI] Agent 2 intelligence routes failed to load:', error?.message || error);
+  });
 
   let diagnosticsCache = { at: 0, data: null };
   app.get('/api/arcgis-diagnostics', async (_req, res) => {
@@ -406,6 +675,27 @@ export function createServer(state, config, arcgis, options = {}) {
     }
   });
 
+  if (options.preview) {
+    const serveSpatialIndex = (_req, res) => {
+      res.set('Cache-Control', 'no-store');
+      res.type('html').send(buildSpatialIndexHtml());
+    };
+    app.get(['/spatial', '/spatial/'], serveSpatialIndex);
+    app.get('/spatial/index.html', serveSpatialIndex);
+  } else {
+    app.get(['/spatial', '/spatial/'], (_req, res) => {
+      res.set('Cache-Control', 'no-store');
+      res.redirect(302, '/spatial/index.html');
+    });
+  }
+
+  app.use('/spatial', (req, res, next) => {
+    if (/\.(js|css|mjs|html)$/i.test(req.path)) {
+      res.set('Cache-Control', 'no-store');
+    }
+    next();
+  });
+
   app.use(express.static(PUBLIC_DIR));
 
   app.get('/', (_req, res) => {
@@ -416,6 +706,12 @@ export function createServer(state, config, arcgis, options = {}) {
     app.get('/api/preview-mode', (_req, res) => {
       res.json({ preview: true, badge: 'LOCAL DEMO DATA' });
     });
+  }
+
+  if (!arePointIntelligenceRoutesRegistered(app)) {
+    throw new Error(
+      `Agent 1 spatial routes missing: ${POINT_INTELLIGENCE_QUERY_PATH} and/or ${POINT_INTELLIGENCE_QUERY_BUNDLE_PATH}`
+    );
   }
 
   return app;

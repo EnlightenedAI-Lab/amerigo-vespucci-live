@@ -10,9 +10,10 @@ import {
 } from '../workspace-geometry.js';
 
 const LIMITS = {
-  left: { min: 140, max: 320, default: 180 },
-  right: { min: 220, max: 420, default: 320 },
-  bottom: { min: 80, max: 280, default: 140 }
+  left: { min: 180, max: 320, default: 240 },
+  right: { min: 280, max: 440, default: 340 },
+  bottom: { min: 140, max: 520, default: 300 },
+  collapsedBar: 40
 };
 
 export class PanelLayout {
@@ -24,7 +25,7 @@ export class PanelLayout {
     this.bottomHeight = LIMITS.bottom.default;
     this.leftCollapsed = false;
     this.rightCollapsed = false;
-    this.bottomCollapsed = false;
+    this.bottomCollapsed = true;
     this.workspaceBottomMode = false;
     this.workspaceKey = null;
     this.workspaceMaximized = false;
@@ -36,6 +37,11 @@ export class PanelLayout {
 
   init() {
     if (!this.shell) return;
+    const viewportDefault = Math.round(window.innerHeight * 0.3);
+    this.bottomHeight = Math.min(
+      LIMITS.bottom.max,
+      Math.max(LIMITS.bottom.min, viewportDefault)
+    );
     this.applyLayout();
     this.bindSplitters();
     window.addEventListener('resize', this._resizeListener);
@@ -197,7 +203,9 @@ export class PanelLayout {
 
   applyLayout() {
     const limits = this.getBottomLimits();
-    let bottomCssHeight = this.bottomCollapsed ? 0 : this.bottomHeight;
+    let bottomCssHeight = this.bottomCollapsed
+      ? LIMITS.collapsedBar
+      : this.bottomHeight;
 
     if (this.workspaceBottomMode && this.workspaceCollapsed && !this.bottomCollapsed) {
       bottomCssHeight = limits.collapsed;

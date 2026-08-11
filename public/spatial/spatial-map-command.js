@@ -9,7 +9,6 @@ import {
   getWebMap,
   importArc
 } from './spatial-arcgis-runtime.js';
-import { getResultSymbol } from './result-symbol-registry.js';
 import { describePopupTemplate } from './agol-feature-details.js';
 import {
   markMapDiagStage,
@@ -18,16 +17,129 @@ import {
   wrapMapCommandError,
   getCurrentMapDiagStage
 } from './map-command-diagnostics.js';
-import { inheritSourceRenderer, sanitizeRendererForScopedLayer, clearPresentationFidelityRecords, getArcgisPresentation, resolveLiveWebMapSourceLayer, inferScopedGeometryTypeFromFeatures, normalizeLayerGeometryType, resolveScopedRenderer, resolveScopedPopup, recordPresentationFidelity } from './source-presentation.js';
+import { clearPresentationFidelityRecords, getSourcePresentation, getOsmNaAmenitiesSourceDef, findWebMapLayerByServiceUrl, hydratePresentationRenderer, isAuthoritativeAmenitiesMapResult, describeAmenitiesSourceEligibility, normalizeRendererClassValue } from './source-presentation.js';
+import { buildSafeResultRenderer } from './iqai-result-renderer.js';
+import { buildCleanOsmPopupTemplate } from './iqai-osm-presentation.js';
+import { getResultSymbol } from './result-symbol-registry.js';
 import { findLayerByIdRecursive } from './runtime-layer-groups.js';
+import { findRuntimeLayerByCatalogId } from './webmap-layer-catalog.js';
+import { recordAuthNativeProvenance } from './a1-runtime-provenance.js';
 import { SPVM_LAYER_ID } from './spvm-recent-crime-config.js';
+import { guardRendererWrite, getActiveCommandId } from './deterministic-command-transaction.js';
+import {
+  publishRendererDisplayState,
+  resetRendererDisplayState,
+  resolveRendererBadgeMode
+} from './spatial-renderer-telemetry.js';
+
+function writeResultRenderer(partial, commandId = getActiveCommandId()) {
+  if (typeof window === 'undefined') return false;
+  if (!guardRendererWrite(commandId, 'result_renderer')) return false;
+  window.__IQAI_RESULT_RENDERER__ = {
+    ...(window.__IQAI_RESULT_RENDERER__ || {}),
+    ...partial,
+    commandId
+  };
+  return true;
+}
+
+function mutateResultRenderer(mutator, commandId = getActiveCommandId()) {
+  if (typeof window === 'undefined' || !window.__IQAI_RESULT_RENDERER__) return false;
+  if (!guardRendererWrite(commandId, 'result_renderer_mutate')) return false;
+  mutator(window.__IQAI_RESULT_RENDERER__);
+  window.__IQAI_RESULT_RENDERER__.commandId = commandId;
+  return true;
+}
+import {
+  beginAuthNativeDiagnostic,
+  recordAuthNativeStage,
+  failAuthNativeDiagnostic,
+  succeedAuthNativeDiagnostic,
+  compareSourceIdentity,
+  listWebMapLayerCandidates
+} from './spatial-auth-native-diagnostic.js';
 
 const RUNTIME_GROUP_ID = 'iqai-map-result';
+export const DETERMINISTIC_RESULTS_LAYER_ID = 'iqai-deterministic-results';
+
+/** @type {import('@arcgis/core/layers/FeatureLayer').default | null} */
+let deterministicResultsLayer = null;
+let deterministicRendererField = 'amenity';
+let deterministicBaseDefinitionExpression = null;
+/** @type {number[] | null} */
+let deterministicBaseObjectIds = null;
+let deterministicUsesLayerViewFilter = false;
+let authNativeActive = false;
+/** @type {import('@arcgis/core/layers/FeatureLayer').default | null} */
+let authoritativeDisplayLayer = null;
+/** @type {Map<string, number[]>} */
+let categoryObjectIdMap = new Map();
+/** @type {{ layer: object, visible: boolean }[]} */
+let authNativeVisibilityRestoreStack = [];
+
+function buildAuthNativeVisibilityRestoreStack(layer) {
+  const stack = [];
+  let current = layer;
+  while (current) {
+    stack.push({ layer: current, visible: Boolean(current.visible) });
+    current = current.parent;
+  }
+  return stack;
+}
+
+function beginAuthNativeVisibilityOverride(sourceLayer) {
+  authNativeVisibilityRestoreStack = buildAuthNativeVisibilityRestoreStack(sourceLayer);
+  for (const entry of authNativeVisibilityRestoreStack) {
+    entry.layer.visible = true;
+  }
+}
+
+function ensureAuthNativeLayersVisible(sourceLayer) {
+  if (!sourceLayer) return;
+  if (!authNativeVisibilityRestoreStack.length) {
+    beginAuthNativeVisibilityOverride(sourceLayer);
+    return;
+  }
+  let current = sourceLayer;
+  while (current) {
+    if (!current.visible) current.visible = true;
+    current = current.parent;
+  }
+}
+
+function restoreAuthNativeVisibilityState() {
+  for (const entry of authNativeVisibilityRestoreStack) {
+    entry.layer.visible = entry.visible;
+  }
+  authNativeVisibilityRestoreStack = [];
+}
+
+function resolveCategoryObjectIds(categoryValue) {
+  if (!categoryValue) return deterministicBaseObjectIds || [];
+  const direct = categoryObjectIdMap.get(categoryValue);
+  if (direct?.length) return direct;
+  const needle = normalizeRendererClassValue(categoryValue);
+  for (const [key, ids] of categoryObjectIdMap.entries()) {
+    if (normalizeRendererClassValue(key) === needle) return ids;
+  }
+  return [];
+}
+
+const MONTREAL_BBOX = {
+  minLat: 45.41,
+  maxLat: 45.70,
+  minLon: -73.98,
+  maxLon: -73.47
+};
 
 /** @type {import('@arcgis/core/core/Handles').Handle[]} */
 let popupWatchHandles = [];
 /** @type {import('@arcgis/core/core/Handles').Handle | null} */
 let clickHandle = null;
+/** @type {boolean} */
+let pointIntelligenceModeEnabled = false;
+/** @type {((point: { longitude: number, latitude: number, event: object }) => (void|Promise<void>)) | null} */
+let pointIntelligenceClickHandler = null;
 /** @type {object | null} */
 let lastClickDiagnostic = null;
 /** @type {object | null} */
@@ -81,6 +193,1121 @@ function isIqaiRuntimeFeatureLayer(layer) {
     return false;
   }
   return layer.type === 'feature';
+}
+
+function isInMontrealArea(longitude, latitude) {
+  if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) return false;
+  return latitude >= MONTREAL_BBOX.minLat
+    && latitude <= MONTREAL_BBOX.maxLat
+    && longitude >= MONTREAL_BBOX.minLon
+    && longitude <= MONTREAL_BBOX.maxLon;
+}
+
+function geometrySampleForFeature(feature, Point, fromJSON) {
+  const coords = featureCoordinates(feature);
+  if (coords) {
+    return {
+      x: coords.longitude,
+      y: coords.latitude,
+      spatialReference: 4326,
+      coordinateKind: 'geographic_lon_lat',
+      inMontreal: isInMontrealArea(coords.longitude, coords.latitude)
+    };
+  }
+  if (!feature.geometry || !fromJSON) return null;
+  try {
+    const geometry = fromJSON(feature.geometry);
+    const wkid = geometry.spatialReference?.wkid ?? geometry.spatialReference?.latestWkid ?? null;
+    const x = geometry.longitude ?? geometry.x;
+    const y = geometry.latitude ?? geometry.y;
+    const geographic = Number.isFinite(geometry.longitude) && Number.isFinite(geometry.latitude);
+    return {
+      x,
+      y,
+      spatialReference: wkid,
+      coordinateKind: geographic ? 'geographic_lon_lat' : 'projected_xy',
+      inMontreal: geographic ? isInMontrealArea(x, y) : null
+    };
+  } catch {
+    return null;
+  }
+}
+
+function graphicForDeterministicFeature(feature, result, fallbackObjectId, Graphic, Point, fromJSON) {
+  const coords = featureCoordinates(feature);
+  let geometry = null;
+  if (coords) {
+    geometry = new Point({
+      longitude: coords.longitude,
+      latitude: coords.latitude,
+      spatialReference: { wkid: 4326 }
+    });
+  } else if (feature.geometry && fromJSON) {
+    try {
+      geometry = fromJSON(feature.geometry);
+    } catch {
+      geometry = null;
+    }
+  }
+  if (!geometry) return null;
+
+  const dataset = {
+    datasetId: result?.datasetId || feature.datasetId,
+    displayName: result?.displayName || feature.sourceName,
+    iqaiType: result?.iqaiType || feature.iqaiType
+  };
+  const raw = feature.rawAttributes || {};
+  const categoryValue = raw.amenity ?? raw.category ?? result?.renderMeta?.semanticValue ?? feature.iqaiType ?? null;
+  const sourceObjectId = feature.objectId ?? raw.OBJECTID ?? raw.ObjectID ?? fallbackObjectId;
+
+  return new Graphic({
+    geometry,
+    attributes: {
+      ...raw,
+      OBJECTID: sourceObjectId,
+      ...featureAttributes(feature, dataset),
+      name: feature.name ?? raw.name ?? raw.name_en ?? raw.name_fr ?? '—',
+      amenity: categoryValue,
+      category: categoryValue,
+      address: feature.address ?? raw.addr_street ?? raw.address ?? '—',
+      conceptId: feature.conceptId || result?.conceptId || null,
+      datasetId: dataset.datasetId || null
+    }
+  });
+}
+
+/**
+ * Collect all deterministic point features into one graphics array.
+ * @param {object} mapResult
+ * @param {{ Graphic: typeof import('@arcgis/core/Graphic'), Point: typeof import('@arcgis/core/geometry/Point'), fromJSON: Function }} modules
+ */
+async function collectDeterministicGraphics(mapResult, modules) {
+  const { Graphic, Point, fromJSON } = modules;
+  const graphics = [];
+  const geometrySamples = [];
+  let objectId = 1;
+  const datasetResults = mapResult.datasetResults || [];
+
+  const pushFeature = (feature, result) => {
+    if (geometrySamples.length < 10) {
+      const sample = geometrySampleForFeature(feature, Point, fromJSON);
+      if (sample) geometrySamples.push(sample);
+    }
+    const graphic = graphicForDeterministicFeature(feature, result, objectId, Graphic, Point, fromJSON);
+    if (!graphic) return;
+    graphics.push(graphic);
+    objectId += 1;
+  };
+
+  if (datasetResults.length) {
+    for (const result of datasetResults) {
+      for (const feature of featuresForDatasetResult(result, mapResult)) {
+        pushFeature(feature, result);
+      }
+    }
+  } else {
+    for (const feature of mapResult.features || []) {
+      pushFeature(feature, {
+        datasetId: feature.datasetId,
+        displayName: mapResult.summary?.dataset
+      });
+    }
+  }
+
+  if (typeof window !== 'undefined') {
+    window.__IQAI_GEOMETRY_SAMPLES__ = geometrySamples;
+  }
+  console.log('[IQAI Deterministic Results] First geometry samples', geometrySamples);
+
+  return { graphics, geometrySamples };
+}
+
+function recordScopedLayerAttempt(partial) {
+  if (typeof window === 'undefined') return;
+  window.__IQAI_SCOPED_LAYER_ATTEMPT__ = {
+    ...(window.__IQAI_SCOPED_LAYER_ATTEMPT__ || {}),
+    ...partial,
+    at: new Date().toISOString()
+  };
+}
+
+function reportDeterministicDisplayState(layer) {
+  const commandId = getActiveCommandId();
+  if (authNativeActive && authoritativeDisplayLayer) {
+    publishRendererDisplayState({
+      commandId,
+      rendererMode: 'AUTH-NATIVE',
+      displayLayerId: authoritativeDisplayLayer.id || null,
+      displayLayerTitle: authoritativeDisplayLayer.title || null,
+      usesLayerViewFilter: true,
+      usesObjectIdFilter: true,
+      runtimeFallbackActive: false,
+      iqaiDeterministicResultsActive: false,
+      authoritativeWebMapLayerActive: true,
+      baseResultObjectIdCount: deterministicBaseObjectIds?.length ?? null,
+      activeObjectIdCount: window.__IQAI_RESULT_RENDERER__?.activeObjectIdCount
+        ?? deterministicBaseObjectIds?.length
+        ?? null,
+      activeCategory: window.__IQAI_RESULT_RENDERER__?.activeCategory ?? null,
+      sourceLayerVisible: Boolean(authoritativeDisplayLayer.visible),
+      layerViewSuspended: window.__IQAI_AUTH_NATIVE_VISIBILITY__?.layerViewSuspended ?? null
+    });
+    return;
+  }
+  if (!layer) {
+    resetRendererDisplayState();
+    return;
+  }
+  const scoped = typeof window !== 'undefined' ? window.__IQAI_SCOPED_LAYER_ATTEMPT__ : null;
+  const renderer = typeof window !== 'undefined' ? window.__IQAI_RESULT_RENDERER__ : null;
+  const rendererMode = resolveRendererBadgeMode(renderer?.mode, scoped);
+  const sourceDef = getOsmNaAmenitiesSourceDef();
+  const webMap = getWebMap();
+  const authLayer = webMap ? findWebMapLayerByServiceUrl(webMap, sourceDef.serviceUrl) : null;
+
+  publishRendererDisplayState({
+    commandId,
+    rendererMode,
+    displayLayerId: layer.id || null,
+    displayLayerTitle: layer.title || null,
+    usesLayerViewFilter: Boolean(deterministicUsesLayerViewFilter),
+    usesObjectIdFilter: Boolean(deterministicUsesLayerViewFilter),
+    runtimeFallbackActive: rendererMode === 'RUNTIME-FALLBACK',
+    iqaiDeterministicResultsActive: layer.id === DETERMINISTIC_RESULTS_LAYER_ID,
+    authoritativeWebMapLayerActive: Boolean(authLayer?.visible),
+    fallbackReason: renderer?.fallbackReason || scoped?.reason || null,
+    authNativeShortReason: typeof window !== 'undefined'
+      ? window.__IQAI_AUTH_NATIVE_DIAGNOSTIC__?.shortCode || null
+      : null
+  });
+}
+
+function buildCategoryObjectIdMap(mapResult, semanticField = 'amenity') {
+  const map = new Map();
+  for (const result of mapResult.datasetResults || []) {
+    for (const feature of featuresForDatasetResult(result, mapResult)) {
+      const raw = feature.rawAttributes || {};
+      const category = raw[semanticField] ?? raw.amenity ?? raw.category ?? feature.iqaiType ?? null;
+      const id = feature.objectId ?? raw.OBJECTID ?? raw.ObjectID;
+      const numericId = Number(id);
+      if (!category || !Number.isFinite(numericId)) continue;
+      const key = String(category);
+      if (!map.has(key)) map.set(key, []);
+      const bucket = map.get(key);
+      if (!bucket.includes(numericId)) bucket.push(numericId);
+    }
+  }
+  return map;
+}
+
+async function verifyObjectIdProvenance(sourceLayer, objectIds, sourceDef) {
+  const objectIdField = sourceLayer.objectIdField || 'OBJECTID';
+  const sampleObjectIds = objectIds.slice(0, 10);
+  const identity = compareSourceIdentity(sourceDef, sourceLayer);
+  const provenance = {
+    ...identity,
+    objectIdField,
+    deterministicObjectIdCount: objectIds.length,
+    sampleObjectIds,
+    sampleExistsOnAuthoritative: null,
+    sampleQueryError: null,
+    sampleFoundCount: null
+  };
+  if (!sampleObjectIds.length) return provenance;
+  try {
+    const result = await sourceLayer.queryFeatures({
+      objectIds: sampleObjectIds,
+      outFields: [objectIdField],
+      returnGeometry: false
+    });
+    const found = new Set();
+    for (const feature of result.features || []) {
+      const attrs = feature.attributes || {};
+      for (const key of [objectIdField, 'OBJECTID', 'ObjectID', 'objectid', 'FID', 'OID']) {
+        if (!key) continue;
+        const id = Number(attrs[key]);
+        if (Number.isFinite(id)) found.add(id);
+      }
+    }
+    provenance.sampleFoundCount = found.size;
+    provenance.sampleExistsOnAuthoritative = sampleObjectIds.some((id) => found.has(Number(id)));
+  } catch (error) {
+    provenance.sampleExistsOnAuthoritative = false;
+    provenance.sampleQueryError = {
+      name: error?.name || 'Error',
+      message: error?.message || String(error)
+    };
+  }
+  if (typeof window !== 'undefined') {
+    window.__IQAI_OBJECTID_PROVENANCE__ = provenance;
+  }
+  return provenance;
+}
+
+async function clearAuthNativeDisplayFilter() {
+  const view = getMapView();
+  const layer = authoritativeDisplayLayer;
+  if (layer && view) {
+    try {
+      const layerView = await view.whenLayerView(layer);
+      layerView.filter = null;
+    } catch {
+      // layer view may already be destroyed
+    }
+  }
+  restoreAuthNativeVisibilityState();
+  authoritativeDisplayLayer = null;
+  authNativeActive = false;
+  categoryObjectIdMap = new Map();
+  if (typeof window !== 'undefined') {
+    window.__IQAI_AUTH_NATIVE_VISIBILITY__ = {
+      cleared: true,
+      at: new Date().toISOString()
+    };
+  }
+}
+
+function resolveAuthoritativeLayerUrl(sourceLayer, sourceDef) {
+  const direct = String(sourceLayer?.url || '').replace(/\/$/, '');
+  if (direct && /\/\d+$/.test(direct)) return direct;
+  const serviceUrl = String(sourceLayer?.url || sourceDef.serviceUrl || '').replace(/\/$/, '');
+  return `${serviceUrl}/${sourceDef.layerId ?? 0}`;
+}
+
+/**
+ * Apply OBJECTID filter via LayerView on the authoritative WebMap layer or fallback layer.
+ * @param {string | null} categoryValue
+ */
+async function applyDeterministicObjectIdFilter(categoryValue = null) {
+  const layer = authNativeActive ? authoritativeDisplayLayer : deterministicResultsLayer;
+  const filterDiag = {
+    authNativeActive,
+    hasLayer: Boolean(layer),
+    usesLayerViewFilter: deterministicUsesLayerViewFilter,
+    baseObjectIdCount: deterministicBaseObjectIds?.length || 0,
+    categoryValue: categoryValue || null
+  };
+  recordAuthNativeStage('filter_enter', filterDiag);
+
+  if (!deterministicUsesLayerViewFilter || !deterministicBaseObjectIds?.length || !layer) {
+    recordAuthNativeStage('filter_precondition_failed', filterDiag);
+    return false;
+  }
+  const view = getMapView();
+  if (!view) {
+    recordAuthNativeStage('filter_map_view_missing', filterDiag);
+    return false;
+  }
+  recordAuthNativeStage('map_view_available', { mapViewReady: true });
+
+  ensureAuthNativeLayersVisible(layer);
+
+  let objectIds = categoryValue ? resolveCategoryObjectIds(categoryValue) : deterministicBaseObjectIds;
+  if (categoryValue && !objectIds.length) {
+    recordAuthNativeStage('category_object_ids_missing', {
+      categoryValue,
+      knownCategories: [...categoryObjectIdMap.keys()]
+    });
+    objectIds = deterministicBaseObjectIds;
+  }
+
+  let layerView;
+  try {
+    layerView = await view.whenLayerView(layer);
+    recordAuthNativeStage('when_layer_view', {
+      ok: true,
+      layerId: layer.id || null,
+      layerTitle: layer.title || null
+    });
+  } catch (error) {
+    recordAuthNativeStage('when_layer_view', {
+      ok: false,
+      layerId: layer.id || null,
+      exception: { name: error?.name, message: error?.message, stack: error?.stack }
+    });
+    throw error;
+  }
+
+  let FeatureFilter;
+  try {
+    FeatureFilter = await importArc('@arcgis/core/layers/support/FeatureFilter.js');
+    recordAuthNativeStage('feature_filter_module', { ok: true });
+  } catch (error) {
+    recordAuthNativeStage('feature_filter_module', {
+      ok: false,
+      exception: { name: error?.name, message: error?.message }
+    });
+    throw error;
+  }
+
+  let filter;
+  try {
+    filter = new FeatureFilter({ objectIds });
+    recordAuthNativeStage('feature_filter_create', {
+      ok: true,
+      objectIdCount: objectIds.length
+    });
+  } catch (error) {
+    recordAuthNativeStage('feature_filter_create', {
+      ok: false,
+      exception: { name: error?.name, message: error?.message }
+    });
+    throw error;
+  }
+
+  try {
+    layerView.filter = filter;
+    const assignedCount = layerView.filter?.objectIds?.length ?? objectIds.length;
+    recordAuthNativeStage('filter_assign', {
+      ok: true,
+      assignedObjectIdCount: assignedCount,
+      sourceLayerVisible: layer.visible,
+      layerViewVisible: layerView.visible,
+      layerViewSuspended: layerView.suspended,
+      activeCategory: categoryValue || null
+    });
+  } catch (error) {
+    recordAuthNativeStage('filter_assign', {
+      ok: false,
+      exception: { name: error?.name, message: error?.message, stack: error?.stack }
+    });
+    throw error;
+  }
+
+  mutateResultRenderer((renderer) => {
+    renderer.usesLayerViewFilter = true;
+    renderer.usesObjectIdFilter = true;
+    renderer.activeCategory = categoryValue || null;
+    renderer.activeObjectIdCount = objectIds.length;
+    renderer.baseResultObjectIdCount = deterministicBaseObjectIds?.length ?? null;
+    renderer.sourceLayerVisible = layer.visible;
+    renderer.layerViewSuspended = layerView.suspended;
+  });
+  if (typeof window !== 'undefined') {
+    window.__IQAI_AUTH_NATIVE_VISIBILITY__ = {
+      sourceLayerVisible: layer.visible,
+      layerViewVisible: layerView.visible,
+      layerViewSuspended: layerView.suspended,
+      filterObjectIdCount: objectIds.length,
+      activeCategory: categoryValue || null,
+      baseResultObjectIdCount: deterministicBaseObjectIds?.length ?? null,
+      visibilityRestoreStackDepth: authNativeVisibilityRestoreStack.length
+    };
+  }
+  return true;
+}
+
+function escapeSqlLiteral(value) {
+  return String(value || '').replace(/'/g, "''");
+}
+
+function cloneArcgisJson(value) {
+  if (value == null) return null;
+  if (typeof value.clone === 'function') return value.clone();
+  if (typeof value.toJSON === 'function') return value.toJSON();
+  return value;
+}
+
+function collectSourceObjectIds(mapResult) {
+  const ids = [];
+  const seen = new Set();
+  const pushId = (id) => {
+    const numericId = Number(id);
+    if (!Number.isFinite(numericId) || seen.has(numericId)) return;
+    seen.add(numericId);
+    ids.push(numericId);
+  };
+  for (const result of mapResult.datasetResults || []) {
+    if (Array.isArray(result.completeObjectIds) && result.completeObjectIds.length) {
+      for (const id of result.completeObjectIds) pushId(id);
+      continue;
+    }
+    const accountingIds = result.resultAccounting?.objectIds;
+    if (Array.isArray(accountingIds) && accountingIds.length) {
+      for (const id of accountingIds) pushId(id);
+      continue;
+    }
+    for (const feature of featuresForDatasetResult(result, mapResult)) {
+      const raw = feature.rawAttributes || {};
+      const id = feature.objectId ?? raw.OBJECTID ?? raw.ObjectID ?? raw.objectid;
+      pushId(id);
+    }
+  }
+  if (!ids.length) {
+    const globalIds = mapResult.resultAccounting?.objectIds;
+    if (Array.isArray(globalIds)) {
+      for (const id of globalIds) pushId(id);
+    }
+  }
+  return ids;
+}
+
+async function resolvePresentationForMapResult(mapResult) {
+  const primary = mapResult.datasetResults?.[0] || null;
+  if (!primary) return null;
+  if (primary.renderMeta?.sourcePresentation) {
+    if (primary.sourceType === 'TRUSTED_EXTERNAL' || primary.sourceId === 'OSM_NA_AMENITIES') {
+      return hydratePresentationRenderer(
+        primary.renderMeta.sourcePresentation,
+        getOsmNaAmenitiesSourceDef()
+      );
+    }
+    return primary.renderMeta.sourcePresentation;
+  }
+  if (primary.sourceType === 'TRUSTED_EXTERNAL' || primary.sourceId === 'OSM_NA_AMENITIES') {
+    return getSourcePresentation(getOsmNaAmenitiesSourceDef());
+  }
+  return null;
+}
+
+/**
+ * AUTH-NATIVE: filter the existing WebMap Amenities FeatureLayer via LayerView.objectIds.
+ * Does not clone layers, renderers, or create iqai-deterministic-results.
+ * @param {object} mapResult
+ */
+async function tryActivateAuthNativeAmenitiesDisplay(mapResult) {
+  beginAuthNativeDiagnostic({ path: 'tryActivateAuthNativeAmenitiesDisplay' });
+
+  const sourceDef = getOsmNaAmenitiesSourceDef();
+  const eligibility = describeAmenitiesSourceEligibility(mapResult, sourceDef);
+  recordAuthNativeStage('source_identity_check', {
+    canonicalSourceUrl: sourceDef.serviceUrl,
+    canonicalLayerId: sourceDef.layerId ?? 0,
+    datasetResults: eligibility
+  });
+
+  if (!isAuthoritativeAmenitiesMapResult(mapResult, sourceDef)) {
+    failAuthNativeDiagnostic('source_identity_mismatch', {
+      failureStage: 'source_identity_check',
+      datasetResultEligibility: eligibility,
+      canonicalSourceUrl: sourceDef.serviceUrl,
+      canonicalLayerId: sourceDef.layerId ?? 0
+    });
+    recordScopedLayerAttempt({
+      attempted: true,
+      success: false,
+      reason: 'source_identity_mismatch',
+      datasetResultEligibility: eligibility
+    });
+    return false;
+  }
+  recordAuthNativeStage('source_identity_check', { ok: true });
+
+  const objectIds = collectSourceObjectIds(mapResult);
+  recordAuthNativeStage('collect_object_ids', {
+    objectIdCount: objectIds.length,
+    sampleObjectIds: objectIds.slice(0, 10)
+  });
+  if (!objectIds.length) {
+    failAuthNativeDiagnostic('no_source_object_ids', {
+      failureStage: 'collect_object_ids',
+      featureCount: mapResult.summary?.matchedFeatures ?? null
+    });
+    recordScopedLayerAttempt({
+      attempted: true,
+      success: false,
+      reason: 'no_source_object_ids',
+      featureCount: mapResult.summary?.matchedFeatures ?? null
+    });
+    return false;
+  }
+
+  recordAuthNativeStage('deterministic_source', {
+    serviceUrl: sourceDef.serviceUrl,
+    layerId: sourceDef.layerId ?? 0,
+    objectIdField: 'OBJECTID',
+    objectIdCount: objectIds.length
+  });
+
+  const webMap = getWebMap();
+  recordAuthNativeStage('webmap_ready', { ok: Boolean(webMap) });
+  const view = getMapView();
+  recordAuthNativeStage('map_view_ready', { ok: Boolean(view) });
+
+  if (!webMap) {
+    failAuthNativeDiagnostic('webmap_not_ready', {
+      failureStage: 'webmap_ready',
+      objectIdCount: objectIds.length
+    });
+    recordScopedLayerAttempt({
+      attempted: true,
+      success: false,
+      reason: 'webmap_not_ready',
+      objectIdCount: objectIds.length
+    });
+    return false;
+  }
+  if (!view) {
+    failAuthNativeDiagnostic('map_view_not_ready', {
+      failureStage: 'map_view_ready',
+      objectIdCount: objectIds.length
+    });
+    recordScopedLayerAttempt({
+      attempted: true,
+      success: false,
+      reason: 'map_view_not_ready',
+      objectIdCount: objectIds.length
+    });
+    return false;
+  }
+
+  const sourceLayer = findWebMapLayerByServiceUrl(webMap, sourceDef.serviceUrl);
+  if (!sourceLayer) {
+    const candidates = listWebMapLayerCandidates(webMap);
+    failAuthNativeDiagnostic('authoritative_webmap_layer_not_found', {
+      failureStage: 'find_webmap_layer',
+      objectIdCount: objectIds.length,
+      targetServiceUrl: sourceDef.serviceUrl,
+      webMapLayerCandidates: candidates
+    });
+    recordScopedLayerAttempt({
+      attempted: true,
+      success: false,
+      reason: 'authoritative_webmap_layer_not_found',
+      objectIdCount: objectIds.length,
+      targetServiceUrl: sourceDef.serviceUrl
+    });
+    return false;
+  }
+
+  recordAuthNativeStage('authoritative_layer_found', {
+    layerId: sourceLayer.id || null,
+    layerTitle: sourceLayer.title || null,
+    layerUrl: sourceLayer.url || sourceLayer.parsedUrl?.path || null,
+    layerType: sourceLayer.type || null
+  });
+
+  try {
+    if (!sourceLayer.loaded) await sourceLayer.load();
+    recordAuthNativeStage('source_layer_loaded', {
+      ok: true,
+      objectIdField: sourceLayer.objectIdField || 'OBJECTID',
+      loaded: sourceLayer.loaded
+    });
+  } catch (error) {
+    failAuthNativeDiagnostic('source_layer_load_failed', {
+      failureStage: 'source_layer_load',
+      objectIdCount: objectIds.length,
+      layerId: sourceLayer.id || null,
+      layerTitle: sourceLayer.title || null
+    }, error);
+    recordScopedLayerAttempt({
+      attempted: true,
+      success: false,
+      reason: 'source_layer_load_failed',
+      message: error?.message || String(error),
+      objectIdCount: objectIds.length
+    });
+    return false;
+  }
+
+  const identity = compareSourceIdentity(sourceDef, sourceLayer);
+  recordAuthNativeStage('source_identity_compare', identity);
+
+  return finalizeAuthNativeLayerViewActivation(mapResult, sourceLayer, sourceDef, objectIds, {
+    semanticField: sourceDef.semanticField || 'amenity',
+    buildCategoryMap: true
+  });
+}
+
+function resolvePrimaryWebMapDatasetResult(mapResult) {
+  return (mapResult.datasetResults || []).find((result) => (
+    result.sourceType === 'CURRENT_WEBMAP'
+    && (result.webmapLayer?.catalogId || result.dataUrl || result.catalogueUrl)
+  )) || null;
+}
+
+/**
+ * AUTH-NATIVE for non-amenities WebMap FeatureLayers (e.g. Fire Stations).
+ * @param {object} mapResult
+ * @param {object} primary
+ */
+async function tryActivateAuthNativeWebMapLayerDisplay(mapResult, primary) {
+  beginAuthNativeDiagnostic({
+    path: 'tryActivateAuthNativeWebMapLayerDisplay',
+    dataset: primary.displayName || primary.webmapLayer?.title || null
+  });
+
+  const webmapLayer = primary.webmapLayer || {};
+  const sourceDef = {
+    serviceUrl: webmapLayer.url || primary.dataUrl || primary.catalogueUrl || null,
+    layerId: webmapLayer.layerId ?? 0,
+    semanticField: primary.renderMeta?.semanticField || primary.provenance?.semanticField || null
+  };
+
+  recordAuthNativeStage('webmap_source_identity', {
+    catalogId: webmapLayer.catalogId || null,
+    serviceUrl: sourceDef.serviceUrl,
+    layerId: sourceDef.layerId
+  });
+
+  const objectIds = collectSourceObjectIds(mapResult);
+  recordAuthNativeStage('collect_object_ids', {
+    objectIdCount: objectIds.length,
+    sampleObjectIds: objectIds.slice(0, 10)
+  });
+  recordAuthNativeProvenance({
+    dataset: primary.displayName || primary.webmapLayer?.title || null,
+    catalogId: webmapLayer.catalogId || null,
+    layerTitle: webmapLayer.title || null,
+    serviceUrl: sourceDef.serviceUrl,
+    layerId: sourceDef.layerId,
+    rowDerivedObjectIdCount: objectIds.length,
+    activationResult: null
+  });
+  if (!objectIds.length) {
+    recordAuthNativeProvenance({
+      dataset: primary.displayName || primary.webmapLayer?.title || null,
+      catalogId: webmapLayer.catalogId || null,
+      activationResult: false,
+      failureReason: 'no_source_object_ids',
+      rowDerivedObjectIdCount: 0
+    });
+    failAuthNativeDiagnostic('no_source_object_ids', {
+      failureStage: 'collect_object_ids',
+      featureCount: mapResult.summary?.matchedFeatures ?? null
+    });
+    recordScopedLayerAttempt({
+      attempted: true,
+      success: false,
+      reason: 'no_source_object_ids',
+      featureCount: mapResult.summary?.matchedFeatures ?? null
+    });
+    return false;
+  }
+
+  const webMap = getWebMap();
+  const view = getMapView();
+  if (!webMap) {
+    failAuthNativeDiagnostic('webmap_not_ready', { failureStage: 'webmap_ready', objectIdCount: objectIds.length });
+    return false;
+  }
+  if (!view) {
+    failAuthNativeDiagnostic('map_view_not_ready', { failureStage: 'map_view_ready', objectIdCount: objectIds.length });
+    return false;
+  }
+
+  let sourceLayer = webmapLayer.catalogId
+    ? findRuntimeLayerByCatalogId(webmapLayer.catalogId)
+    : null;
+  if (!sourceLayer && sourceDef.serviceUrl) {
+    sourceLayer = findWebMapLayerByServiceUrl(webMap, sourceDef.serviceUrl);
+  }
+  if (!sourceLayer) {
+    failAuthNativeDiagnostic('authoritative_webmap_layer_not_found', {
+      failureStage: 'find_webmap_layer',
+      objectIdCount: objectIds.length,
+      targetServiceUrl: sourceDef.serviceUrl,
+      catalogId: webmapLayer.catalogId || null,
+      webMapLayerCandidates: listWebMapLayerCandidates(webMap)
+    });
+    return false;
+  }
+
+  recordAuthNativeStage('authoritative_layer_found', {
+    layerId: sourceLayer.id || null,
+    layerTitle: sourceLayer.title || null,
+    layerUrl: sourceLayer.url || sourceLayer.parsedUrl?.path || null,
+    layerType: sourceLayer.type || null
+  });
+
+  try {
+    if (!sourceLayer.loaded) await sourceLayer.load();
+    sourceDef.serviceUrl = sourceLayer.url || sourceLayer.parsedUrl?.path || sourceDef.serviceUrl;
+    sourceDef.layerId = sourceLayer.layerId ?? sourceDef.layerId ?? 0;
+    recordAuthNativeStage('source_layer_loaded', {
+      ok: true,
+      objectIdField: sourceLayer.objectIdField || 'OBJECTID',
+      loaded: sourceLayer.loaded
+    });
+    recordAuthNativeProvenance({
+      dataset: primary.displayName || primary.webmapLayer?.title || null,
+      catalogId: webmapLayer.catalogId || null,
+      layerTitle: sourceLayer.title || webmapLayer.title || null,
+      serviceUrl: sourceLayer.url || sourceLayer.parsedUrl?.path || sourceDef.serviceUrl,
+      objectIdField: sourceLayer.objectIdField || 'OBJECTID',
+      rowDerivedObjectIdCount: objectIds.length
+    });
+  } catch (error) {
+    failAuthNativeDiagnostic('source_layer_load_failed', {
+      failureStage: 'source_layer_load',
+      objectIdCount: objectIds.length,
+      layerId: sourceLayer.id || null,
+      layerTitle: sourceLayer.title || null
+    }, error);
+    return false;
+  }
+
+  const identity = compareSourceIdentity(sourceDef, sourceLayer);
+  recordAuthNativeStage('source_identity_compare', identity);
+
+  const semanticField = sourceDef.semanticField || sourceLayer.displayField || 'OBJECTID';
+  return finalizeAuthNativeLayerViewActivation(mapResult, sourceLayer, sourceDef, objectIds, {
+    semanticField,
+    buildCategoryMap: Boolean(mapResult.categorySummary?.categories?.length)
+  });
+}
+
+async function resolveRendererClassCount(layer, sourceDef = null) {
+  const infos = layer?.renderer?.uniqueValueInfos;
+  if (Array.isArray(infos) && infos.length) return infos.length;
+  if (infos?.length > 0) return infos.length;
+  if (layer?.renderer?.type === 'simple') return 1;
+
+  const serviceUrl = sourceDef?.serviceUrl || layer?.url || layer?.parsedUrl?.path || null;
+  if (!serviceUrl) return 0;
+  try {
+    const layerId = sourceDef?.layerId ?? layer?.layerId ?? 0;
+    const normalized = String(serviceUrl).replace(/\/$/, '');
+    const metadataUrl = /\/\d+$/.test(normalized)
+      ? `${normalized}?f=json`
+      : `${normalized}/${layerId}?f=json`;
+    const response = await fetch(metadataUrl);
+    if (!response.ok) return 0;
+    const data = await response.json();
+    const renderer = data?.drawingInfo?.renderer;
+    return renderer?.uniqueValueInfos?.length ?? (renderer?.type === 'simple' ? 1 : 0);
+  } catch {
+    return 0;
+  }
+}
+
+async function seedCategorySummaryFromLayerRenderer(mapResult, layer, sourceDef = null, semanticField = 'amenity') {
+  const classCount = await resolveRendererClassCount(layer, sourceDef);
+  if (!classCount) return;
+  mapResult.categorySummary = {
+    ...(mapResult.categorySummary || {}),
+    field: semanticField,
+    rawDistinctCategoryCount: classCount,
+    categories: mapResult.categorySummary?.categories || [],
+    totalCount: mapResult.categorySummary?.totalCount
+      ?? mapResult.summary?.matchedFeatures
+      ?? mapResult.resultAccounting?.totalMatchingObjectIds
+      ?? null
+  };
+}
+
+/**
+ * Shared AUTH-NATIVE LayerView.objectIds activation after source layer is resolved.
+ * @param {object} mapResult
+ * @param {object} sourceLayer
+ * @param {object} sourceDef
+ * @param {number[]} objectIds
+ * @param {{ semanticField?: string, buildCategoryMap?: boolean }} options
+ */
+async function finalizeAuthNativeLayerViewActivation(mapResult, sourceLayer, sourceDef, objectIds, options = {}) {
+  const semanticField = options.semanticField || sourceDef.semanticField || 'amenity';
+  await seedCategorySummaryFromLayerRenderer(mapResult, sourceLayer, sourceDef, semanticField);
+  const provenance = await verifyObjectIdProvenance(sourceLayer, objectIds, sourceDef);
+  recordAuthNativeStage('objectid_provenance', provenance);
+  if (provenance.sampleExistsOnAuthoritative === false) {
+    failAuthNativeDiagnostic('result_objectids_not_from_source_layer', {
+      failureStage: 'objectid_provenance',
+      objectIdCount: objectIds.length,
+      sampleObjectIds: provenance.sampleObjectIds,
+      sampleQueryError: provenance.sampleQueryError || null,
+      identityMatch: provenance.identityMatch
+    });
+    recordScopedLayerAttempt({
+      attempted: true,
+      success: false,
+      reason: 'result_objectids_not_from_source_layer',
+      objectIdCount: objectIds.length,
+      sampleObjectIds: provenance.sampleObjectIds
+    });
+    return false;
+  }
+
+  categoryObjectIdMap = options.buildCategoryMap
+    ? buildCategoryObjectIdMap(mapResult, semanticField)
+    : new Map();
+  deterministicBaseObjectIds = objectIds;
+  deterministicBaseDefinitionExpression = null;
+  deterministicUsesLayerViewFilter = true;
+  deterministicRendererField = semanticField;
+  authNativeActive = true;
+  authoritativeDisplayLayer = sourceLayer;
+
+  beginAuthNativeVisibilityOverride(sourceLayer);
+  recordAuthNativeStage('auth_native_state_armed', {
+    authNativeActive: true,
+    layerVisible: sourceLayer.visible,
+    visibilityRestoreStackDepth: authNativeVisibilityRestoreStack.length,
+    previousSourceLayerVisible: authNativeVisibilityRestoreStack[0]?.visible ?? null
+  });
+
+  try {
+    const filterOk = await applyDeterministicObjectIdFilter(null);
+    if (!filterOk) {
+      authNativeActive = false;
+      authoritativeDisplayLayer = null;
+      deterministicBaseObjectIds = null;
+      deterministicUsesLayerViewFilter = false;
+      failAuthNativeDiagnostic('filter_apply_returned_false', {
+        failureStage: 'apply_filter',
+        objectIdCount: objectIds.length
+      });
+      recordScopedLayerAttempt({
+        attempted: true,
+        success: false,
+        reason: 'layer_view_filter_failed',
+        message: 'applyDeterministicObjectIdFilter returned false',
+        objectIdCount: objectIds.length
+      });
+      return false;
+    }
+  } catch (error) {
+    authNativeActive = false;
+    authoritativeDisplayLayer = null;
+    deterministicBaseObjectIds = null;
+    deterministicUsesLayerViewFilter = false;
+    const stage = String(error?.message || '').includes('filter')
+      ? 'filter_assign_failed'
+      : 'when_layer_view_failed';
+    failAuthNativeDiagnostic('layer_view_filter_failed', {
+      failureStage: stage,
+      objectIdCount: objectIds.length,
+      sourceLayerId: sourceLayer.id || null,
+      sourceLayerTitle: sourceLayer.title || null
+    }, error);
+    recordScopedLayerAttempt({
+      attempted: true,
+      success: false,
+      reason: 'layer_view_filter_failed',
+      message: error?.message || String(error),
+      objectIdCount: objectIds.length,
+      sourceLayerId: sourceLayer.id || null,
+      sourceLayerTitle: sourceLayer.title || null
+    });
+    return false;
+  }
+
+  const identity = compareSourceIdentity(sourceDef, sourceLayer);
+  succeedAuthNativeDiagnostic({
+    objectIdCount: objectIds.length,
+    sourceLayerId: sourceLayer.id || null,
+    sourceLayerTitle: sourceLayer.title || null,
+    filterMethod: 'layerView.objectIds',
+    identityMatch: identity.identityMatch
+  });
+
+  recordScopedLayerAttempt({
+    attempted: true,
+    success: true,
+    reason: 'auth_native_layer_view',
+    objectIdCount: objectIds.length,
+    filterMethod: 'layerView.objectIds',
+    sourceLayerId: sourceLayer.id || null,
+    sourceLayerTitle: sourceLayer.title || null,
+    objectIdProvenanceMatch: provenance.sampleExistsOnAuthoritative
+  });
+
+  writeResultRenderer({
+    mode: 'auth_native',
+    field: deterministicRendererField,
+    usesLayerViewFilter: true,
+    usesObjectIdFilter: true,
+    rendererCloned: false,
+    rendererReconstructed: false,
+    rendererMutated: false,
+    sourceLayerTitle: sourceLayer.title || null,
+    sourceLayerId: sourceLayer.id || null,
+    sourceLayerUrl: sourceLayer.url || sourceDef.serviceUrl,
+    displayLayerId: sourceLayer.id || null,
+    displayLayerTitle: sourceLayer.title || null,
+    baseResultObjectIdCount: objectIds.length,
+    activeObjectIdCount: objectIds.length,
+    activeCategory: null,
+    runtimeFallbackActive: false,
+    iqaiDeterministicResultsActive: false
+  });
+
+  markMapDiagStage('auth_native_layer_view_active', {
+    layerId: sourceLayer.id,
+    layerTitle: sourceLayer.title,
+    objectIdCount: objectIds.length,
+    filterMethod: 'layerView.objectIds'
+  });
+
+  reportDeterministicDisplayState(null);
+  return true;
+}
+
+function curatedSymbolForDatasetResult(result) {
+  if (result?.renderMeta?.symbol) return result.renderMeta.symbol;
+  const datasetId = result?.datasetId;
+  if (!datasetId || String(datasetId).startsWith('concept:')) return null;
+  try {
+    return getResultSymbol(datasetId);
+  } catch {
+    return null;
+  }
+}
+
+function isOsmMapResult(mapResult) {
+  return (mapResult.datasetResults || []).some((result) => (
+    result.sourceType === 'TRUSTED_EXTERNAL' || result.sourceId === 'OSM_NA_AMENITIES'
+  ));
+}
+
+/**
+ * One dedicated client-side FeatureLayer for all deterministic point query results.
+ */
+async function buildDeterministicResultsLayer(mapResult, modules) {
+  deterministicBaseDefinitionExpression = null;
+  deterministicBaseObjectIds = null;
+  deterministicUsesLayerViewFilter = false;
+  authNativeActive = false;
+  authoritativeDisplayLayer = null;
+  categoryObjectIdMap = new Map();
+  authNativeVisibilityRestoreStack = [];
+  deterministicResultsLayer = null;
+  recordScopedLayerAttempt({ attempted: false, success: null, reason: 'pending' });
+
+  const osmAmenitiesSourceDef = getOsmNaAmenitiesSourceDef();
+  let authNativeReady = false;
+  if (isAuthoritativeAmenitiesMapResult(mapResult, osmAmenitiesSourceDef)) {
+    authNativeReady = await tryActivateAuthNativeAmenitiesDisplay(mapResult);
+  } else {
+    const webmapPrimary = resolvePrimaryWebMapDatasetResult(mapResult);
+    if (webmapPrimary) {
+      authNativeReady = await tryActivateAuthNativeWebMapLayerDisplay(mapResult, webmapPrimary);
+    }
+  }
+  if (authNativeReady) {
+    return null;
+  }
+
+  const attempt = typeof window !== 'undefined' ? window.__IQAI_SCOPED_LAYER_ATTEMPT__ : null;
+  const { FeatureLayer } = modules;
+  const { graphics, geometrySamples } = await collectDeterministicGraphics(mapResult, modules);
+  if (!graphics.length) return null;
+
+  const primary = mapResult.datasetResults?.[0] || null;
+  const presentation = await resolvePresentationForMapResult(mapResult);
+  const semanticField = primary?.renderMeta?.semanticField
+    || primary?.provenance?.semanticField
+    || presentation?.semanticField
+    || 'amenity';
+  const curatedSymbol = primary ? curatedSymbolForDatasetResult(primary) : null;
+
+  const rendererResolution = buildSafeResultRenderer({
+    presentation,
+    graphics,
+    semanticField,
+    curatedSymbol
+  });
+  deterministicRendererField = rendererResolution.field || semanticField;
+
+  markMapDiagStage('deterministic_graphics_built', {
+    graphicsCount: graphics.length,
+    inputFeatureCount: mapResult.summary?.matchedFeatures ?? graphics.length,
+    geometrySamples,
+    rendererMode: rendererResolution.mode,
+    rendererField: deterministicRendererField,
+    rendererValidation: rendererResolution.validation
+  });
+
+  if (typeof window !== 'undefined') {
+    const diag = window.__IQAI_AUTH_NATIVE_DIAGNOSTIC__;
+    writeResultRenderer({
+      ...rendererResolution,
+      mode: 'runtime-fallback',
+      fallbackReason: attempt?.reason || diag?.failureReason || 'auth_native_unavailable',
+      authNativeShortReason: diag?.shortCode || null,
+      fallbackMessage: attempt?.message || diag?.exception?.message || null,
+      rendererCloned: false,
+      rendererReconstructed: true,
+      rendererMutated: true,
+      runtimeFallbackActive: true,
+      iqaiDeterministicResultsActive: true,
+      activeObjectIdCount: mapResult.summary?.matchedFeatures ?? graphics.length,
+      baseResultObjectIdCount: mapResult.summary?.matchedFeatures ?? graphics.length
+    });
+  }
+
+  const popupTemplate = isOsmMapResult(mapResult)
+    ? buildCleanOsmPopupTemplate()
+    : {
+      title: '{name}',
+      outFields: ['*'],
+      content: [{
+        type: 'fields',
+        fieldInfos: [
+          { fieldName: 'name', label: 'Name' },
+          { fieldName: 'address', label: 'Address' },
+          { fieldName: 'distanceLabel', label: 'Distance' },
+          { fieldName: 'sourceName', label: 'Source' }
+        ]
+      }]
+    };
+
+  const layer = new FeatureLayer({
+    id: DETERMINISTIC_RESULTS_LAYER_ID,
+    title: 'IQAI Deterministic Results',
+    source: graphics,
+    objectIdField: 'OBJECTID',
+    fields: featureLayerFields(),
+    geometryType: 'point',
+    spatialReference: { wkid: 4326 },
+    renderer: rendererResolution.renderer,
+    visible: true,
+    opacity: 1,
+    minScale: 0,
+    maxScale: 0,
+    listMode: 'hide',
+    popupEnabled: true,
+    popupTemplate
+  });
+
+  await layer.load();
+  deterministicResultsLayer = layer;
+  markMapDiagStage('deterministic_layer_loaded', {
+    layerId: layer.id,
+    sourceFeatureCount: graphics.length,
+    loadStatus: layer.loadStatus,
+    rendererType: layer.renderer?.type,
+    rendererMode: rendererResolution.mode
+  });
+  reportDeterministicDisplayState(layer);
+  return layer;
+}
+
+/**
+ * Client-side category filter on the deterministic results layer (presentation only).
+ * @param {string | null} categoryValue
+ */
+export async function setDeterministicResultsCategoryFilter(categoryValue) {
+  if (authNativeActive && authoritativeDisplayLayer) {
+    await applyDeterministicObjectIdFilter(categoryValue || null);
+    reportDeterministicDisplayState(null);
+    return;
+  }
+
+  const layer = deterministicResultsLayer || getWebMap()?.findLayerById(DETERMINISTIC_RESULTS_LAYER_ID);
+  if (!layer) return;
+
+  if (deterministicUsesLayerViewFilter && deterministicBaseObjectIds?.length) {
+    await applyDeterministicObjectIdFilter(categoryValue || null);
+    return;
+  }
+
+  const field = deterministicRendererField || 'amenity';
+  if (!categoryValue) {
+    layer.definitionExpression = deterministicBaseDefinitionExpression || null;
+    mutateResultRenderer((renderer) => {
+      renderer.activeCategory = null;
+      renderer.activeObjectIdCount = renderer.baseResultObjectIdCount ?? null;
+    });
+    return;
+  }
+  const categoryExpr = `${field} = '${escapeSqlLiteral(categoryValue)}'`;
+  layer.definitionExpression = deterministicBaseDefinitionExpression
+    ? `(${deterministicBaseDefinitionExpression}) AND (${categoryExpr})`
+    : categoryExpr;
+  mutateResultRenderer((renderer) => {
+    renderer.activeCategory = categoryValue;
+  });
 }
 
 function layerSourceFeatureCount(layer) {
@@ -203,18 +1430,45 @@ export async function inspectWebMapFeatureLayers() {
 }
 
 async function inspectIqaiRuntimeLayer(layer, view) {
+  const webMap = getWebMap();
   const entry = {
+    layerId: layer.id,
     popupEnabled: layer.popupEnabled,
     popupTemplateExists: Boolean(layer.popupTemplate),
     objectIdField: layer.objectIdField,
     sourceFeatureCount: layerSourceFeatureCount(layer),
     loaded: layer.loaded,
-    visible: layer.visible
+    visible: layer.visible,
+    opacity: layer.opacity,
+    minScale: layer.minScale,
+    maxScale: layer.maxScale,
+    rendererType: layer.renderer?.type || null,
+    featureReductionType: layer.featureReduction?.type || null,
+    loadError: layer.loadError?.message || null,
+    mapLayersIncludes: Boolean(webMap?.layers?.includes?.(layer))
   };
   if (view) {
     try {
       const layerView = await view.whenLayerView(layer);
       entry.layerViewExists = Boolean(layerView);
+      entry.suspended = layerView?.suspended;
+      entry.updating = layerView?.updating;
+      entry.visibleAtCurrentScale = layerView?.visibleAtCurrentScale;
+      entry.layerViewVisible = layerView?.visible;
+      if (typeof layerView?.queryFeatureCount === 'function') {
+        try {
+          entry.queryFeatureCount = await layerView.queryFeatureCount();
+        } catch (error) {
+          entry.queryFeatureCountError = String(error?.message || error);
+        }
+      }
+      if (typeof layer.queryFeatureCount === 'function') {
+        try {
+          entry.layerQueryFeatureCount = await layer.queryFeatureCount();
+        } catch (error) {
+          entry.layerQueryFeatureCountError = String(error?.message || error);
+        }
+      }
     } catch (error) {
       entry.layerViewExists = false;
       entry.layerViewError = String(error?.message || error);
@@ -803,68 +2057,6 @@ async function zoomToQueryResult({
   markMapDiagStage('zoomToQueryResult_center_zoom_completed');
 }
 
-function plainSymbolConfig(dataset) {
-  if (dataset?.symbol) return dataset.symbol;
-  const datasetId = dataset?.datasetId || dataset?.id;
-  return getResultSymbol(datasetId);
-}
-
-function inheritRendererFromMeta(result) {
-  const presentation = result.renderMeta?.sourcePresentation;
-  if (!presentation) return result.renderMeta?.inheritedRenderer || null;
-  const semanticField = result.renderMeta?.semanticField || result.provenance?.semanticField;
-  const semanticValue = result.renderMeta?.semanticValue || result.provenance?.semanticValue;
-  return inheritSourceRenderer(presentation, semanticField, semanticValue);
-}
-
-/** Plain Esri symbol JSON for FeatureLayer renderer (never pass Accessor instances). */
-function markerSymbolJson(dataset) {
-  const symbol = plainSymbolConfig(dataset);
-  const style = String(symbol.style || 'circle').toLowerCase();
-  const allowed = new Set(['circle', 'square', 'cross', 'x', 'diamond', 'triangle', 'path']);
-  const markerStyle = allowed.has(style) ? style : 'circle';
-  const json = {
-    type: 'simple-marker',
-    style: markerStyle,
-    color: symbol.color,
-    size: symbol.size || 10,
-    outline: {
-      color: symbol.outline?.color || [255, 255, 255, 1],
-      width: symbol.outline?.width ?? 2
-    }
-  };
-  if (markerStyle === 'path' && symbol.path) {
-    json.path = symbol.path;
-    json.size = symbol.size || 14;
-  }
-  return json;
-}
-
-function markerSymbol(SimpleMarkerSymbol, Color, dataset) {
-  const symbol = plainSymbolConfig(dataset);
-  const style = String(symbol.style || 'circle').toLowerCase();
-  const allowed = new Set(['circle', 'square', 'cross', 'x', 'diamond', 'triangle', 'path']);
-  const markerStyle = allowed.has(style) ? style : 'circle';
-  const color = Array.isArray(symbol.color)
-    ? Color.fromArray(symbol.color)
-    : symbol.color;
-  const outlineColor = symbol.outline?.color
-    ? Color.fromArray(symbol.outline.color)
-    : Color.fromArray([255, 255, 255, 1]);
-  const outlineWidth = symbol.outline?.width ?? 2;
-  const markerOptions = {
-    style: markerStyle,
-    color,
-    size: symbol.size || 10,
-    outline: { color: outlineColor, width: outlineWidth }
-  };
-  if (markerStyle === 'path' && symbol.path) {
-    markerOptions.path = symbol.path;
-    markerOptions.size = symbol.size || 14;
-  }
-  return new SimpleMarkerSymbol(markerOptions);
-}
-
 function featuresForDatasetResult(result, mapResult) {
   if (result.features?.length) return result.features;
   return (mapResult.features || []).filter((feature) => feature.datasetId === result.datasetId);
@@ -901,6 +2093,8 @@ function featureLayerFields() {
     { name: 'iqaiType', type: 'string' },
     { name: 'datasetId', type: 'string' },
     { name: 'name', type: 'string' },
+    { name: 'amenity', type: 'string' },
+    { name: 'category', type: 'string' },
     { name: 'address', type: 'string' },
     { name: 'distanceMeters', type: 'double', nullable: true },
     { name: 'distanceLabel', type: 'string' },
@@ -937,319 +2131,18 @@ function featureAttributes(feature, dataset) {
   return attrs;
 }
 
-function isScopedGraphicsResult(result) {
-  return result?.sourceType === 'CURRENT_WEBMAP'
-    || result?.renderMeta?.sourceType === 'WEBMAP_LAYER'
-    || result?.sourceType === 'TRUSTED_EXTERNAL'
-    || result?.renderMeta?.sourceType === 'TRUSTED_EXTERNAL';
+/**
+ * Gate map clicks for Point Intelligence mode without a second click handler.
+ * @param {boolean} enabled
+ * @param {(point: { longitude: number, latitude: number, event: object }) => (void|Promise<void>)} [handler]
+ */
+export function setPointIntelligenceClickMode(enabled, handler = null) {
+  pointIntelligenceModeEnabled = Boolean(enabled);
+  pointIntelligenceClickHandler = pointIntelligenceModeEnabled ? handler : null;
 }
 
-function isWebMapLayerResult(result) {
-  return isScopedGraphicsResult(result);
-}
-
-function arcgisFieldType(type) {
-  const normalized = String(type || '').toLowerCase();
-  if (normalized.includes('double') || normalized.includes('float')) return 'double';
-  if (normalized.includes('int') || normalized === 'oid') return 'integer';
-  if (normalized.includes('date')) return 'date';
-  return 'string';
-}
-
-function buildWebMapLayerFields(fieldDefs = []) {
-  const fields = [{ name: 'OBJECTID', type: 'oid' }];
-  const seen = new Set(['OBJECTID']);
-  for (const field of fieldDefs) {
-    if (!field?.name || seen.has(field.name)) continue;
-    seen.add(field.name);
-    fields.push({
-      name: field.name,
-      type: arcgisFieldType(field.type),
-      alias: field.alias || field.name,
-      nullable: true
-    });
-  }
-  if (!seen.has('distanceLabel')) {
-    fields.push({ name: 'distanceLabel', type: 'string', alias: 'Distance', nullable: true });
-  }
-  return fields;
-}
-
-function buildWebMapPopupTemplate(result) {
-  const displayName = result.displayName || 'Feature';
-  const popupTemplate = result.renderMeta?.popupTemplate;
-  if (popupTemplate) {
-    return {
-      title: popupTemplate.title || displayName,
-      outFields: popupTemplate.outFields || ['*'],
-      content: popupTemplate.content || undefined,
-      fieldInfos: popupTemplate.fieldInfos || undefined
-    };
-  }
-
-  const fieldInfos = (result.renderMeta?.fields || [])
-    .filter((field) => field?.name)
-    .slice(0, 12)
-    .map((field) => ({
-      fieldName: field.name,
-      label: field.alias || field.name
-    }));
-
-  if (fieldInfos.length) {
-    fieldInfos.push({ fieldName: 'distanceLabel', label: 'Distance' });
-    return {
-      title: displayName,
-      outFields: ['*'],
-      content: [{ type: 'fields', fieldInfos }]
-    };
-  }
-
-  return buildPopupTemplate(result.datasetId, displayName);
-}
-
-async function buildWebMapScopedFeatureLayer(result, modules) {
-  markMapDiagStage('buildWebMapScopedFeatureLayer_entered', {
-    datasetId: result.datasetId,
-    conceptId: result.conceptId,
-    sourceType: result.sourceType,
-    featureCount: result.features?.length || 0
-  });
-
-  const { FeatureLayer, Graphic } = modules;
-
-  const geometryInference = inferScopedGeometryTypeFromFeatures(result.features || []);
-  if (geometryInference.mixed) {
-    recordPresentationFidelity({
-      sourceLayerTitle: result.displayName,
-      scopedLayerId: null,
-      mode: 'IQAI_OVERRIDE',
-      geometry: 'CHANGED',
-      renderer: 'FALLBACK',
-      popup: 'NONE',
-      labels: 'UNSUPPORTED',
-      error: 'mixed_geometry_types'
-    });
-    return null;
-  }
-
-  const inferredType = geometryInference.geometryType
-    || normalizeLayerGeometryType(result.webmapLayer?.geometryType)
-    || 'point';
-  const catalogGeometryType = normalizeLayerGeometryType(result.webmapLayer?.geometryType);
-
-  const graphics = [];
-  let fallbackObjectId = 1;
-
-  try {
-    const { fromJSON } = await importArc('@arcgis/core/geometry/support/jsonUtils.js');
-
-    for (const feature of result.features || []) {
-      const raw = feature.rawAttributes || {};
-      const objectId = feature.objectId ?? raw.OBJECTID ?? raw.ObjectID ?? raw.FID ?? fallbackObjectId;
-      fallbackObjectId += 1;
-
-      let geometry = null;
-      if (feature.geometry) {
-        try {
-          geometry = fromJSON(feature.geometry);
-        } catch {
-          geometry = null;
-        }
-      }
-      if (!geometry) {
-        const coords = featureCoordinates(feature);
-        if (!coords) continue;
-        geometry = fromJSON({
-          type: 'point',
-          x: coords.longitude,
-          y: coords.latitude,
-          spatialReference: { wkid: 4326 }
-        });
-      }
-      if (!geometry) continue;
-
-      graphics.push(new Graphic({
-        geometry,
-        attributes: {
-          ...raw,
-          OBJECTID: objectId,
-          datasetId: result.datasetId,
-          conceptId: result.conceptId || null,
-          iqaiType: result.iqaiType || 'webmap_feature',
-          distanceLabel: feature.distanceLabel || formatDistanceMeters(feature.distanceMeters),
-          authority: feature.authority || result.authority,
-          sourceName: result.displayName
-        }
-      }));
-    }
-
-    markMapDiagStage('graphics_built', {
-      graphicsCount: graphics.length,
-      inputFeatureCount: result.features?.length || 0,
-      geometryType: inferredType,
-      firstFeature: snapshotFirstFeature({ datasetResults: [result] })
-    });
-
-    if (!graphics.length) return null;
-
-    const layerKey = result.conceptId
-      || result.webmapLayer?.catalogId
-      || String(result.datasetId || 'scoped').replace(/[^a-zA-Z0-9_-]/g, '-');
-    const layerIdPrefix = result.sourceType === 'TRUSTED_EXTERNAL' ? 'iqai-concept' : 'iqai-webmap';
-    const layerId = `${layerIdPrefix}-${layerKey}`;
-    const layerTitle = `IQAI — ${result.displayName} (scoped)`;
-
-    const sourceLayer = await resolveLiveWebMapSourceLayer(result);
-    const presentation = sourceLayer ? getArcgisPresentation(sourceLayer) : null;
-
-    const fallbackRenderer = {
-      type: 'simple',
-      symbol: markerSymbolJson({
-        displayName: result.displayName,
-        iqaiType: result.iqaiType || 'webmap_feature',
-        datasetId: result.conceptId || result.datasetId,
-        symbol: result.renderMeta?.symbol || null
-      })
-    };
-
-    const inheritedRenderer = result.renderMeta?.inheritedRenderer
-      || inheritRendererFromMeta(result);
-    const rendererResolution = resolveScopedRenderer(
-      presentation,
-      sanitizeRendererForScopedLayer(inheritedRenderer) || fallbackRenderer
-    );
-
-    const serializedPopup = result.renderMeta?.popupTemplate || null;
-    const genericPopup = buildWebMapPopupTemplate(result);
-    const popupResolution = resolveScopedPopup(presentation, serializedPopup, genericPopup);
-
-    const labelsStatus = presentation?.labelingInfo?.length ? 'PRESERVED' : 'NONE';
-    const geometryStatus = catalogGeometryType && inferredType === catalogGeometryType
-      ? 'PRESERVED'
-      : 'CHANGED';
-
-    recordPresentationFidelity({
-      sourceLayerTitle: presentation?.sourceLayerTitle || sourceLayer?.title || result.displayName,
-      scopedLayerId: layerId,
-      mode: rendererResolution.mode || 'INHERITED',
-      geometry: geometryStatus,
-      renderer: rendererResolution.rendererStatus,
-      popup: popupResolution.popupStatus,
-      labels: labelsStatus
-    });
-
-    const layerConfig = {
-      id: layerId,
-      title: layerTitle,
-      source: graphics,
-      objectIdField: 'OBJECTID',
-      fields: buildWebMapLayerFields(result.renderMeta?.fields || []),
-      geometryType: inferredType,
-      spatialReference: { wkid: 4326 },
-      renderer: rendererResolution.renderer,
-      popupEnabled: true,
-      popupTemplate: popupResolution.popupTemplate,
-      listMode: 'show',
-      visible: true
-    };
-
-    if (presentation?.opacity != null) layerConfig.opacity = presentation.opacity;
-    if (presentation?.minScale != null) layerConfig.minScale = presentation.minScale;
-    if (presentation?.maxScale != null) layerConfig.maxScale = presentation.maxScale;
-    if (presentation?.labelingInfo) layerConfig.labelingInfo = presentation.labelingInfo;
-    if (presentation?.labelsVisible != null) layerConfig.labelsVisible = presentation.labelsVisible;
-
-    const layer = new FeatureLayer(layerConfig);
-
-    markMapDiagStage('featureLayer_constructed', {
-      layerId,
-      layerTitle,
-      graphicsCount: graphics.length,
-      geometryType: inferredType
-    });
-
-    markMapDiagStage('featureLayer_load_started', { layerId });
-    await layer.load();
-    markMapDiagStage('featureLayer_load_completed', {
-      layerId,
-      loadStatus: layer.loadStatus,
-      sourceFeatureCount: graphics.length
-    });
-    return layer;
-  } catch (error) {
-    throw wrapMapCommandError(error.iqaiMapStage || getCurrentMapDiagStage() || 'buildWebMapScopedFeatureLayer', error, {
-      layerId: result.conceptId ? `iqai-concept-${result.conceptId}` : result.datasetId,
-      layerTitle: result.displayName,
-      featureCount: result.features?.length || 0,
-      graphicsCount: graphics.length,
-      firstFeature: snapshotFirstFeature({ datasetResults: [result] })
-    });
-  }
-}
-
-function buildPopupTemplate(datasetId, displayName) {
-  const outFields = ['*'];
-  if (datasetId === 'POLICE_STATIONS') {
-    return {
-      title: displayName || 'Police station',
-      outFields,
-      content: [{
-        type: 'fields',
-        fieldInfos: [
-          { fieldName: 'pdq', label: 'PDQ' },
-          { fieldName: 'stationNumber', label: 'Station' },
-          { fieldName: 'address', label: 'Address' },
-          { fieldName: 'distanceLabel', label: 'Distance' },
-          { fieldName: 'sourceName', label: 'Source' }
-        ]
-      }]
-    };
-  }
-  if (datasetId === 'FIRE_STATIONS') {
-    return {
-      title: displayName || 'Fire station',
-      outFields,
-      content: [{
-        type: 'fields',
-        fieldInfos: [
-          { fieldName: 'stationNumber', label: 'Station' },
-          { fieldName: 'address', label: 'Address' },
-          { fieldName: 'distanceLabel', label: 'Distance' },
-          { fieldName: 'operationalStatus', label: 'Operational status' },
-          { fieldName: 'sourceName', label: 'Source' }
-        ]
-      }]
-    };
-  }
-  if (datasetId === 'HOSPITALS') {
-    return {
-      title: displayName || 'Hospital',
-      outFields,
-      content: [{
-        type: 'fields',
-        fieldInfos: [
-          { fieldName: 'name', label: 'Name' },
-          { fieldName: 'facilityType', label: 'Facility type' },
-          { fieldName: 'address', label: 'Address' },
-          { fieldName: 'distanceLabel', label: 'Distance' },
-          { fieldName: 'sourceName', label: 'Source' }
-        ]
-      }]
-    };
-  }
-  return {
-    title: displayName || 'Feature',
-    outFields,
-    content: [{
-      type: 'fields',
-      fieldInfos: [
-        { fieldName: 'name', label: 'Name' },
-        { fieldName: 'address', label: 'Address' },
-        { fieldName: 'distanceLabel', label: 'Distance' },
-        { fieldName: 'sourceName', label: 'Source' }
-      ]
-    }]
-  };
+export function isPointIntelligenceClickModeEnabled() {
+  return pointIntelligenceModeEnabled;
 }
 
 /**
@@ -1345,6 +2238,80 @@ export async function wireFeaturePicking(onFeatureSelect, onClearSelection) {
     }
 
     try {
+      const { hitTestPointIntelligenceEvidence } = await import('./point-intelligence-layer.js');
+      const {
+        focusEvidenceFromMap,
+        scrollObservationIntoView,
+        applyPanelFocusClasses
+      } = await import('./point-intelligence-focus-controller.js');
+      const piEvidenceHit = await hitTestPointIntelligenceEvidence(event);
+      if (piEvidenceHit?.observationId) {
+        diagnostic.pointIntelligence = true;
+        diagnostic.message = 'POINT_INTELLIGENCE_EVIDENCE_FOCUS';
+        const focused = await focusEvidenceFromMap(piEvidenceHit);
+        if (focused) {
+          scrollObservationIntoView(focused.observationId);
+          applyPanelFocusClasses();
+        }
+        logClickDiagnostic(diagnostic);
+        return;
+      }
+    } catch (error) {
+      diagnostic.error = String(error?.message || error);
+    }
+
+    try {
+      const { focusOpenWorldResultFromMap } = await import('./open-world-intelligence-focus-controller.js');
+      const owiHit = await focusOpenWorldResultFromMap(event);
+      if (owiHit) {
+        diagnostic.openWorldIntelligence = true;
+        diagnostic.message = 'OPEN_WORLD_INTELLIGENCE_EVENT_FOCUS';
+        logClickDiagnostic(diagnostic);
+        return;
+      }
+    } catch (error) {
+      diagnostic.error = String(error?.message || error);
+    }
+
+    try {
+      const { hitTestIntelligenceFeature } = await import('./intelligence-layer-map.js');
+      const intelHit = await hitTestIntelligenceFeature(event);
+      if (intelHit?.graphic) {
+        diagnostic.intelligenceLayer = true;
+        diagnostic.message = 'INTELLIGENCE_LAYER_EVENT_FOCUS';
+        const view = (await import('./spatial-arcgis-runtime.js')).getMapView();
+        if (view?.popup && intelHit.graphic) {
+          view.openPopup({
+            features: [intelHit.graphic],
+            location: intelHit.graphic.geometry
+          });
+        }
+        logClickDiagnostic(diagnostic);
+        return;
+      }
+    } catch (error) {
+      diagnostic.error = String(error?.message || error);
+    }
+
+    if (pointIntelligenceModeEnabled && pointIntelligenceClickHandler) {
+      if (Number.isFinite(diagnostic.mapLongitude) && Number.isFinite(diagnostic.mapLatitude)) {
+        diagnostic.pointIntelligence = true;
+        diagnostic.message = 'POINT_INTELLIGENCE_CLICK';
+        try {
+          await pointIntelligenceClickHandler({
+            longitude: diagnostic.mapLongitude,
+            latitude: diagnostic.mapLatitude,
+            event
+          });
+        } catch (error) {
+          diagnostic.error = String(error?.message || error);
+        }
+        logClickDiagnostic(diagnostic);
+        return;
+      }
+    }
+
+    try {
       if (!view.fetchPopupFeatures) {
         diagnostic.message = 'fetchPopupFeatures unavailable on MapView';
         logClickDiagnostic(diagnostic);
@@ -1430,9 +2397,13 @@ export async function renderMapResultOnRuntime(mapResult) {
   if (!mapResult?.supported) return;
 
   if (mapResult.action === 'CLEAR') {
+    await clearAuthNativeDisplayFilter();
     await clearRuntimeLayers();
     setIqaiResultFeatureLayers([]);
+    deterministicResultsLayer = null;
+    deterministicBaseDefinitionExpression = null;
     clearIqaiSelection(true);
+    resetRendererDisplayState();
     return;
   }
 
@@ -1444,7 +2415,10 @@ export async function renderMapResultOnRuntime(mapResult) {
     });
 
     await clearRuntimeLayers();
+    await clearAuthNativeDisplayFilter();
     setIqaiResultFeatureLayers([]);
+    deterministicResultsLayer = null;
+    deterministicBaseDefinitionExpression = null;
     clearIqaiSelection(true);
     clearPresentationFidelityRecords();
     markMapDiagStage('clearRuntimeLayers_completed');
@@ -1553,159 +2527,95 @@ export async function renderMapResultOnRuntime(mapResult) {
       };
     }
 
-    const featureLayers = [];
-    const datasetResults = mapResult.datasetResults || [];
-
-    if (datasetResults.length && !isCategoryCounts) {
-      const layerModules = {
+    let deterministicLayer = null;
+    if (!isCategoryCounts && ((mapResult.datasetResults?.length || 0) > 0 || (mapResult.features?.length || 0) > 0)) {
+      const geometryJsonUtils = await importArc('@arcgis/core/geometry/support/jsonUtils.js');
+      deterministicLayer = await buildDeterministicResultsLayer(mapResult, {
         FeatureLayer,
         Graphic,
         Point,
-        SimpleMarkerSymbol,
-        Color
-      };
-
-      for (const result of datasetResults) {
-        if (isWebMapLayerResult(result)) {
-          const webmapLayer = await buildWebMapScopedFeatureLayer(result, layerModules);
-          if (webmapLayer) featureLayers.push(webmapLayer);
-          continue;
-        }
-
-        const dataset = {
-          datasetId: result.datasetId,
-          displayName: result.displayName,
-          iqaiType: result.iqaiType,
-          detailFields: result.renderMeta?.detailFields
-        };
-        const layerFeatures = featuresForDatasetResult(result, mapResult);
-        const graphics = [];
-        let objectId = 1;
-        for (const feature of layerFeatures) {
-          const coords = featureCoordinates(feature);
-          if (!coords) continue;
-          const attrs = featureAttributes(feature, dataset);
-          graphics.push(new Graphic({
-            geometry: new Point({
-              longitude: coords.longitude,
-              latitude: coords.latitude,
-              spatialReference: { wkid: 4326 }
-            }),
-            attributes: {
-              OBJECTID: objectId,
-              ...attrs
-            }
-          }));
-          objectId += 1;
-        }
-
-        if (!graphics.length) continue;
-
-        markMapDiagStage('featureLayer_constructed', {
-          layerId: `iqai-${result.datasetId.toLowerCase()}`,
-          graphicsCount: graphics.length
-        });
-        const layer = new FeatureLayer({
-          id: `iqai-${result.datasetId.toLowerCase()}`,
-          title: dataset?.displayName || result.displayName,
-          source: graphics,
-          objectIdField: 'OBJECTID',
-          fields: featureLayerFields(),
-          geometryType: 'point',
-          spatialReference: { wkid: 4326 },
-          renderer: {
-            type: 'simple',
-            symbol: markerSymbolJson(dataset)
-          },
-          popupEnabled: true,
-          popupTemplate: buildPopupTemplate(result.datasetId, dataset?.displayName || result.displayName),
-          listMode: 'show',
-          visible: true
-        });
-        markMapDiagStage('featureLayer_load_started', { layerId: layer.id });
-        await layer.load();
-        markMapDiagStage('featureLayer_load_completed', {
-          layerId: layer.id,
-          loadStatus: layer.loadStatus
-        });
-        featureLayers.push(layer);
-      }
-    } else if (mapResult.features?.length && !isCategoryCounts) {
-      const layer = new GraphicsLayer({
-        id: 'iqai-features',
-        title: mapResult.summary?.dataset || 'Results',
-        listMode: 'show',
-        popupEnabled: false
+        fromJSON: geometryJsonUtils.fromJSON
       });
-      for (const feature of mapResult.features) {
-        const coords = featureCoordinates(feature);
-        if (!coords) continue;
-        const dataset = {
-          displayName: mapResult.summary?.dataset,
-          iqaiType: feature.iqaiType,
-          symbol: null,
-          detailFields: []
-        };
-        layer.add(new Graphic({
-          geometry: new Point({
-            longitude: coords.longitude,
-            latitude: coords.latitude,
-            spatialReference: { wkid: 4326 }
-          }),
-          symbol: markerSymbol(SimpleMarkerSymbol, Color, dataset),
-          attributes: featureAttributes(feature, dataset)
-        }));
-      }
-      featureLayers.push(layer);
     }
 
     const overlayLayers = [];
     if (radiusMeters && !isLocate) overlayLayers.push(searchAreaLayer);
     overlayLayers.push(searchLocationLayer);
 
-    const childLayers = [...featureLayers, ...overlayLayers];
-
-    const existingGroup = getWebMap()?.findLayerById(RUNTIME_GROUP_ID);
     markMapDiagStage('runtime_group_created', {
       groupId: RUNTIME_GROUP_ID,
-      existingGroupFound: Boolean(existingGroup),
-      childLayerCount: childLayers.length,
-      featureLayerIds: featureLayers.map((layer) => layer.id)
+      overlayLayerCount: overlayLayers.length,
+      deterministicLayerId: deterministicLayer?.id || (authNativeActive ? authoritativeDisplayLayer?.id : null),
+      authNativeActive,
+      deterministicFeatureCount: deterministicLayer
+        ? layerSourceFeatureCount(deterministicLayer)
+        : (authNativeActive ? (deterministicBaseObjectIds?.length || 0) : 0)
     });
 
     const group = new GroupLayer({
       id: RUNTIME_GROUP_ID,
       title: buildGroupTitle(mapResult),
       listMode: 'show',
-      layers: childLayers
+      visible: true,
+      layers: overlayLayers
     });
 
     await addRuntimeLayer(group);
+    if (deterministicLayer) {
+      await addRuntimeLayer(deterministicLayer);
+    }
     markMapDiagStage('webMap_add_completed', {
       groupId: RUNTIME_GROUP_ID,
       groupTitle: group.title,
-      childLayerCount: childLayers.length
+      overlayLayerCount: overlayLayers.length,
+      deterministicLayerOnMap: Boolean(deterministicLayer)
     });
+
+    const featureLayers = deterministicLayer
+      ? [deterministicLayer]
+      : (authNativeActive && authoritativeDisplayLayer ? [authoritativeDisplayLayer] : []);
     setIqaiResultFeatureLayers(featureLayers);
 
     const view = getMapView();
-    if (view) {
-      for (const layer of featureLayers) {
-        try {
-          await view.whenLayerView(layer);
-        } catch {
-          // layer view may still initialize asynchronously
+    if (view && authNativeActive && authoritativeDisplayLayer) {
+      try {
+        await view.whenLayerView(authoritativeDisplayLayer);
+        await applyDeterministicObjectIdFilter(null);
+      } catch {
+        // layer view may still initialize asynchronously
+      }
+      const inspect = await inspectIqaiRuntimeLayer(authoritativeDisplayLayer, view);
+      window.__IQAI_RUNTIME_LAYER_INSPECT__ = { [authoritativeDisplayLayer.id]: inspect };
+      window.__IQAI_DETERMINISTIC_LAYER__ = null;
+      window.__IQAI_AUTH_NATIVE_LAYER__ = authoritativeDisplayLayer;
+      window.__IQAI_MAP_VIEW__ = view;
+      console.log('[IQAI Auth Native] Runtime layer inspect', inspect);
+      reportDeterministicDisplayState(null);
+    } else if (view && deterministicLayer) {
+      try {
+        await view.whenLayerView(deterministicLayer);
+        if (deterministicUsesLayerViewFilter) {
+          await applyDeterministicObjectIdFilter(null);
         }
+      } catch {
+        // layer view may still initialize asynchronously
       }
-      const iqaiInspect = {};
-      for (const layer of featureLayers) {
-        iqaiInspect[layer.id] = await inspectIqaiRuntimeLayer(layer, view);
-      }
+      const inspect = await inspectIqaiRuntimeLayer(deterministicLayer, view);
+      const iqaiInspect = { [deterministicLayer.id]: inspect };
       window.__IQAI_RUNTIME_LAYER_INSPECT__ = iqaiInspect;
-      console.log('[IQAI Feature Picking] Runtime IQAI layers', iqaiInspect);
+      window.__IQAI_DETERMINISTIC_LAYER__ = deterministicLayer;
+      window.__IQAI_AUTH_NATIVE_LAYER__ = null;
+      window.__IQAI_MAP_VIEW__ = view;
+      console.log('[IQAI Deterministic Results] Runtime layer inspect', inspect);
+      reportDeterministicDisplayState(deterministicLayer);
+    } else if (view) {
+      window.__IQAI_RUNTIME_LAYER_INSPECT__ = {};
+      window.__IQAI_AUTH_NATIVE_LAYER__ = null;
+      window.__IQAI_MAP_VIEW__ = view;
     }
 
     const points = [[originLon, originLat]];
+    const datasetResults = mapResult.datasetResults || [];
     if (datasetResults.length) {
       for (const result of datasetResults) {
         for (const feature of featuresForDatasetResult(result, mapResult)) {
@@ -1733,6 +2643,7 @@ export async function renderMapResultOnRuntime(mapResult) {
       matchedFeatures: mapResult.summary?.matchedFeatures
     });
   } catch (error) {
+    publishRendererDisplayState({ rendererMode: 'ERROR' });
     if (error?.iqaiMapDiagnostic) throw error;
     throw wrapMapCommandError(
       error?.iqaiMapStage || getCurrentMapDiagStage() || 'renderMapResultOnRuntime',
@@ -1749,8 +2660,11 @@ export async function renderMapResultOnRuntime(mapResult) {
 }
 
 export async function clearMapResultsOnRuntime() {
+  await clearAuthNativeDisplayFilter();
   await clearRuntimeLayers();
   setIqaiResultFeatureLayers([]);
   lastScopedQueryContext = null;
   clearIqaiSelection(true);
+  deterministicResultsLayer = null;
+  resetRendererDisplayState();
 }

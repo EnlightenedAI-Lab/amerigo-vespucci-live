@@ -7,6 +7,7 @@ import { getWebMap } from './spatial-arcgis-runtime.js';
 import { findRuntimeLayerByCatalogId } from './webmap-layer-catalog.js';
 
 const presentationCache = new Map();
+const PRESENTATION_CACHE_VERSION = 'scoped-symbol-hydration-v1';
 
 const OSM_NA_AMENITIES = {
   sourceId: 'OSM_NA_AMENITIES',
@@ -14,6 +15,9 @@ const OSM_NA_AMENITIES = {
   layerId: 0,
   semanticField: 'amenity'
 };
+
+/** Authoritative unique-value class count from OSM_NA_Amenities FeatureServer metadata. */
+export const OSM_AMENITIES_AUTHORITATIVE_CATEGORY_CLASS_COUNT = 38;
 
 function collectMapLayers(layerCollection) {
   const layers = [];
@@ -44,8 +48,9 @@ export function findWebMapLayerByServiceUrl(webMap, serviceUrl) {
   if (!webMap?.layers) return null;
   const target = normalizeServiceUrl(serviceUrl);
   for (const layer of collectMapLayers(webMap.layers)) {
-    if (layerServiceUrl(layer) === target) return layer;
-    if (layer.type === 'feature' && layer.url && normalizeServiceUrl(`${layer.url}`).startsWith(target)) {
+    const url = layerServiceUrl(layer);
+    if (!url) continue;
+    if (url === target || url.startsWith(`${target}/`) || target.startsWith(`${url}/`)) {
       return layer;
     }
   }
@@ -79,22 +84,151 @@ function escapeSqlLiteral(value) {
 }
 
 /**
+ * @param {unknown} value
+ */
+export function normalizeRendererClassValue(value) {
+  if (value == null) return null;
+  const text = String(value).trim();
+  return text ? text.toLowerCase() : null;
+}
+
+function presentationCacheKey(sourceDef) {
+  return `${sourceDef.sourceId || sourceDef.serviceUrl}::${PRESENTATION_CACHE_VERSION}`;
+}
+
+/**
+ * @param {{ serviceUrl?: string, layerId?: number }} sourceDef
+ * @param {typeof fetch} fetchFn
+ */
+async function fetchFeatureServiceRenderer(sourceDef, fetchFn) {
+  const base = String(sourceDef.serviceUrl || '').replace(/\/$/, '');
+  const layerId = sourceDef.layerId ?? 0;
+  try {
+    const response = await fetchFn(`${base}/${layerId}?f=json`);
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data?.drawingInfo?.renderer || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Prefer authoritative FeatureServer embedded symbols when WebMap style UUIDs are not client-safe.
+ * @param {object | null | undefined} primary
+ * @param {object | null | undefined} service
+ */
+export function mergeRendererSymbol(primary, service) {
+  if (!service) return primary || null;
+  if (primary && isScopedLayerSymbolSafe(primary)) return primary;
+  if (isScopedLayerSymbolSafe(service)) {
+    return {
+      ...(primary || {}),
+      ...service,
+      imageData: service.imageData || primary?.imageData || null,
+      contentType: service.contentType || primary?.contentType || 'image/png',
+      width: primary?.width ?? service.width ?? service.size ?? 12,
+      height: primary?.height ?? service.height ?? service.size ?? 12
+    };
+  }
+  return primary || service;
+}
+
+/**
+ * @param {object | null | undefined} renderer
+ */
+export function rendererNeedsSymbolHydration(renderer) {
+  if (!renderer) return true;
+  if (renderer.type === 'simple') {
+    return !isScopedLayerSymbolSafe(renderer.symbol);
+  }
+  if (renderer.type === 'uniqueValue') {
+    const infos = renderer.uniqueValueInfos || [];
+    if (!infos.length) return true;
+    return infos.some((entry) => !isScopedLayerSymbolSafe(entry.symbol));
+  }
+  return false;
+}
+
+/**
+ * @param {object | null | undefined} renderer
+ * @param {object | null | undefined} serviceRenderer
+ */
+export function hydrateRendererFromService(renderer, serviceRenderer) {
+  if (!renderer) return serviceRenderer || null;
+  if (!serviceRenderer) return renderer;
+
+  if (renderer.type === 'uniqueValue' && serviceRenderer.type === 'uniqueValue') {
+    const serviceByValue = new Map(
+      (serviceRenderer.uniqueValueInfos || []).map((entry) => [String(entry.value), entry.symbol])
+    );
+    const uniqueValueInfos = (renderer.uniqueValueInfos || []).map((entry) => ({
+      ...entry,
+      symbol: mergeRendererSymbol(entry.symbol, serviceByValue.get(String(entry.value)))
+    }));
+    return {
+      ...renderer,
+      field1: renderer.field1 || serviceRenderer.field1,
+      uniqueValueInfos,
+      defaultSymbol: mergeRendererSymbol(renderer.defaultSymbol, serviceRenderer.defaultSymbol)
+    };
+  }
+
+  if (renderer.type === 'simple') {
+    return {
+      ...renderer,
+      symbol: mergeRendererSymbol(renderer.symbol, serviceRenderer.symbol)
+    };
+  }
+
+  return renderer;
+}
+
+/**
+ * @param {object} presentation
+ * @param {{ serviceUrl?: string, layerId?: number }} sourceDef
+ * @param {{ fetchFn?: typeof fetch }} [options]
+ */
+export async function hydratePresentationRenderer(presentation, sourceDef, options = {}) {
+  if (!presentation?.renderer) return presentation;
+  if (!rendererNeedsSymbolHydration(presentation.renderer)) return presentation;
+
+  const fetchFn = options.fetchFn || globalThis.fetch;
+  const serviceRenderer = await fetchFeatureServiceRenderer(sourceDef, fetchFn);
+  if (!serviceRenderer) return presentation;
+
+  const hydratedRenderer = hydrateRendererFromService(presentation.renderer, serviceRenderer);
+  return {
+    ...presentation,
+    renderer: hydratedRenderer,
+    uniqueValueInfos: hydratedRenderer?.uniqueValueInfos || [],
+    rendererHydratedFrom: 'FEATURE_LAYER_JSON'
+  };
+}
+
+/**
  * @param {{ sourceId?: string, serviceUrl?: string, layerId?: number, semanticField?: string }} sourceDef
  * @param {{ fetchFn?: typeof fetch }} [options]
  */
 export async function getSourcePresentation(sourceDef = OSM_NA_AMENITIES, options = {}) {
   const fetchFn = options.fetchFn || globalThis.fetch;
-  const key = sourceDef.sourceId || sourceDef.serviceUrl;
+  const key = presentationCacheKey(sourceDef);
   if (presentationCache.has(key)) return presentationCache.get(key);
 
   let renderer = null;
   let rendererSource = 'IQAI_FALLBACK';
   let popupTemplate = null;
   let popupInfo = null;
+  let serviceRenderer = null;
 
   const webMap = getWebMap();
   const webMapLayer = webMap ? findWebMapLayerByServiceUrl(webMap, sourceDef.serviceUrl) : null;
   if (webMapLayer?.renderer) {
+    try {
+      if (!webMapLayer.loaded) await webMapLayer.load();
+    } catch {
+      // use partially loaded layer when possible
+    }
     renderer = rendererToJson(webMapLayer.renderer);
     rendererSource = 'WEBMAP_LAYER';
   }
@@ -104,22 +238,28 @@ export async function getSourcePresentation(sourceDef = OSM_NA_AMENITIES, option
 
   const base = String(sourceDef.serviceUrl || '').replace(/\/$/, '');
   const layerId = sourceDef.layerId ?? 0;
-  if (!renderer || !popupTemplate) {
-    try {
-      const response = await fetchFn(`${base}/${layerId}?f=json`);
-      if (response.ok) {
-        const data = await response.json();
-        if (!renderer && data?.drawingInfo?.renderer) {
-          renderer = data.drawingInfo.renderer;
-          rendererSource = 'FEATURE_LAYER_JSON';
-        }
-        popupInfo = data?.popupInfo || null;
-        if (!popupTemplate && popupInfo) {
-          popupTemplate = popupInfoToTemplate(popupInfo);
-        }
+  try {
+    const response = await fetchFn(`${base}/${layerId}?f=json`);
+    if (response.ok) {
+      const data = await response.json();
+      serviceRenderer = data?.drawingInfo?.renderer || null;
+      if (!renderer && serviceRenderer) {
+        renderer = serviceRenderer;
+        rendererSource = 'FEATURE_LAYER_JSON';
       }
-    } catch {
-      // fall through
+      popupInfo = data?.popupInfo || null;
+      if (!popupTemplate && popupInfo) {
+        popupTemplate = popupInfoToTemplate(popupInfo);
+      }
+    }
+  } catch {
+    // fall through
+  }
+
+  if (renderer && serviceRenderer) {
+    renderer = hydrateRendererFromService(renderer, serviceRenderer);
+    if (rendererSource === 'WEBMAP_LAYER' && rendererNeedsSymbolHydration(renderer) === false) {
+      rendererSource = 'WEBMAP_LAYER_HYDRATED';
     }
   }
 
@@ -133,7 +273,9 @@ export async function getSourcePresentation(sourceDef = OSM_NA_AMENITIES, option
     popupInfo,
     popupTemplate
   };
-  presentationCache.set(key, presentation);
+  if (presentation.uniqueValueInfos.length || presentation.renderer?.type === 'simple') {
+    presentationCache.set(key, presentation);
+  }
   return presentation;
 }
 
@@ -162,7 +304,10 @@ export function getCategorySymbol(presentation, semanticField, categoryValue) {
   if (!renderer) return null;
   const field = renderer.field1 || semanticField || presentation.semanticField;
   if (renderer.type === 'uniqueValue') {
-    const info = (renderer.uniqueValueInfos || []).find((entry) => entry.value === categoryValue);
+    const target = normalizeRendererClassValue(categoryValue);
+    const info = (renderer.uniqueValueInfos || []).find(
+      (entry) => normalizeRendererClassValue(entry.value) === target
+    );
     return info?.symbol || renderer.defaultSymbol || null;
   }
   return renderer.symbol || renderer.defaultSymbol || null;
@@ -350,9 +495,10 @@ export function inheritRendererForCategories(presentation, semanticField, catego
   if (renderer.type === 'uniqueValue') {
     if (!values.length) return null;
     const allInfos = renderer.uniqueValueInfos || [];
+    const valueSet = new Set(values.map((value) => String(value)));
     const infos = values.length >= allInfos.length
       ? allInfos
-      : allInfos.filter((entry) => values.includes(entry.value));
+      : allInfos.filter((entry) => valueSet.has(String(entry.value)));
     if (infos.length) {
       return {
         type: 'uniqueValue',
@@ -374,6 +520,79 @@ export function inheritRendererForCategories(presentation, semanticField, catego
 
 export function getOsmNaAmenitiesSourceDef() {
   return { ...OSM_NA_AMENITIES };
+}
+
+/**
+ * Collect service URLs from a dataset result for canonical source matching.
+ * @param {object | null | undefined} result
+ */
+export function extractResultServiceUrls(result) {
+  const urls = [];
+  const candidates = [
+    result?.dataUrl,
+    result?.catalogueUrl,
+    result?.webmapLayer?.url,
+    result?.renderMeta?.sourcePresentation?.serviceUrl,
+    result?.provenance?.serviceUrl
+  ];
+  for (const value of candidates) {
+    if (value) urls.push(String(value));
+  }
+  return urls;
+}
+
+/**
+ * Canonical identity: deterministic result references the OSM_NA Amenities FeatureServer.
+ * @param {object | null | undefined} result
+ * @param {object} [sourceDef]
+ */
+export function matchesAuthoritativeAmenitiesSource(result, sourceDef = OSM_NA_AMENITIES) {
+  if (!result) return false;
+  if (result.sourceId === sourceDef.sourceId || result.sourceId === 'OSM_NA_AMENITIES') {
+    return true;
+  }
+  if (result.sourceType === 'TRUSTED_EXTERNAL' && result.sourceId === sourceDef.sourceId) {
+    return true;
+  }
+
+  const target = normalizeServiceUrl(sourceDef.serviceUrl);
+  const layerId = sourceDef.layerId ?? 0;
+  for (const raw of extractResultServiceUrls(result)) {
+    const norm = normalizeServiceUrl(raw);
+    if (!norm) continue;
+    if (norm === target || norm === `${target}/${layerId}` || norm.startsWith(`${target}/`)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * @param {object | null | undefined} mapResult
+ * @param {object} [sourceDef]
+ */
+export function isAuthoritativeAmenitiesMapResult(mapResult, sourceDef = OSM_NA_AMENITIES) {
+  return (mapResult?.datasetResults || []).some((result) => (
+    matchesAuthoritativeAmenitiesSource(result, sourceDef)
+  ));
+}
+
+/**
+ * Runtime operands for auth-native eligibility diagnostics.
+ * @param {object | null | undefined} mapResult
+ * @param {object} [sourceDef]
+ */
+export function describeAmenitiesSourceEligibility(mapResult, sourceDef = OSM_NA_AMENITIES) {
+  return (mapResult?.datasetResults || []).map((result) => ({
+    sourceId: result?.sourceId ?? null,
+    sourceType: result?.sourceType ?? null,
+    displayName: result?.displayName ?? null,
+    dataUrl: result?.dataUrl ?? null,
+    catalogueUrl: result?.catalogueUrl ?? null,
+    webmapLayerUrl: result?.webmapLayer?.url ?? null,
+    serviceUrls: extractResultServiceUrls(result),
+    matchesAuthoritativeAmenitiesSource: matchesAuthoritativeAmenitiesSource(result, sourceDef)
+  }));
 }
 
 /** @type {object[]} */

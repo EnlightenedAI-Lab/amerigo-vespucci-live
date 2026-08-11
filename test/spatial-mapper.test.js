@@ -102,6 +102,10 @@ test('parseSpatialIntent parses LOCATE, NEAREST, COUNT, CLEAR', () => {
   const clear = parseSpatialIntent('Clear the results.');
   assert.equal(clear.supported, true);
   assert.equal(clear.request.action, 'CLEAR');
+
+  const clearResult = parseSpatialIntent('clear result');
+  assert.equal(clearResult.supported, true);
+  assert.equal(clearResult.request.action, 'CLEAR');
 });
 
 test('parseSpatialIntent rejects unconfigured datasets and unsupported ops', () => {
@@ -197,6 +201,12 @@ test('buildMapFromPrompt LOCATE returns locate summary', async () => {
 
 test('buildMapFromPrompt CLEAR returns clear action', async () => {
   const result = await buildMapFromPrompt('Clear the results.');
+  assert.equal(result.supported, true);
+  assert.equal(result.action, 'CLEAR');
+});
+
+test('buildMapFromPrompt clear result returns clear action', async () => {
+  const result = await buildMapFromPrompt('clear result');
   assert.equal(result.supported, true);
   assert.equal(result.action, 'CLEAR');
 });

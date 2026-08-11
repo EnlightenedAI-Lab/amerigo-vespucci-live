@@ -33,30 +33,39 @@ import {
   shiftUiLabelForValue
 } from '../spvm-crime-taxonomy.js';
 import {
+  isOsmRuntimeFeature,
+  buildCleanOsmFeatureHtml
+} from '../iqai-osm-presentation.js';
+import {
+  buildPointIntelligenceSummaryHtml
+} from '../point-intelligence-presentation.js';
+import { buildOpenWorldIntelligenceHtml } from '../open-world-intelligence-presentation.js';
+import { mountOpenWorldInspector } from '../open-world-intelligence-inspector-controller.js';
+import {
   getWorkspaceContext,
   WORKSPACES,
   shouldShowLiveFeedSection,
   workspaceOwnsIqaiControl
 } from '../workspace-context.js';
 
-const IQAI_FIELDS = [
-  'Status',
-  'Execution',
-  'Source',
-  'Spatial operation',
-  'Dataset',
-  'Search location',
-  'Radius / limit',
-  'Source check',
-  'Geometry check',
-  'Operational/status check',
-  'Result count',
-  'Reproducible',
-  'Unresolved',
-  'Freshness',
-  'Model',
-  'AI Cost',
-  'Evidence'
+const PROVENANCE_LAYOUT = [
+  { label: 'Status', wide: false },
+  { label: 'Execution', wide: false },
+  { label: 'Spatial operation', wide: false },
+  { label: 'Dataset', wide: false },
+  { label: 'Search location', wide: true },
+  { label: 'Radius / limit', wide: false },
+  { label: 'Source', wide: true },
+  { label: 'Source check', wide: false },
+  { label: 'Geometry check', wide: false },
+  { label: 'Operational/status check', wide: false },
+  { label: 'Result count', wide: false },
+  { label: 'Reproducible', wide: false },
+  { label: 'Unresolved', wide: false },
+  { label: 'Freshness', wide: false },
+  { label: 'Model', wide: false },
+  { label: 'AI Cost', wide: false },
+  { label: 'Evidence', wide: true }
 ];
 
 const CONDITIONAL_IQAI_FIELDS = new Set([
@@ -68,6 +77,7 @@ export class DetailPanel {
   constructor(root) {
     this.root = root;
     this.lastMapResult = null;
+    this._activeCategoryFilter = { label: 'All amenities', count: null };
     this._stmStatus = null;
     this._aircraftStatus = null;
     this._vesselsStatus = null;
@@ -90,53 +100,81 @@ export class DetailPanel {
 
   render() {
     if (!this.root) return;
-    const iqaiRows = IQAI_FIELDS.map((label) => `
-      <div class="detail-row" data-iqai-row="${label}">
-        <span class="detail-label">${label}</span>
-        <span class="detail-value" data-field="${label}">—</span>
+    const provenanceCards = PROVENANCE_LAYOUT.map(({ label, wide }) => `
+      <div class="provenance-card${wide ? ' provenance-card--wide' : ''}" data-iqai-row="${label}">
+        <div class="provenance-card__label">${label}</div>
+        <div class="provenance-card__value" data-field="${label}">—</div>
       </div>`).join('');
 
     this.root.innerHTML = `
-      <header class="panel-heading panel-heading-with-action">
-        <span>DETAILS</span>
-        <button type="button" class="panel-collapse-btn" data-collapse="right" aria-label="Collapse details panel">×</button>
+      <header class="rail-header">
+        <h2 class="rail-title">Intelligence</h2>
+        <button type="button" class="rail-collapse-btn" data-collapse="right" aria-label="Collapse intelligence panel">×</button>
       </header>
-      <section class="detail-section" id="spatial-selected-section">
-        <h2 class="detail-section-heading">SELECTED FEATURE</h2>
-        <div id="spatial-selected-feature" class="detail-block detail-block-stacked">
-          <p class="detail-muted">No feature selected</p>
-        </div>
-      </section>
-      <section class="detail-section" id="spatial-spvm-workspace-section" hidden>
-        <h2 class="detail-section-heading">SPVM CRIME</h2>
-        <div id="spatial-spvm-workspace-body" class="detail-block detail-block-stacked">—</div>
-      </section>
-      <section class="detail-section" id="spatial-query-section">
-        <h2 class="detail-section-heading">CURRENT QUERY</h2>
-        <div id="spatial-current-query" class="detail-block detail-block-stacked">—</div>
-      </section>
-      <section class="detail-section" id="spatial-stm-live-section">
-        <h2 class="detail-section-heading">STM LIVE BUSES</h2>
-        <div id="spatial-stm-live-status" class="detail-block detail-block-stacked">—</div>
-      </section>
-      <section class="detail-section" id="spatial-aircraft-live-section">
-        <h2 class="detail-section-heading">AIRCRAFT LIVE</h2>
-        <div id="spatial-aircraft-live-status" class="detail-block detail-block-stacked">—</div>
-      </section>
-      <section class="detail-section" id="spatial-vessels-live-section">
-        <h2 class="detail-section-heading">VESSELS LIVE</h2>
-        <div id="spatial-vessels-live-status" class="detail-block detail-block-stacked">—</div>
-      </section>
-      <section class="detail-section" id="spatial-hydro-outages-section">
-        <h2 class="detail-section-heading">HYDRO-QUÉBEC OUTAGES</h2>
-        <div id="spatial-hydro-outages-status" class="detail-block detail-block-stacked">—</div>
-      </section>
-      <section class="detail-section detail-section-iqai">
-        <h2 class="detail-section-heading">IQAI CONTROL</h2>
-        <div class="detail-grid detail-grid-iqai">${iqaiRows}</div>
-        <button type="button" class="detail-sign-in" id="spatial-sign-in" hidden>Sign in to ArcGIS</button>
-        <p class="detail-error" id="spatial-detail-error" hidden></p>
-      </section>
+      <div class="intel-panel__scroll">
+        <section class="intel-card-section" id="spatial-workspace-section">
+          <h3 class="intel-section-label">Map</h3>
+          <div id="spatial-workspace-summary" class="intel-card intel-card--muted">
+            <p class="detail-muted">Loading WebMap…</p>
+          </div>
+        </section>
+        <section class="intel-card-section" id="spatial-point-intelligence-section">
+          <div id="spatial-time-lens-host"></div>
+          <div id="spatial-open-world-intelligence-host"></div>
+          <div id="spatial-open-world-intelligence-results" class="intel-card intel-card--muted" hidden></div>
+          <div id="spatial-point-intelligence-host"></div>
+          <div id="spatial-point-intelligence-results" class="intel-card intel-card--muted" hidden>
+            <p class="detail-muted">No Point Intelligence query yet.</p>
+          </div>
+        </section>
+        <section class="intel-card-section" id="spatial-active-data-section" hidden>
+          <h3 class="intel-section-label">Active data</h3>
+          <div id="spatial-active-data" class="intel-card intel-card--muted">
+            <p class="detail-muted">No visible layers</p>
+          </div>
+        </section>
+        <p class="intel-helper-text" id="spatial-intel-helper">Run a map command, add data, or select a feature.</p>
+        <section class="intel-card-section" id="spatial-selected-section">
+          <h3 class="intel-section-label">Selected feature</h3>
+          <div id="spatial-selected-feature" class="intel-card intel-card--muted">
+            <p class="detail-muted">No feature selected</p>
+          </div>
+        </section>
+        <section class="intel-card-section" id="spatial-last-operation-section" hidden>
+          <h3 class="intel-section-label">Last result</h3>
+          <div id="spatial-last-operation" class="intel-card">—</div>
+        </section>
+        <section class="intel-card-section intel-feed-section" id="spatial-spvm-workspace-section" hidden>
+          <h3 class="intel-section-label">SPVM crime</h3>
+          <div id="spatial-spvm-workspace-body" class="intel-card">—</div>
+        </section>
+        <section class="intel-card-section" id="spatial-query-section" hidden>
+          <h3 class="intel-section-label">Current operation</h3>
+          <div id="spatial-current-query" class="intel-card">—</div>
+        </section>
+        <section class="intel-card-section intel-feed-section" id="spatial-stm-live-section" hidden>
+          <h3 class="intel-section-label">STM live buses</h3>
+          <div id="spatial-stm-live-status" class="intel-card">—</div>
+        </section>
+        <section class="intel-card-section intel-feed-section" id="spatial-aircraft-live-section" hidden>
+          <h3 class="intel-section-label">Aircraft live</h3>
+          <div id="spatial-aircraft-live-status" class="intel-card">—</div>
+        </section>
+        <section class="intel-card-section intel-feed-section" id="spatial-vessels-live-section" hidden>
+          <h3 class="intel-section-label">Vessels live</h3>
+          <div id="spatial-vessels-live-status" class="intel-card">—</div>
+        </section>
+        <section class="intel-card-section intel-feed-section" id="spatial-hydro-outages-section" hidden>
+          <h3 class="intel-section-label">Hydro-Québec outages</h3>
+          <div id="spatial-hydro-outages-status" class="intel-card">—</div>
+        </section>
+        <details class="intel-card-section intel-provenance-details" id="spatial-provenance-details">
+          <summary class="intel-section-label intel-provenance-summary">Control &amp; provenance ›</summary>
+          <div class="provenance-grid">${provenanceCards}</div>
+          <button type="button" class="detail-sign-in" id="spatial-sign-in" hidden>Sign in to ArcGIS</button>
+          <p class="detail-error" id="spatial-detail-error" hidden></p>
+        </details>
+      </div>
     `;
     this.signInBtn = this.root.querySelector('#spatial-sign-in');
     this.errorEl = this.root.querySelector('#spatial-detail-error');
@@ -149,7 +187,19 @@ export class DetailPanel {
     this.aircraftLiveStatusEl = this.root.querySelector('#spatial-aircraft-live-status');
     this.vesselsLiveStatusEl = this.root.querySelector('#spatial-vessels-live-status');
     this.spvmWorkspaceSection = this.root.querySelector('#spatial-spvm-workspace-section');
+    this.pointIntelligenceHost = this.root.querySelector('#spatial-point-intelligence-host');
+    this.timeLensHost = this.root.querySelector('#spatial-time-lens-host');
+    this.openWorldHost = this.root.querySelector('#spatial-open-world-intelligence-host');
+    this.openWorldResults = this.root.querySelector('#spatial-open-world-intelligence-results');
+    this.pointIntelligenceResults = this.root.querySelector('#spatial-point-intelligence-results');
     this.spvmWorkspaceBodyEl = this.root.querySelector('#spatial-spvm-workspace-body');
+    this.workspaceSummaryEl = this.root.querySelector('#spatial-workspace-summary');
+    this.activeDataEl = this.root.querySelector('#spatial-active-data');
+    this.activeDataSection = this.root.querySelector('#spatial-active-data-section');
+    this.intelHelperEl = this.root.querySelector('#spatial-intel-helper');
+    this.lastOperationSection = this.root.querySelector('#spatial-last-operation-section');
+    this.lastOperationEl = this.root.querySelector('#spatial-last-operation');
+    this.provenanceDetails = this.root.querySelector('#spatial-provenance-details');
     this.stmLiveSection = this.root.querySelector('#spatial-stm-live-section');
     this.aircraftLiveSection = this.root.querySelector('#spatial-aircraft-live-section');
     this.vesselsLiveSection = this.root.querySelector('#spatial-vessels-live-section');
@@ -161,8 +211,8 @@ export class DetailPanel {
     const xray = ctx.activeWorkspace === WORKSPACES.AMENITY_XRAY;
     const scoped = ctx.activeWorkspace === WORKSPACES.SCOPED_QUERY;
 
-    if (this.spvmWorkspaceSection) this.spvmWorkspaceSection.hidden = !spvm;
-    if (this.querySection) this.querySection.hidden = spvm;
+    if (this.spvmWorkspaceSection) this.spvmWorkspaceSection.hidden = true;
+    if (this.querySection) this.querySection.hidden = true;
 
     if (this.stmLiveSection) {
       this.stmLiveSection.hidden = !shouldShowLiveFeedSection('stm', ctx);
@@ -228,14 +278,147 @@ export class DetailPanel {
   setField(label, value) {
     const el = this.root?.querySelector(`[data-field="${label}"]`);
     const row = this.root?.querySelector(`[data-iqai-row="${label}"]`);
+    const empty = value == null || value === '—' || value === '';
+    if (row) {
+      if (CONDITIONAL_IQAI_FIELDS.has(label)) {
+        row.hidden = empty;
+      } else {
+        row.hidden = empty;
+      }
+    }
     if (CONDITIONAL_IQAI_FIELDS.has(label)) {
-      if (row) row.hidden = value == null || value === '—' || value === '';
       if (!value || value === '—') {
         if (el) el.textContent = '—';
         return;
       }
     }
     if (el) el.textContent = value ?? '—';
+    this.refreshProvenanceOpenState();
+  }
+
+  refreshProvenanceOpenState() {
+    if (!this.provenanceDetails) return;
+    // Keep audit/provenance collapsed unless the user explicitly opens it.
+    if (!this.provenanceDetails.open) {
+      this.provenanceDetails.open = false;
+    }
+  }
+
+  setWorkspaceSummary({ webmapTitle, layerCount = 0, visibleCount = 0, ready = false } = {}) {
+    if (!this.workspaceSummaryEl) return;
+    const title = webmapTitle || 'IQAI Montréal';
+    this.workspaceSummaryEl.innerHTML = [
+      `<p class="detail-workspace-map">${escapeHtml(title)}</p>`,
+      '<h3 class="intel-section-label intel-section-label--inline">Data</h3>',
+      `<p class="detail-workspace-data">${layerCount} layers available<br>${visibleCount} visible</p>`
+    ].join('');
+    if (this.intelHelperEl) {
+      this.intelHelperEl.hidden = Boolean(this.lastMapResult?.supported);
+    }
+    if (this.provenanceDetails) {
+      this.provenanceDetails.open = false;
+    }
+  }
+
+  setActiveDataSummary(layers = []) {
+    if (!this.activeDataEl) return;
+    if (!layers.length) {
+      this.activeDataEl.innerHTML = '<p class="detail-muted">No visible layers</p>';
+      return;
+    }
+    const items = layers.slice(0, 12).map((layer) => (
+      `<li><strong>${escapeHtml(layer.title)}</strong>${layer.parentGroup ? `<span class="detail-muted"> — ${escapeHtml(layer.parentGroup)}</span>` : ''}</li>`
+    )).join('');
+    const more = layers.length > 12
+      ? `<p class="detail-muted">+ ${layers.length - 12} more visible</p>`
+      : '';
+    this.activeDataEl.innerHTML = `<ul class="detail-layer-list">${items}</ul>${more}`;
+  }
+
+  setLastOperationSummary(mapResult) {
+    if (!this.lastOperationSection || !this.lastOperationEl) return;
+    if (!mapResult?.supported) {
+      this.lastOperationSection.hidden = true;
+      return;
+    }
+    this.lastOperationSection.hidden = false;
+    const count = mapResult.summary?.matchedFeatures ?? mapResult.features?.length ?? 0;
+    const radiusMeters = mapResult.summary?.radiusMeters ?? mapResult.xrayResult?.radiusMeters;
+    const radiusKm = mapResult.xrayResult?.radiusKm ?? (radiusMeters ? radiusMeters / 1000 : null);
+    let scopeLabel = mapResult.summary?.spatialOperation || 'Last result';
+    if (Number.isFinite(radiusKm)) {
+      const km = Number.isInteger(radiusKm) ? String(radiusKm) : radiusKm.toFixed(1);
+      scopeLabel = `Within ${km} km`;
+    }
+    const location = mapResult.origin?.matchedAddress || '—';
+    const dataset = mapResult.summary?.dataset
+      || mapResult.datasetResults?.[0]?.displayName
+      || mapResult.datasetResults?.[0]?.authority
+      || 'Amenities';
+    const sourcePath = mapResult.source?.authority
+      || mapResult.datasetResults?.[0]?.authority
+      || mapResult.datasetResults?.[0]?.displayName
+      || mapResult.summary?.source
+      || '—';
+    const status = mapResult.summary?.status || 'Controlled';
+    const countLabel = count === 1 ? '1 location found' : `${count.toLocaleString()} locations found`;
+    const activeFilter = this._activeCategoryFilter || { label: 'All amenities', count };
+
+    this.lastOperationEl.innerHTML = `
+      <div class="intel-result-stack">
+        <div class="intel-result-block">
+          <div class="intel-result-block__label">Last result</div>
+          <div class="intel-result-block__value">${escapeHtml(scopeLabel)}</div>
+          <div class="intel-result-block__sub">${escapeHtml(countLabel)}</div>
+          <div class="intel-result-block__meta">${escapeHtml(location)}</div>
+        </div>
+        <div class="intel-result-block">
+          <div class="intel-result-block__label">Source</div>
+          <div class="intel-result-block__value">${escapeHtml(dataset)}</div>
+          <div class="intel-result-block__meta">${escapeHtml(sourcePath)}</div>
+        </div>
+        <div class="intel-result-block">
+          <div class="intel-result-block__label">Status</div>
+          <div class="intel-result-block__value">${escapeHtml(status)}</div>
+        </div>
+        <div class="intel-result-block">
+          <div class="intel-result-block__label">Active filter</div>
+          <div class="intel-result-block__value">${escapeHtml(activeFilter.label)}</div>
+          <div class="intel-result-block__sub">${activeFilter.count != null ? `${Number(activeFilter.count).toLocaleString()} features` : '—'}</div>
+        </div>
+      </div>`;
+  }
+
+  setActiveCategoryFilter(categoryValue, mapResult = this.lastMapResult, activeMeta = null) {
+    if (activeMeta) {
+      this._activeCategoryFilter = activeMeta;
+    } else if (!categoryValue) {
+      const total = mapResult?.summary?.matchedFeatures
+        ?? mapResult?.categorySummary?.totalCount
+        ?? mapResult?.features?.length
+        ?? null;
+      const datasetLabel = mapResult?.summary?.dataset
+        || mapResult?.datasetResults?.[0]?.displayName
+        || 'Results';
+      const hasAmenityCategories = Boolean(
+        mapResult?.categorySummary?.categories?.length
+        || mapResult?.xrayResult?.categories?.length
+      );
+      const label = hasAmenityCategories
+        ? `All ${String(datasetLabel).toLowerCase()}`
+        : String(datasetLabel);
+      this._activeCategoryFilter = { label, count: total };
+    } else {
+      const legend = mapResult?.categorySummary?.categories
+        || mapResult?.xrayResult?.categories
+        || [];
+      const entry = legend.find((cat) => String(cat.value) === String(categoryValue));
+      this._activeCategoryFilter = {
+        label: entry?.label || String(categoryValue).replace(/_/g, ' '),
+        count: entry?.count ?? null
+      };
+    }
+    if (mapResult?.supported) this.setLastOperationSummary(mapResult);
   }
 
   stackedItem(label, value, options = {}) {
@@ -586,13 +769,14 @@ export class DetailPanel {
   }
 
   resetIqaiFields() {
-    for (const label of IQAI_FIELDS) {
+    for (const { label } of PROVENANCE_LAYOUT) {
       if (label === 'Operational/status check') continue;
       this.setField(label, '—');
     }
     const opRow = this.root?.querySelector('[data-iqai-row="Operational/status check"]');
     if (opRow) opRow.hidden = true;
     this.setEvidence('—');
+    this.refreshProvenanceOpenState();
   }
 
   setQuerySummary(mapResult) {
@@ -601,11 +785,13 @@ export class DetailPanel {
 
     this.setSelectedFeatureHtml([]);
     if (this.selectedSection) this.selectedSection.hidden = false;
-    if (this.querySection) this.querySection.hidden = false;
+    if (this.querySection) this.querySection.hidden = true;
+    if (this.lastOperationSection) this.lastOperationSection.hidden = false;
     this.resetIqaiFields();
 
     if (mapResult.summary?.action === 'COMPOUND') {
       this.setCurrentQueryHtml(this.compoundQueryItems(mapResult));
+      this.setLastOperationSummary(mapResult);
       this.updateIqaiControlFields(mapResult);
       return;
     }
@@ -615,21 +801,11 @@ export class DetailPanel {
       return;
     }
 
-    const queryItems = [
-      this.stackedItem('Prompt', mapResult.prompt),
-      this.stackedItem('Search location', mapResult.origin?.matchedAddress || '—')
-    ];
-    if (mapResult.summary?.radiusMeters || mapResult.summary?.limit) {
-      queryItems.push(this.stackedItem('Radius / limit', this.radiusLimitLabel(mapResult)));
-    }
-    if (mapResult.summary?.dataset) {
-      queryItems.push(this.stackedItem('Dataset', mapResult.summary.dataset));
-    }
-    queryItems.push(
-      this.stackedItem('Result count', String(mapResult.summary?.matchedFeatures ?? '—'))
-    );
-    this.setCurrentQueryHtml(queryItems);
+    this.setLastOperationSummary(mapResult);
+    this.setActiveCategoryFilter(null, mapResult);
     this.updateIqaiControlFields(mapResult);
+    if (this.intelHelperEl) this.intelHelperEl.hidden = true;
+    if (this.provenanceDetails) this.provenanceDetails.open = false;
   }
 
   setCategoryCountsReadout(mapResult) {
@@ -637,7 +813,8 @@ export class DetailPanel {
     this.lastMapResult = mapResult;
     this.setSelectedFeatureHtml([]);
     if (this.selectedSection) this.selectedSection.hidden = false;
-    if (this.querySection) this.querySection.hidden = false;
+    if (this.querySection) this.querySection.hidden = true;
+    if (this.lastOperationSection) this.lastOperationSection.hidden = false;
     this.resetIqaiFields();
 
     const xray = mapResult.xrayResult || {};
@@ -669,6 +846,8 @@ export class DetailPanel {
     ));
 
     this.setCurrentQueryHtml(queryItems);
+    this.setLastOperationSummary(mapResult);
+    this.setActiveCategoryFilter(null, mapResult);
     this.updateIqaiControlFields(mapResult);
   }
 
@@ -793,6 +972,13 @@ export class DetailPanel {
     }
 
     const layer = graphic?.layer || graphic?.sourceLayer;
+    if (isOsmRuntimeFeature(attributes, layer)) {
+      this.selectedFeatureEl.innerHTML = buildCleanOsmFeatureHtml(attributes);
+      if (this.selectedSection) this.selectedSection.hidden = false;
+      if (this.intelHelperEl) this.intelHelperEl.hidden = true;
+      return;
+    }
+
     if (graphic && hasAuthoredArcgisPopup(layer)) {
       const detail = buildAgolSupplementaryDetail(graphic, mapResult);
       this.selectedFeatureEl.innerHTML = buildAgolSupplementaryHtml(detail);
@@ -864,4 +1050,54 @@ export class DetailPanel {
   setSignInHandler(fn) {
     this.onSignIn = fn;
   }
+
+  /**
+   * @param {{ point?: { longitude: number, latitude: number }, response?: object, presentation?: object }} payload
+   */
+  setPointIntelligenceSummary(payload = {}) {
+    if (!this.pointIntelligenceResults) return;
+    const { response } = payload;
+    if (!response) {
+      this.pointIntelligenceResults.hidden = true;
+      this.pointIntelligenceResults.innerHTML = '<p class="detail-muted">No Point Intelligence query yet.</p>';
+      return;
+    }
+
+    this.pointIntelligenceResults.hidden = false;
+    this.pointIntelligenceResults.innerHTML = buildPointIntelligenceSummaryHtml(payload);
+  }
+
+  setPointIntelligenceTemporalNotice({ state, message } = {}) {
+    if (!this.pointIntelligenceResults || !state) return;
+    const summary = state.mode === 'LATEST'
+      ? null
+      : `${state.mode} selected — evidence cleared until execution is supported.`;
+    this.pointIntelligenceResults.hidden = false;
+    this.pointIntelligenceResults.innerHTML = `
+      <div class="pi-temporal-notice" data-pi-temporal-notice>
+        <p class="pi-temporal-notice__headline">TIME · ${escapeHtml(state.mode)}</p>
+        <p class="pi-temporal-notice__message">${escapeHtml(message || summary || '')}</p>
+      </div>`;
+  }
+
+  setOpenWorldIntelligenceSummary(response) {
+    if (!this.openWorldResults) return;
+    if (!response?.normalized) {
+      this.openWorldResults.hidden = true;
+      this.openWorldResults.innerHTML = '<p class="detail-muted">No open-world intelligence search yet.</p>';
+      return;
+    }
+    this.openWorldResults.hidden = false;
+    this.openWorldResults.innerHTML = buildOpenWorldIntelligenceHtml(response);
+    const inspectorHost = this.openWorldResults.querySelector('#owi-inspector-host');
+    if (inspectorHost) mountOpenWorldInspector(inspectorHost);
+  }
+}
+
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }

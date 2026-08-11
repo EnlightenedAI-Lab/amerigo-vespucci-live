@@ -42,7 +42,7 @@ function stripActiveFilter(text) {
     .trim();
 }
 
-const CLEAR_PATTERN = /^(?:clear(?:\s+the)?(?:\s+map)?|clear\s+the\s+results?|remove(?:\s+the)?\s+results?|remove previous results|effacer|supprimer les résultats)$/i;
+const CLEAR_PATTERN = /^(?:clear(?:\s+the)?(?:\s+map)?|clear\s+(?:the\s+)?results?|remove(?:\s+the)?\s+results?|remove previous results|effacer|supprimer les résultats)$/i;
 
 const LOCATE_PATTERN = /^(?:locate|map this address|put a point at|place a point at|mark|localiser|placer un point(?:\s+à)?)\s+(.+)$/i;
 

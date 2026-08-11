@@ -160,6 +160,65 @@ export function getCatalogLayerById(catalogId, catalog) {
   return getCatalogLayers(catalog).find((entry) => entry.catalogId === catalogId) || null;
 }
 
+const TRANSIT_STOP_PHRASES = new Set([
+  'transit', 'stm', 'metro', 'subway', 'bus', 'arret', 'arrets', 'stop', 'stops'
+]);
+
+const SCHOOL_PHRASES = new Set([
+  'school', 'schools', 'ecole', 'ecoles', 'etablissement scolaire', 'etablissements scolaires'
+]);
+
+function isTransitStopPhrase(phraseKey) {
+  if (!phraseKey) return false;
+  if (TRANSIT_STOP_PHRASES.has(phraseKey)) return true;
+  return ['transit', 'stm', 'metro', 'subway', 'bus', 'arret', 'stop']
+    .some((token) => phraseKey.includes(token));
+}
+
+function isSchoolPhrase(phraseKey) {
+  if (!phraseKey) return false;
+  if (SCHOOL_PHRASES.has(phraseKey)) return true;
+  return ['school', 'ecole', 'etablissement scolaire']
+    .some((token) => phraseKey.includes(token));
+}
+
+/**
+ * Prefer STM stop layers over route/line layers for transit stop queries.
+ * @param {object[]} matches
+ */
+function disambiguateTransitStopLayer(matches) {
+  const stops = matches.filter((entry) => /arret/i.test(entry.title || ''));
+  if (!stops.length) return null;
+  if (stops.length === 1) return stops[0];
+  const sigStop = stops.find((entry) => /sig/i.test(entry.title || ''));
+  return sigStop || stops[0];
+}
+
+/**
+ * Schools are not a dedicated WebMap layer — query Montreal POI schools category.
+ * @param {object | null} catalog
+ */
+function resolveSchoolsFromMontrealPoi(catalog) {
+  const poi = getCatalogLayers(catalog).find((entry) => normalizeLayerKey(entry.title) === 'montreal poi');
+  if (!poi) return null;
+  return {
+    layerSource: 'WEBMAP',
+    webmapLayer: poi,
+    webmapCatalogId: poi.catalogId,
+    displayNameOverride: 'Schools',
+    attributeWhere: "Catégorie = 'Établissement scolaire'"
+  };
+}
+
+function buildWebMapTarget(entry, extras = {}) {
+  return {
+    layerSource: 'WEBMAP',
+    webmapLayer: entry,
+    webmapCatalogId: entry.catalogId,
+    ...extras
+  };
+}
+
 /**
  * Priority: WebMap LayerCatalog then verified dataset registry.
  * @param {string} phrase
@@ -167,19 +226,45 @@ export function getCatalogLayerById(catalogId, catalog) {
  * @param {{ vocabularyContext?: object[] }} [options]
  */
 export function resolveTargetFromPhrase(phrase, catalog, options = {}) {
+  const phraseKey = normalizeLayerPhrase(phrase);
   const webmap = resolveWebMapLayersFromPhrase(phrase, catalog);
   if (webmap.matches.length > 1) {
+    if (isTransitStopPhrase(phraseKey)) {
+      const stopLayer = disambiguateTransitStopLayer(webmap.matches);
+      if (stopLayer) {
+        return buildWebMapTarget(stopLayer, { displayNameOverride: 'Transit Stops' });
+      }
+    }
+    const narrowed = webmap.matches.filter((entry) => {
+      const titleKey = normalizeLayerKey(entry.title);
+      return titleKey.includes(phraseKey) || phraseKey.includes(titleKey)
+        || aliasTokensForTitle(entry.title).has(phraseKey);
+    });
+    if (narrowed.length === 1) {
+      return buildWebMapTarget(narrowed[0]);
+    }
     return {
       ambiguous: true,
       candidates: webmap.matches.map((entry) => entry.title).filter(Boolean)
     };
   }
   if (webmap.matches.length === 1) {
-    return {
-      layerSource: 'WEBMAP',
-      webmapLayer: webmap.matches[0],
-      webmapCatalogId: webmap.matches[0].catalogId
-    };
+    const layer = webmap.matches[0];
+    if (isSchoolPhrase(phraseKey) && normalizeLayerKey(layer.title) === 'montreal poi') {
+      return buildWebMapTarget(layer, {
+        displayNameOverride: 'Schools',
+        attributeWhere: "Catégorie = 'Établissement scolaire'"
+      });
+    }
+    const extras = isTransitStopPhrase(phraseKey) && /arret/i.test(layer.title || '')
+      ? { displayNameOverride: 'Transit Stops' }
+      : {};
+    return buildWebMapTarget(layer, extras);
+  }
+
+  if (isSchoolPhrase(phraseKey)) {
+    const schoolsTarget = resolveSchoolsFromMontrealPoi(catalog);
+    if (schoolsTarget) return schoolsTarget;
   }
 
   const datasetId = resolveDatasetIdFromPhrase(phrase);

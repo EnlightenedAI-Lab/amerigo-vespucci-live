@@ -118,6 +118,7 @@
         <div id="lab-f1-banner" class="status-badge lab-hidden">
           F1 forecast map · one week ahead only · experimental
         </div>
+        <div id="lab-f1-unavailable" class="map-f1-unavailable lab-hidden" role="status"></div>
         <div id="lab-time-slider-host" class="time-slider-host lab-hidden"></div>
       </div>
     </section>
@@ -131,6 +132,7 @@
       <h2 class="intel-section-label">Historical analytics</h2>
       <h2 class="intel-headline" id="intel-headline">—</h2>
       <div class="metric-cards" id="metric-cards"></div>
+      <div id="chart-outlook-summary" class="chart-outlook-summary lab-hidden" aria-live="polite"></div>
       <p class="intel-interpretation" id="intel-interpretation"></p>
       </div>
       <section class="ask-iqai" id="ask-iqai" aria-label="Ask IQAI">
@@ -146,6 +148,7 @@
           />
           <button type="submit" class="ask-iqai__submit" id="explain-submit">Ask</button>
         </form>
+        <p class="ask-iqai__model" id="explain-model" aria-live="polite"></p>
         <div class="ask-iqai__response lab-hidden" id="explain-response" aria-live="polite"></div>
       </section>
     </aside>

@@ -34,6 +34,8 @@ export function normalizeFeature(dataset, props, receivedAt = new Date().toISOSt
       return normalizeHospital(dataset, props, receivedAt);
     case DATASET_IDS.TRANSIT:
       return normalizeTransitStop(dataset, props, receivedAt);
+    case DATASET_IDS.PUBLIC_BUILDINGS:
+      return normalizePublicBuilding(dataset, props, receivedAt);
     default:
       return null;
   }
@@ -149,6 +151,31 @@ function normalizeHospital(dataset, row, receivedAt) {
   };
 }
 
+function normalizePublicBuilding(dataset, props, receivedAt) {
+  const lat = Number(props.latitude ?? props.lat);
+  const lon = Number(props.longitude ?? props.long);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  const name = String(props.titre_lieu || props.name || '').trim();
+  const buildingType = String(props.types || props.buildingType || '').trim() || 'Public building';
+  const address = String(props.adresse_postale || props.address || '').trim() || '—';
+  return {
+    id: String(props.url_fiche || name || `${lat},${lon}`),
+    featureId: String(props.url_fiche || name || `${lat},${lon}`),
+    datasetId: DATASET_IDS.PUBLIC_BUILDINGS,
+    iqaiType: 'public_building',
+    name: name || '—',
+    buildingType,
+    address,
+    latitude: lat,
+    longitude: lon,
+    sourceId: dataset.sourceId,
+    sourceName: dataset.displayName,
+    authority: dataset.authority,
+    receivedAt,
+    spatialPrecision: 'Deterministic GIS'
+  };
+}
+
 function normalizeTransitStop(dataset, row, receivedAt) {
   const lat = Number(row.stop_lat);
   const lon = Number(row.stop_lon);
@@ -176,6 +203,14 @@ function inferTransitMode(stopName, row) {
   if (/station|métro|metro/i.test(name)) return 'Metro';
   if (String(row.location_type || '') === '1') return 'Station';
   return 'Bus';
+}
+
+export function isGovernmentPublicBuilding(props = {}) {
+  const types = String(props.types || '');
+  const title = String(props.titre_lieu || props.name || '');
+  const haystack = `${types} ${title}`.toLowerCase();
+  if (/points of service|points de service/i.test(types)) return true;
+  return /\b(borough hall|city hall|hôtel de ville|hotel de ville|mairie|municipal hall|arrondissement hall|service point|service centre|service center)\b/i.test(haystack);
 }
 
 export function applyOperationalFilter(dataset, features) {

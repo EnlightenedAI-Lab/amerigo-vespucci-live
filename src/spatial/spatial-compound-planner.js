@@ -110,6 +110,8 @@ function buildTargetCommand(action, target, extra = {}) {
       layerSource: 'WEBMAP',
       webmapLayer: target.webmapLayer,
       webmapCatalogId: target.webmapCatalogId,
+      attributeWhere: target.attributeWhere || null,
+      displayNameOverride: target.displayNameOverride || null,
       datasetIds: [],
       ...extra
     };
@@ -457,7 +459,7 @@ export function planCompoundPrompt(prompt, options = {}) {
 
   const normalized = normalizeNumerals(stripped);
 
-  if (/^(?:clear(?:\s+the)?(?:\s+map)?|clear\s+the\s+results?|remove(?:\s+the)?\s+results?|effacer|supprimer les résultats)$/i.test(normalized)) {
+  if (/^(?:clear(?:\s+the)?(?:\s+map)?|clear\s+(?:the\s+)?results?|remove(?:\s+the)?\s+results?|effacer|supprimer les résultats)$/i.test(normalized)) {
     return { supported: true, commands: [{ action: 'CLEAR' }] };
   }
 

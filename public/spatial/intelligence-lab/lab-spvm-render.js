@@ -54,30 +54,37 @@ export function buildClusterReduction() {
   };
 }
 
-export function buildHeatmapReduction() {
+export function buildHeatmapRenderer(featureCount = 0) {
+  // maxDensity too high => most pixels stay at ratio ~0 with alpha-0 low stop (invisible).
+  const maxDensity = Math.max(0.0004, Math.min(0.004, featureCount / 250000));
   return {
     type: 'heatmap',
-    renderer: {
-      type: 'heatmap',
-      colorStops: [
-        { color: [44, 82, 130, 0], ratio: 0 },
-        { color: [69, 117, 180, 0.45], ratio: 0.25 },
-        { color: [254, 224, 144, 0.65], ratio: 0.55 },
-        { color: [215, 48, 39, 0.85], ratio: 0.85 },
-        { color: [165, 0, 38, 1], ratio: 1 }
-      ],
-      maxDensity: 0.012,
-      minDensity: 0,
-      radius: 18
-    }
+    colorStops: [
+      { color: [44, 82, 130, 0.12], ratio: 0 },
+      { color: [69, 117, 180, 0.45], ratio: 0.25 },
+      { color: [254, 224, 144, 0.65], ratio: 0.55 },
+      { color: [215, 48, 39, 0.85], ratio: 0.85 },
+      { color: [165, 0, 38, 1], ratio: 1 }
+    ],
+    maxDensity,
+    minDensity: 0,
+    radius: 20
   };
 }
 
-export function applySpvmPresentation(layer, gisMode) {
+/** @deprecated use buildHeatmapRenderer — kept for callers expecting reduction shape */
+export function buildHeatmapReduction(featureCount = 0) {
+  return {
+    type: 'heatmap',
+    renderer: buildHeatmapRenderer(featureCount)
+  };
+}
+
+export function applySpvmPresentation(layer, gisMode, featureCount = 0) {
   if (!layer) return;
   if (gisMode === 'heatmap') {
-    layer.renderer = null;
-    layer.featureReduction = buildHeatmapReduction();
+    layer.featureReduction = null;
+    layer.renderer = buildHeatmapRenderer(featureCount);
   } else if (gisMode === 'clusters') {
     layer.renderer = buildIncidentsRenderer();
     layer.featureReduction = buildClusterReduction();

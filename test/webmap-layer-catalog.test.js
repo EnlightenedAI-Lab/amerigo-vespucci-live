@@ -121,3 +121,56 @@ test('interpretSpatialLanguage passes catalog context for layer commands', () =>
   assert.equal(result.commands[0].action, 'LIST_LAYERS');
   assert.equal(result.commands[0].filter, 'point');
 });
+
+const montrealCatalog = {
+  webmapTitle: 'Montreal 1',
+  layers: [
+    {
+      catalogId: 'stm-stops',
+      title: 'Stm arrets sig',
+      type: 'feature',
+      geometryType: 'point',
+      queryable: true
+    },
+    {
+      catalogId: 'stm-lines',
+      title: 'Stm lignes sig',
+      type: 'feature',
+      geometryType: 'polyline',
+      queryable: true
+    },
+    {
+      catalogId: 'montreal-poi',
+      title: 'Montreal POI',
+      type: 'feature',
+      geometryType: 'point',
+      queryable: true
+    }
+  ]
+};
+
+test('resolveTargetFromPhrase disambiguates transit to STM stop layer', () => {
+  const target = resolveTargetFromPhrase('transit', montrealCatalog);
+  assert.equal(target.layerSource, 'WEBMAP');
+  assert.equal(target.webmapLayer.title, 'Stm arrets sig');
+  assert.equal(target.displayNameOverride, 'Transit Stops');
+});
+
+test('resolveTargetFromPhrase maps schools to filtered Montreal POI', () => {
+  const target = resolveTargetFromPhrase('schools', montrealCatalog);
+  assert.equal(target.layerSource, 'WEBMAP');
+  assert.equal(target.webmapLayer.title, 'Montreal POI');
+  assert.equal(target.displayNameOverride, 'Schools');
+  assert.match(target.attributeWhere, /tablissement scolaire/i);
+});
+
+test('planCompoundPrompt routes transit within query to STM stop WebMap layer', () => {
+  const plan = planCompoundPrompt(
+    'map transit within 3km of 997 de la Commune',
+    { webmapLayerCatalog: montrealCatalog }
+  );
+  assert.equal(plan.supported, true);
+  assert.equal(plan.commands[0].layerSource, 'WEBMAP');
+  assert.equal(plan.commands[0].webmapLayer.title, 'Stm arrets sig');
+  assert.equal(plan.commands[0].displayNameOverride, 'Transit Stops');
+});

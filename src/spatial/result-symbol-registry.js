@@ -37,6 +37,12 @@ export const RESULT_SYMBOLS = {
     size: 11,
     outline: { color: [255, 255, 255, 1], width: 2 }
   },
+  PUBLIC_BUILDINGS: {
+    style: 'square',
+    color: [92, 64, 140, 1],
+    size: 12,
+    outline: { color: [255, 255, 255, 1], width: 2 }
+  },
   TOILETS: {
     style: 'circle',
     color: [99, 102, 241, 1],

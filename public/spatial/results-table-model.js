@@ -5,6 +5,24 @@
 
 export const RESULTS_TABLE_PAGE_SIZE = 50;
 
+import { SCHEMA_NOISE_FIELDS } from './iqai-osm-presentation.js';
+import { getCategorySymbol } from './source-presentation.js';
+import {
+  deriveResultCategoryCounts,
+  buildResultScopedLegend,
+  buildResultScopedLegendAsync,
+  legendSymbolUrlFromSource,
+  publishResultLegendDiagnostics
+} from './result-legend-model.js';
+
+export {
+  deriveResultCategoryCounts,
+  buildResultScopedLegend,
+  buildResultScopedLegendAsync,
+  legendSymbolUrlFromSource,
+  publishResultLegendDiagnostics
+};
+
 const INTERNAL_PREFIX = '_';
 
 const COLUMN_ALIASES = {
@@ -13,21 +31,23 @@ const COLUMN_ALIASES = {
   address: ['address', 'addr_street', 'addr_full', 'street', 'addr_housenumber'],
   city: ['city', 'addr_city', 'addr_place'],
   category: ['amenity', 'category', 'type', 'facilityType', 'schoolType', 'iqaiType', 'conceptId'],
+  phone: ['phone', 'contact:phone', 'tel'],
   operator: ['operator', 'brand'],
   opening_hours: ['opening_hours', 'opening_hours_en', 'opening_hours_fr'],
   source: ['sourceName', 'source', 'authority', 'sourceId']
 };
 
+const DEFAULT_VISIBLE_COLUMNS = new Set(['name', 'distance', 'address', 'category']);
+
 const DEFAULT_COLUMN_ORDER = [
   'name',
   'distance',
   'address',
-  'city',
   'category',
-  'operator',
-  'opening_hours',
-  'source'
+  'phone'
 ];
+
+export const DETERMINISTIC_RESULTS_LAYER_ID = 'iqai-deterministic-results';
 
 function isScopedGraphicsResult(result) {
   return result?.sourceType === 'CURRENT_WEBMAP'
@@ -36,15 +56,18 @@ function isScopedGraphicsResult(result) {
     || result?.renderMeta?.sourceType === 'TRUSTED_EXTERNAL';
 }
 
-function resolveResultLayerId(result) {
-  if (isScopedGraphicsResult(result)) {
-    const layerKey = result.conceptId
-      || result.webmapLayer?.catalogId
-      || String(result.datasetId || 'scoped').replace(/[^a-zA-Z0-9_-]/g, '-');
-    const prefix = result.sourceType === 'TRUSTED_EXTERNAL' ? 'iqai-concept' : 'iqai-webmap';
-    return `${prefix}-${layerKey}`;
+function resolveResultLayerId() {
+  return DETERMINISTIC_RESULTS_LAYER_ID;
+}
+
+function phoneColumnUseful(rows) {
+  if (!rows.length) return false;
+  let withPhone = 0;
+  for (const row of rows) {
+    const phone = row.values?.phone ?? row.values?.['contact:phone'];
+    if (phone != null && String(phone).trim() !== '') withPhone += 1;
   }
-  return `iqai-${String(result.datasetId || 'result').toLowerCase()}`;
+  return withPhone / rows.length >= 0.08;
 }
 
 function pickFirst(row, keys) {
@@ -86,13 +109,13 @@ export function computeMapFeatureIdentity(result, feature, curatedIndex, counter
       counters.scopedFallback += 1;
     }
     return {
-      layerId: resolveResultLayerId(result),
+      layerId: resolveResultLayerId(),
       datasetId: result.datasetId,
       mapObjectId
     };
   }
   return {
-    layerId: resolveResultLayerId(result),
+    layerId: resolveResultLayerId(),
     datasetId: result.datasetId,
     mapObjectId: curatedIndex + 1
   };
@@ -160,6 +183,7 @@ function discoverColumns(rows, multiDataset) {
   }
 
   const columns = [];
+  const advancedColumns = [];
   if (multiDataset) {
     columns.push({
       id: '_datasetLabel',
@@ -172,18 +196,33 @@ function discoverColumns(rows, multiDataset) {
   for (const canonical of DEFAULT_COLUMN_ORDER) {
     const actual = canonicalToActual[canonical];
     if (!actual) continue;
+    let defaultVisible = DEFAULT_VISIBLE_COLUMNS.has(canonical);
+    if (canonical === 'phone' && !phoneColumnUseful(rows)) {
+      defaultVisible = false;
+    }
     columns.push({
       id: actual,
       label: humanizeKey(canonical === 'category' ? 'Category' : canonical),
       canonical,
-      defaultVisible: true
+      defaultVisible
     });
   }
 
-  const remaining = [...keySet].sort((a, b) => a.localeCompare(b));
-  for (const key of remaining) {
+  for (const [canonical, actual] of Object.entries(canonicalToActual)) {
+    if (DEFAULT_COLUMN_ORDER.includes(canonical)) continue;
+    advancedColumns.push({
+      id: actual,
+      label: humanizeKey(canonical),
+      canonical,
+      defaultVisible: false
+    });
+    keySet.delete(actual);
+  }
+
+  for (const key of [...keySet].sort((a, b) => a.localeCompare(b))) {
     if (DEFAULT_COLUMN_ORDER.some((canonical) => COLUMN_ALIASES[canonical]?.includes(key))) continue;
-    columns.push({
+    if (SCHEMA_NOISE_FIELDS.has(key)) continue;
+    advancedColumns.push({
       id: key,
       label: humanizeKey(key),
       canonical: null,
@@ -191,7 +230,7 @@ function discoverColumns(rows, multiDataset) {
     });
   }
 
-  return columns;
+  return { columns, advancedColumns };
 }
 
 export function hasFeatureResults(mapResult) {
@@ -208,7 +247,7 @@ export function hasFeatureResults(mapResult) {
  * @param {object} mapResult
  * @returns {object | null}
  */
-export function buildResultsTableModel(mapResult) {
+export function buildResultsTableModel(mapResult, options = {}) {
   if (!hasFeatureResults(mapResult)) return null;
 
   const datasetResults = mapResult.datasetResults || [];
@@ -249,10 +288,14 @@ export function buildResultsTableModel(mapResult) {
     }
   }
 
-  const columns = discoverColumns(rows, multiDataset);
+  const { columns, advancedColumns } = discoverColumns(rows, multiDataset);
+  const categorySummary = buildResultScopedLegend(mapResult, options.presentation || null)
+    || deriveResultCategoryCounts(mapResult);
   return {
     rows,
     columns,
+    advancedColumns,
+    categorySummary,
     totalCount: rows.length,
     multiDataset,
     prompt: mapResult.prompt || '',
@@ -300,7 +343,7 @@ export function buildCategorySummaryTableModel(mapResult, presentation = null, o
     categoryValue: entry.value,
     selected: visibleSet.has(entry.value),
     symbolUrl: presentation
-      ? symbolUrlForCategory(presentation, xray.semanticField, entry.value)
+      ? legendSymbolUrlFromSource(getCategorySymbol(presentation, xray.semanticField, entry.value))
       : null,
     values: {
       category: entry.value,
@@ -328,19 +371,6 @@ export function buildCategorySummaryTableModel(mapResult, presentation = null, o
     prompt: mapResult.prompt || '',
     matchedAddress: mapResult.origin?.matchedAddress || mapResult.matchedAddress || null
   };
-}
-
-function symbolUrlForCategory(presentation, semanticField, categoryValue) {
-  if (!presentation?.renderer) return null;
-  const renderer = presentation.renderer;
-  if (renderer.type === 'uniqueValue') {
-    const info = (renderer.uniqueValueInfos || []).find((entry) => entry.value === categoryValue);
-    const symbol = info?.symbol || renderer.defaultSymbol;
-    if (symbol?.imageData) {
-      return `data:${symbol.contentType || 'image/png'};base64,${symbol.imageData}`;
-    }
-  }
-  return null;
 }
 
 /**
@@ -373,11 +403,12 @@ export function buildOperationalFeaturesTableModel(features, xrayContext, source
     });
   }
 
-  const columns = discoverColumns(rows, false);
+  const { columns, advancedColumns } = discoverColumns(rows, false);
   return {
     mode: 'operational_features',
     rows,
     columns,
+    advancedColumns,
     totalCount: rows.length,
     xrayContext,
     prompt: '',

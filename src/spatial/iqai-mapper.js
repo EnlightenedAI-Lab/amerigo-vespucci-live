@@ -574,6 +574,8 @@ export async function buildMapFromPrompt(prompt, deps = {}) {
       radiusMeters: entry.request.radiusMeters,
       limit: entry.request.limit,
       displayMode: entry.request.displayMode,
+      attributeWhere: entry.request.attributeWhere || null,
+      displayNameOverride: entry.request.displayNameOverride || null,
       origin: entry.origin
     }));
 

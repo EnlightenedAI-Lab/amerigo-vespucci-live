@@ -183,9 +183,18 @@ export function verifyIntelligenceLabJoin() {
   };
 }
 
-import { runIntelligenceLabExplain } from './intelligence-lab-explain-service.js';
+import { runIntelligenceLabExplain, getExplainRuntimeConfig } from './intelligence-lab-explain-service.js';
 
 export function registerIntelligenceLabRoutes(app) {
+  app.get('/api/spatial/intelligence-lab/explain-config', (_req, res) => {
+    try {
+      const runtime = getExplainRuntimeConfig();
+      res.json({ ok: true, ...runtime });
+    } catch (error) {
+      res.status(503).json({ ok: false, error: error.message, code: error.code });
+    }
+  });
+
   app.post('/api/spatial/intelligence-lab/explain', async (req, res) => {
     try {
       const { question, context, history } = req.body || {};

@@ -4,7 +4,8 @@ import {
   applyOperationalFilter,
   isMontrealSchoolRow,
   isHospitalOdhfRow,
-  isMontrealHospitalRow
+  isMontrealHospitalRow,
+  isGovernmentPublicBuilding
 } from './dataset-normalizers.js';
 import {
   filterWithinRadius,
@@ -28,6 +29,14 @@ export async function loadDatasetFeatures(dataset, options = {}) {
   if (dataset.dataFormat === 'geojson') {
     for (const feature of records) {
       const props = feature.properties || feature.attributes || {};
+      if (dataset.id === DATASET_IDS.PUBLIC_BUILDINGS) {
+        if (!isGovernmentPublicBuilding(props)) continue;
+        const coords = feature.geometry?.coordinates;
+        if (Array.isArray(coords) && coords.length >= 2) {
+          props.longitude = coords[0];
+          props.latitude = coords[1];
+        }
+      }
       const item = normalizeFeature(dataset, props, receivedAt);
       if (item) normalized.push(item);
     }

@@ -3,6 +3,7 @@
  */
 
 import { COMPOSITION_COLORS } from './lab-labels.js';
+import { isF1CategorySupported } from './lab-category-support.js';
 
 const BLUE_SEQ = ['#eff6ff', '#bfdbfe', '#60a5fa', '#2563eb', '#1e3a8a'];
 const INDIGO_SEQ = ['#eef2ff', '#c7d2fe', '#818cf8', '#4f46e5', '#312e81'];
@@ -89,8 +90,9 @@ function fill(color, opacity = 0.82) {
   return { type: 'simple-fill', color, outline: { color: '#64748b', width: 0.65 } };
 }
 
-export function computeMetricsForMode(store, state) {
+export function computeMetricsForMode(store, state, manifest = null) {
   const { week, crimeCategory, visualMode, baselineMode } = state;
+  const f1Supported = manifest ? isF1CategorySupported(manifest, crimeCategory) : true;
   const metrics = {};
 
   for (const pdqId of store.pdqIds) {
@@ -102,9 +104,9 @@ export function computeMetricsForMode(store, state) {
     const change = prior4 == null ? null : observed - prior4;
     const persistence = store.getPersistenceStreak(week, crimeCategory, pdqId, baselineMode);
     const composition = store.getComposition(week, pdqId);
-    const f1 = store.getF1Forecast(week, pdqId);
-    const shadow = store.getF1ShadowForecast(pdqId);
-    const adv = store.getModelAdvantage(week, pdqId);
+    const f1 = f1Supported ? store.getF1Forecast(week, pdqId) : null;
+    const shadow = f1Supported ? store.getF1ShadowForecast(pdqId) : null;
+    const adv = f1Supported ? store.getModelAdvantage(week, pdqId) : null;
 
     let mapValue = observed;
     let label = 'report_count';
@@ -117,13 +119,29 @@ export function computeMetricsForMode(store, state) {
       case 'persistence': mapValue = persistence; label = 'persistence_streak_weeks'; break;
       case 'bivariate': mapValue = deviation; label = 'bivariate_deviation'; break;
       case 'forecast': {
+        if (!f1Supported) {
+          mapValue = null;
+          label = 'f1_unavailable';
+          break;
+        }
         const fc = f1?.forecast_mean ?? shadow?.forecast_mean ?? null;
         mapValue = fc; label = 'f1_forecast_mean'; break;
       }
       case 'forecastError':
+        if (!f1Supported) {
+          mapValue = null;
+          label = 'f1_unavailable';
+          break;
+        }
         mapValue = f1?.forecast_error ?? (f1 && f1.actual_count != null ? f1.actual_count - f1.forecast_mean : null);
         label = 'forecast_error'; break;
-      case 'modelAdvantage': mapValue = adv?.model_advantage ?? null; label = 'model_advantage'; break;
+      case 'modelAdvantage':
+        if (!f1Supported) {
+          mapValue = null;
+          label = 'f1_unavailable';
+          break;
+        }
+        mapValue = adv?.model_advantage ?? null; label = 'model_advantage'; break;
       case 'timeTravel': mapValue = observed; label = 'observed_time_travel'; break;
       case 'composition':
         mapValue = composition.reduce((m, c) => Math.max(m, c.count), 0);

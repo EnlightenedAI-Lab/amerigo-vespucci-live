@@ -1,0 +1,5 @@
+{
+  "schemaVersion": "1.0.0",
+  "operation": "LOCATE",
+  "location": { "type": "address", "text": "997 de la Commune" }
+}

@@ -3,6 +3,8 @@
  */
 
 import { getWebMap } from './spatial-arcgis-runtime.js';
+import { isUserAddedLayerId, getUserAddedEntry } from './arcgis-data-add-registry.js';
+import { USER_ADDED_CLASSIFICATION, USER_ADDED_GROUP_TITLE } from './arcgis-data-add-provenance.js';
 
 const WEBMAP_LAYER_CLASSIFICATION = 'CURRENT_WEBMAP';
 
@@ -15,8 +17,15 @@ const WEBMAP_LAYER_ALIAS_GROUPS = [
 
 /** @type {object | null} */
 let catalogSnapshot = null;
-/** @type {Promise<object | null> | null} */
-let catalogBuildPromise = null;
+/** @type {Promise<object | null>} */
+let catalogBuildChain = Promise.resolve(null);
+
+export async function buildWebMapLayerCatalog(webMap = getWebMap()) {
+  const build = () => buildWebMapLayerCatalogInner(webMap);
+  const next = catalogBuildChain.then(build, build);
+  catalogBuildChain = next.catch(() => null);
+  return next;
+}
 
 const LAYER_LOAD_TIMEOUT_MS = 8000;
 
@@ -156,11 +165,18 @@ function isIqaiRuntimeLayer(layer) {
   return id.startsWith('iqai-');
 }
 
+export function isUserAddedCatalogEntry(entry) {
+  return entry?.classification === USER_ADDED_CLASSIFICATION
+    || isUserAddedLayerId(entry?.layerId)
+    || isUserAddedLayerId(entry?.catalogId);
+}
+
 /**
  * @param {object} entry
  */
 export function isToggleableCatalogEntry(entry) {
   if (!entry) return false;
+  if (isUserAddedCatalogEntry(entry)) return true;
   if (String(entry.catalogId || '').startsWith('iqai')) return false;
   if (entry.type === 'unknown') return false;
   return true;
@@ -260,12 +276,13 @@ function serializeFields(fields = []) {
  * @param {string | null} parentGroup
  */
 async function describeOperationalLayer(layer, parentGroup = null) {
+  const userAdded = isUserAddedLayerId(layer?.id);
   const entry = {
     catalogId: layer.id || `${parentGroup || 'root'}/${layer.title || 'layer'}`,
     layerId: layer.id || null,
     title: layer.title || layer.id || 'Untitled layer',
     type: layer.type || 'unknown',
-    parentGroup: parentGroup || null,
+    parentGroup: userAdded ? USER_ADDED_GROUP_TITLE : (parentGroup || null),
     url: layer.url || layer.parsedUrl?.path || null,
     visible: Boolean(layer.visible),
     geometryType: layer.geometryType || null,
@@ -277,7 +294,7 @@ async function describeOperationalLayer(layer, parentGroup = null) {
     minScale: layer.minScale ?? null,
     maxScale: layer.maxScale ?? null,
     serviceType: layer.sourceJSON?.type || layer.type || null,
-    classification: WEBMAP_LAYER_CLASSIFICATION
+    classification: userAdded ? USER_ADDED_CLASSIFICATION : WEBMAP_LAYER_CLASSIFICATION
   };
 
   try {
@@ -305,6 +322,11 @@ async function describeOperationalLayer(layer, parentGroup = null) {
     }
   } catch (error) {
     entry.loadError = String(error?.message || error);
+  }
+
+  if (userAdded) {
+    const registryEntry = getUserAddedEntry(layer.id);
+    if (registryEntry?.provenance) entry.provenance = registryEntry.provenance;
   }
 
   return entry;
@@ -352,6 +374,13 @@ async function buildWebMapLayerCatalogInner(webMap) {
     layers.push(await describeOperationalLayer(layer, parentGroup));
   }
 
+  for (const entry of layers) {
+    if (isUserAddedLayerId(entry.catalogId) || isUserAddedLayerId(entry.layerId)) {
+      entry.classification = USER_ADDED_CLASSIFICATION;
+      entry.parentGroup = USER_ADDED_GROUP_TITLE;
+    }
+  }
+
   catalogSnapshot = {
     webmapTitle: webMap.portalItem?.title || 'Montreal 1',
     webmapItemId: webMap.portalItem?.id || null,
@@ -373,15 +402,6 @@ async function buildWebMapLayerCatalogInner(webMap) {
   syncCatalogVisibilityFromRuntime();
 
   return catalogSnapshot;
-}
-
-export async function buildWebMapLayerCatalog(webMap = getWebMap()) {
-  if (!catalogBuildPromise) {
-    catalogBuildPromise = buildWebMapLayerCatalogInner(webMap).finally(() => {
-      catalogBuildPromise = null;
-    });
-  }
-  return catalogBuildPromise;
 }
 
 export function getWebMapLayerCatalogSnapshot() {

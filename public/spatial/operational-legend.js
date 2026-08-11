@@ -2,12 +2,24 @@
  * Dynamic operational legend for X-ray amenity display — AOI categories only.
  */
 
-import { getCategorySymbol, symbolToImageUrl } from './source-presentation.js';
+import { getCategorySymbol } from './source-presentation.js';
+import { legendSymbolUrlFromSource } from './result-legend-model.js';
 
 function formatCategoryLabel(value) {
   return String(value || '')
     .replace(/_/g, ' ')
     .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+/**
+ * @param {{ symbolUrl?: string | null, sourceSymbol?: object | null, sourceClassMatched?: boolean }} entry
+ */
+export function renderCategoryChipSwatch(entry) {
+  const symbolUrl = entry?.symbolUrl || legendSymbolUrlFromSource(entry?.sourceSymbol);
+  if (symbolUrl) {
+    return `<img class="results-category-card__symbol" src="${symbolUrl}" alt="" />`;
+  }
+  return '<span class="results-category-card__symbol results-category-card__symbol--neutral" aria-hidden="true"></span>';
 }
 
 /**
@@ -25,7 +37,7 @@ export function buildOperationalLegendEntries(xrayResult, presentation = null) {
       value: entry.value,
       label: entry.label || formatCategoryLabel(entry.value),
       count: entry.count,
-      symbolUrl: symbolToImageUrl(symbol)
+      symbolUrl: legendSymbolUrlFromSource(symbol)
     };
   });
 }

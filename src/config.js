@@ -65,10 +65,20 @@ export function loadConfig(options = {}) {
     port: Number(process.env.PORT || '3000'),
     logLevel: process.env.LOG_LEVEL || 'info',
     iqaiV2Enabled,
+    iqaiTaskGraphV1Enabled: /^true$/i.test(process.env.IQAI_TASKGRAPH_V1_ENABLED || ''),
+    iqaiProgressiveIntelligenceV1Enabled: (() => {
+      const raw = process.env.IQAI_PROGRESSIVE_INTELLIGENCE_V1_ENABLED;
+      if (raw == null || raw === '') return true;
+      if (/^false$/i.test(raw)) return false;
+      return /^true$/i.test(raw);
+    })(),
     spatialLayersEnabled,
     legacyUiEnabled,
     radarEnabled: /^true$/i.test(process.env.RADAR_ENABLED || ''),
     enableDataDocked,
-    oceanViewWebmapId: process.env.OCEAN_VIEW_WEBMAP_ID || '86f1b6a9b6124da5b362964749b5d797'
+    oceanViewWebmapId: process.env.OCEAN_VIEW_WEBMAP_ID || '86f1b6a9b6124da5b362964749b5d797',
+    // Optional Street View V1 — browser-restricted Maps JavaScript API key (HTTP referrer).
+    // Not required for IQAI Spatial / Point Intelligence startup.
+    googleMapsBrowserApiKey: String(process.env.GOOGLE_MAPS_BROWSER_API_KEY || '').trim()
   };
 }

@@ -144,7 +144,7 @@ export function buildMapHeadline(mode, state, metrics) {
         : `Few sectors combine high volume with above-pattern deviation this week.`;
     }
     case 'forecast':
-      return `Experimental forecast for next-week vehicle theft by sector.`;
+      return `Experimental one-week-ahead forecast for ${cat.toLowerCase()} by sector.`;
     case 'forecastError': {
       const miss = countWhere(metrics, (m) => m.mapValue != null && Math.abs(m.mapValue) >= 2);
       return miss
@@ -201,7 +201,7 @@ export function buildInterpretation(mode, state, metric) {
     case 'persistence':
       return `Consecutive weeks with reported counts above ${bl}. Not offender identity.`;
     case 'forecast':
-      return `Experimental one-week-ahead forecast for vehicle theft. Not operational.`;
+      return `Experimental one-week-ahead forecast for ${cat}. Not operational.`;
     case 'forecastError':
       return `Difference between reported count and experimental forecast.`;
     default:

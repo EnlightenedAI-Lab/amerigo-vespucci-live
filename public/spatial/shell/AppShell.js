@@ -666,6 +666,8 @@ export class AppShell {
         return this.executeArcgisDiscoveryViaAiMap(prompt, { commandId });
       case SPATIAL_CAPABILITY.PLACE_POI_SEARCH:
         return this.executePlacePoiViaAiMap(prompt, { commandId, capabilityPlan });
+      case SPATIAL_CAPABILITY.CROSS_AGENT_SPATIAL:
+        return this.executeCrossAgentSpatialViaAiMap(prompt, { commandId, capabilityPlan });
       case SPATIAL_CAPABILITY.POINT_INTELLIGENCE:
         return this.executePointIntelligenceViaAiMap(prompt, { commandId, capabilityPlan });
       default:
@@ -746,6 +748,30 @@ export class AppShell {
     } catch (error) {
       const message = error?.message || 'ArcGIS discovery failed.';
       this.presentAiMapMessage(message, ['ArcGIS discovery', 'Failed'], 'error');
+      return { rejected: true, gisExecuted: false, commandId };
+    }
+  }
+
+  async executeCrossAgentSpatialViaAiMap(prompt, { commandId }) {
+    const { runCrossAgentSpatialCommand } = await import('../orchestrator/cross-agent-orchestrator-client.js');
+    this.commandBar?.setAiPhase('Cross-agent spatial analysis…');
+    try {
+      const result = await runCrossAgentSpatialCommand(prompt, {
+        appShell: this,
+        commandId,
+        traceId: commandId
+      });
+      const chain = ['Cross-agent spatial', result.mappedCount > 0 ? 'Analysis mapped' : 'Analysis complete'];
+      this.presentAiMapMessage(result.message, chain, result.mappedCount > 0 ? 'success' : 'warning');
+      return {
+        rejected: false,
+        gisExecuted: result.mappedCount > 0,
+        commandId,
+        crossAgent: result
+      };
+    } catch (error) {
+      const message = error?.message || 'Cross-agent spatial analysis failed.';
+      this.presentAiMapMessage(message, ['Cross-agent spatial', 'Failed'], 'error');
       return { rejected: true, gisExecuted: false, commandId };
     }
   }

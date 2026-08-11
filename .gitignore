@@ -16,3 +16,7 @@ artifacts/
 # IQAI Spatial — disposable screenshot captures from verify scripts
 public/spatial/intelligence-lab/screenshots*/
 public/spatial/intelligence-lab/screenshots-*/
+
+# Playwright persistent ArcGIS OAuth profile (one-time manual sign-in)
+.playwright-auth/
+.local-runtime/

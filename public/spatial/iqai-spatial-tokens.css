@@ -1,0 +1,55 @@
+/**
+ * IQAI Spatial — shared design tokens (Intelligence + Investigation family).
+ * Import before workspace-specific CSS. Investigation may keep local overrides.
+ */
+:root {
+  color-scheme: light;
+
+  /* Surfaces */
+  --iqai-bg: #f8fafc;
+  --iqai-surface: #ffffff;
+  --iqai-surface-muted: #f1f5f9;
+
+  /* Typography */
+  --iqai-text: #0f172a;
+  --iqai-text-secondary: #334155;
+  --iqai-muted: #64748b;
+  --iqai-muted-light: #94a3b8;
+
+  /* Borders */
+  --iqai-border: #e2e8f0;
+  --iqai-border-strong: #cbd5e1;
+
+  /* Accent & semantic */
+  --iqai-accent: #2563eb;
+  --iqai-accent-hover: #1d4ed8;
+  --iqai-accent-soft: #eff6ff;
+  --iqai-positive: #059669;
+  --iqai-negative: #ea580c;
+
+  /* Layout */
+  --iqai-header-h: 56px;
+  --iqai-rail-w: 220px;
+  --iqai-panel-w: 320px;
+
+  /* Radii */
+  --iqai-radius-sm: 6px;
+  --iqai-radius-md: 8px;
+  --iqai-radius-lg: 12px;
+
+  /* Spacing */
+  --iqai-space-xs: 0.35rem;
+  --iqai-space-sm: 0.5rem;
+  --iqai-space-md: 0.85rem;
+  --iqai-space-lg: 1rem;
+
+  /* Shadows */
+  --iqai-shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06);
+  --iqai-shadow-md: 0 2px 8px rgba(15, 23, 42, 0.08);
+
+  /* Brand (shared with iqai-spatial-brand.css) */
+  --iqai-brand-text: #0f172a;
+  --iqai-brand-muted: #64748b;
+
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+}

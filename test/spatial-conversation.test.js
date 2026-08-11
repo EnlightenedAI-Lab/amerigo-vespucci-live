@@ -39,6 +39,20 @@ test('expandConversationInput handles restore map reset', () => {
   assert.equal(result.metaAction, 'RESET_MAP');
 });
 
+test('expandConversationInput handles clear result without API round trip', () => {
+  resetConversationState();
+  const result = expandConversationInput('clear result');
+  assert.equal(result.ok, true);
+  assert.equal(result.metaAction, 'CLEAR_RESULT');
+});
+
+test('expandConversationInput handles clear results variant', () => {
+  resetConversationState();
+  const result = expandConversationInput('clear results');
+  assert.equal(result.ok, true);
+  assert.equal(result.metaAction, 'CLEAR_RESULT');
+});
+
 test('expandConversationInput normalizes zoom to to these results', () => {
   resetConversationState();
   patchConversationState({

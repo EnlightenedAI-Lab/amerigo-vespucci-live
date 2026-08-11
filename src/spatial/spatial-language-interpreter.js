@@ -66,6 +66,8 @@ export function commandToRequest(cmd, resolvedLocation) {
       layerSource: 'WEBMAP',
       webmapLayer: cmd.webmapLayer,
       webmapCatalogId: cmd.webmapCatalogId || cmd.webmapLayer?.catalogId,
+      attributeWhere: cmd.attributeWhere || null,
+      displayNameOverride: cmd.displayNameOverride || null,
       datasetIds: [],
       datasets: [],
       locationText: resolvedLocation,

@@ -64,7 +64,8 @@ export function createPreviewConfig(port = 3000) {
     destinationLongitude: '-25.664444',
     etaMinSpeedKnots: 1,
     aisstreamApiKey: process.env.AISSTREAM_API_KEY || '',
-    aisstreamUrl: process.env.AISSTREAM_URL || 'wss://stream.aisstream.io/v0/stream'
+    aisstreamUrl: process.env.AISSTREAM_URL || 'wss://stream.aisstream.io/v0/stream',
+    googleMapsBrowserApiKey: String(process.env.GOOGLE_MAPS_BROWSER_API_KEY || '').trim()
   };
 }
 

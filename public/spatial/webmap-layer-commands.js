@@ -31,6 +31,16 @@ function mapSingleOperation(operation) {
   return SINGLE_OPS[operation] || operation;
 }
 
+function ensureAncestorGroupsVisible(layer) {
+  let parent = layer?.parent;
+  while (parent) {
+    if (parent.type === 'group' && !parent.visible) {
+      parent.visible = true;
+    }
+    parent = parent.parent;
+  }
+}
+
 /**
  * @param {object} layerControl
  */
@@ -47,6 +57,7 @@ export async function executeLayerControl(layerControl) {
 
   const operation = layerControl.operation;
   if (operation === 'SHOW_LAYER' || operation === 'SHOW_LAYERS') {
+    ensureAncestorGroupsVisible(layer);
     layer.visible = true;
     if (layer.id === AIRCRAFT_LAYER_ID) syncAircraftVisibility(true);
     if (layer.id === VESSELS_LAYER_ID) syncVesselsVisibility(true);

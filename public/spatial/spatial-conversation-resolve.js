@@ -78,6 +78,10 @@ export function expandConversationInput(prompt, state = getConversationState()) 
     return { ok: true, metaAction: 'RESET_MAP' };
   }
 
+  if (/^(?:clear\s+map|clear(?:\s+the)?(?:\s+results?)?|remove(?:\s+the)?\s+results?|remove previous results)$/i.test(normalized)) {
+    return { ok: true, metaAction: 'CLEAR_RESULT' };
+  }
+
   if (/^(?:turn off all source layers|hide all source layers)$/i.test(normalized)) {
     return { ok: true, metaAction: 'HIDE_ALL_SOURCE' };
   }
