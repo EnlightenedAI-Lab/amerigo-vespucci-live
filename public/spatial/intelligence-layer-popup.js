@@ -57,8 +57,10 @@ export function buildIntelligencePopupHtml(attrs = {}) {
  */
 export function eventToFeatureAttributes(event, request = {}) {
   const sources = summarizeEventSources(event);
+  const lineage = event.evidenceLineageFacts || event.admissionDecision?.evidenceLineageFacts || {};
   return {
     eventId: event.eventId || null,
+    iqaiFidelityPlane: event.eventId ? 'INTELLIGENCE' : null,
     concept: event.concept || request.query || null,
     conceptLabel: request.conceptLabel || event.concept || null,
     title: event.title || 'Untitled event',
@@ -74,6 +76,16 @@ export function eventToFeatureAttributes(event, request = {}) {
     sourceCount: sources.count,
     primarySource: sources.names[0] || null,
     sourceReportsJson: JSON.stringify(event.sourceReports || []),
-    mappable: event.mappable ? 1 : 0
+    mappable: event.mappable ? 1 : 0,
+    admissionOutcome: event.admissionOutcome || event.admissionDecision?.outcome || null,
+    reasonCodes: Array.isArray(event.reasonCodes)
+      ? event.reasonCodes.join(',')
+      : (Array.isArray(event.admissionDecision?.reasonCodes)
+        ? event.admissionDecision.reasonCodes.join(',')
+        : null),
+    permittedDisplayMode: event.permittedDisplayMode || event.admissionDecision?.permittedDisplayMode || null,
+    locationPrecision: event.locationPrecision || event.admissionDecision?.spatialFacts?.locationPrecision || null,
+    corroborationSummary: lineage.corroborationSummary || event.corroborationSummary || null,
+    whyOnMapSummary: event.whyOnMapSummary || event.whyOnMap?.note || null
   };
 }

@@ -206,7 +206,8 @@ export async function upsertIntelligenceEventGraphic(layerId, event, options = {
   const webMap = view?.map;
   if (!webMap || !layerId || !event) return { updated: false };
 
-  const [Graphic, Point, Polyline, Polygon, SimpleMarkerSymbol, PopupTemplate] = await Promise.all([
+  const [GraphicsLayer, Graphic, Point, Polyline, Polygon, SimpleMarkerSymbol, PopupTemplate] = await Promise.all([
+    importArc('@arcgis/core/layers/GraphicsLayer.js'),
     importArc('@arcgis/core/Graphic.js'),
     importArc('@arcgis/core/geometry/Point.js'),
     importArc('@arcgis/core/geometry/Polyline.js'),
@@ -216,7 +217,16 @@ export async function upsertIntelligenceEventGraphic(layerId, event, options = {
   ]);
 
   let layer = webMap.findLayerById(layerId) || layerById.get(layerId);
-  if (!layer) return { updated: false };
+  if (!layer) {
+    layer = new GraphicsLayer({
+      id: layerId,
+      title: options.layerTitle || event.concept || 'Intelligence layer',
+      listMode: 'show',
+      popupEnabled: true
+    });
+    addRuntimeLayer(layer);
+    layerById.set(layerId, layer);
+  }
 
   const graphicMap = graphicByLayerId.get(layerId) || new Map();
   const eventId = event.eventId;

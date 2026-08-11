@@ -247,8 +247,38 @@ describe('Progressive intelligence orchestrator Phase 2 closeout', () => {
     assert.equal(feasibility.implementationStatus, 'BOUNDED_CUSTOM_AGENT_PILOT');
   });
 
-  it('registers provider-neutral Phase 2 capabilities', () => {
-    assert.equal(PROGRESSIVE_CAPABILITIES.LIVE_INTELLIGENCE_RETRIEVAL, 'LIVE_INTELLIGENCE_RETRIEVAL');
-    assert.equal(PROGRESSIVE_CAPABILITIES.CORPUS_SEARCH, 'CORPUS_SEARCH');
+  it('registers HOLD/REJECT governed events without map plans', async () => {
+    const rejectEvent = {
+      ...ADMITTED_EVENT,
+      eventId: 'evt-fire-reject-store',
+      sourceReports: []
+    };
+    const result = await runProgressiveIntelligenceGraph({
+      query: 'Map significant fires in Greater Montréal during the last 30 days',
+      conceptId: 'fires',
+      ...REQUEST
+    }, {
+      streamProgressiveResearch: async (_req, hooks) => {
+        const governed = await govern(rejectEvent);
+        assert.equal(governed.admitted, false);
+        await hooks.onHeldOrRejected?.(governed);
+        return {
+          corpusResult: { events: [] },
+          liveResult: { candidates: [rejectEvent] },
+          admittedEventIds: [],
+          governanceStats: { candidates: 1, reject: 1, admit: 0 },
+          metrics: {
+            corpusLatencyMs: 5,
+            liveLatencyMs: 20,
+            fallbackUsed: false
+          },
+          cancelled: false
+        };
+      }
+    });
+    assert.equal(result.pendingMapPlans.length, 0);
+    assert.equal(result.governedEvents.length, 1);
+    assert.equal(result.governedEvents[0].governedEventId, 'evt-fire-reject-store');
+    assert.equal(result.governedEvents[0].admission?.outcome, ADMISSION_OUTCOME.REJECT);
   });
 });

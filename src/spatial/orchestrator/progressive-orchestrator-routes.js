@@ -30,8 +30,14 @@ function buildProgressiveRequest(body, query) {
 }
 
 function writeNdjson(res, payload) {
-  res.write(`${JSON.stringify(payload)}\n`);
-  if (typeof res.flush === 'function') res.flush();
+  if (!res || res.writableEnded || res.destroyed) return false;
+  try {
+    const ok = res.write(`${JSON.stringify(payload)}\n`);
+    if (typeof res.flush === 'function') res.flush();
+    return ok !== false;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -58,17 +64,37 @@ export async function handleOrchestratorProgressiveIntelligence(req, res) {
   try {
     if (stream) {
       res.setHeader('Content-Type', 'application/x-ndjson');
+      // Prevent client disconnects from crashing the Node process mid-research.
+      res.on('error', () => {});
+      req.on('aborted', () => {});
       writeNdjson(res, { type: 'started', query, traceId: trace.traceId });
     } else {
       res.type('application/json');
     }
 
+    let clientGone = false;
+    const safeWrite = (payload) => {
+      if (clientGone || req.aborted) return false;
+      const ok = writeNdjson(res, payload);
+      if (!ok) clientGone = true;
+      return ok;
+    };
+
     const result = await runProgressiveIntelligenceGraph(request, {
       trace,
       sessionScope: body.sessionScope || null,
+      onGovernedEvent: stream
+        ? async (governed) => {
+          safeWrite({
+            type: 'governedEvent',
+            governedEventId: governed?.governedEventId || governed?.candidate?.eventId || null,
+            governed
+          });
+        }
+        : undefined,
       onMapPlanReady: stream
         ? async ({ plan, governed, isUpdate }) => {
-          writeNdjson(res, {
+          safeWrite({
             type: 'mapPlan',
             plan,
             governedEventId: governed?.governedEventId || governed?.candidate?.eventId || null,
@@ -79,7 +105,7 @@ export async function handleOrchestratorProgressiveIntelligence(req, res) {
       onMapExecution: stream
         ? async ({ receipt, governed }) => {
           if (receipt?.mutatedMap) {
-            writeNdjson(res, {
+            safeWrite({
               type: 'rendered',
               governedEventId: governed?.governedEventId || governed?.candidate?.eventId || null,
               at: Date.now()
@@ -98,14 +124,16 @@ export async function handleOrchestratorProgressiveIntelligence(req, res) {
     };
 
     if (stream) {
-      writeNdjson(res, { type: 'complete', body: payload });
-      return res.end();
+      safeWrite({ type: 'complete', body: payload });
+      if (!res.writableEnded) res.end();
+      return;
     }
     return res.status(200).json(payload);
   } catch (error) {
     if (stream) {
       writeNdjson(res, { type: 'error', error: error?.message || 'Progressive orchestrator failed', code: error?.code || null });
-      return res.end();
+      if (!res.writableEnded) res.end();
+      return;
     }
     return res.status(500).json({
       ok: false,

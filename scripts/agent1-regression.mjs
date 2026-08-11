@@ -36,6 +36,7 @@ export const AGENT1_REGRESSION_FILES = [
   'test/a1-place-poi-search.test.js',
   'test/a1-operator-acceptance-closeout.test.js',
   'test/a1-governed-intelligence-closeout.test.js',
+  'test/a1-fidelity-strip.test.js',
   'test/a1-multi-ai-provider.test.js',
   'test/a1-rd-secret-discovery.test.js',
   'test/a1-spatial-latency-trace.test.js',

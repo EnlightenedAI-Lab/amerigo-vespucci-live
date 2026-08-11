@@ -7,6 +7,7 @@ import {
   upsertIntelligenceEventGraphic
 } from '../intelligence-layer-map.js';
 import { normalizeIntelligenceSearchResponse } from '../intelligence-layer-model.js';
+import { registerGovernedFromMapPayload } from '../governed-event-store.js';
 
 const executionStore = new Map();
 
@@ -63,29 +64,33 @@ export async function executeIntelligenceMapActionPlan(plan, options = {}) {
   }
 
   const event = payload.mappableEvents?.[0] || payload.events?.[0];
+  registerGovernedFromMapPayload(payload);
   let mutated = false;
 
-  if (isUpdate && event) {
+  // Upsert each progressive event — never wipe the shared intelligence layer.
+  if (event) {
     const upsert = await upsertIntelligenceEventGraphic(layerId, event, {
       trace: options.trace,
       governedEventVersion: payload.governedEventVersion,
-      patchType: payload.patchType
+      patchType: payload.patchType || (isUpdate ? 'DATA_VERSION' : null),
+      layerTitle: payload.conceptId || 'Intelligence events'
     });
-    mutated = upsert.updated === true;
-  } else {
-    const normalized = normalizeIntelligenceSearchResponse({
-      ok: true,
-      events: payload.events || [],
-      combined: { distinctEvents: (payload.events || []).length, mappable: (payload.mappableEvents || []).length }
-    }, {
-      query: payload.conceptId,
-      conceptId: payload.conceptId,
-      geography: 'Greater Montréal'
-    });
-    normalized.layerTitle = payload.conceptId || 'Intelligence events';
-    normalized.mappableEvents = payload.mappableEvents || [];
-    await renderIntelligenceLayer(layerId, normalized, { trace: options.trace });
-    mutated = (payload.mappableEvents || []).length > 0;
+    mutated = Boolean(upsert.updated || upsert.created);
+    if (!mutated && !isUpdate) {
+      const normalized = normalizeIntelligenceSearchResponse({
+        ok: true,
+        events: payload.events || [],
+        combined: { distinctEvents: (payload.events || []).length, mappable: (payload.mappableEvents || []).length }
+      }, {
+        query: payload.conceptId,
+        conceptId: payload.conceptId,
+        geography: 'Greater Montréal'
+      });
+      normalized.layerTitle = payload.conceptId || 'Intelligence events';
+      normalized.mappableEvents = payload.mappableEvents || [];
+      await renderIntelligenceLayer(layerId, normalized, { trace: options.trace });
+      mutated = (payload.mappableEvents || []).length > 0;
+    }
   }
 
   if (featureKey) {

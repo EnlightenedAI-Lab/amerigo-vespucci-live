@@ -37,6 +37,14 @@ export async function selectOpenWorldIntelligenceResult(resultId, options = {}) 
   applyOpenWorldPanelSelection(resultId);
   await emphasizeOpenWorldMapResult(resultId);
   const result = getResultById?.(resultId) || null;
+  if (result) {
+    const { publishFidelitySelection, FIDELITY_SELECTION_MODES } = await import('./fidelity-selection-hub.js');
+    publishFidelitySelection({
+      mode: FIDELITY_SELECTION_MODES.OPEN_WORLD,
+      openWorldItem: result,
+      eventId: result.eventCandidateId || result.operationalIncidentId || result.id
+    });
+  }
   if (options.openInspector && result) {
     openOpenWorldInspector(result);
     panelContainer?.querySelector('#owi-inspector-host')?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });

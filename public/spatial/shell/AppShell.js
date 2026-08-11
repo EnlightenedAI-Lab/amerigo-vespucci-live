@@ -354,6 +354,10 @@ export class AppShell {
     }
     resetMapActionExecutorStore();
     resetIntelligenceMapActionExecutorStore();
+    const { clearGovernedEventStore } = await import('../governed-event-store.js');
+    const { clearFidelitySelection } = await import('../fidelity-selection-hub.js');
+    clearGovernedEventStore();
+    clearFidelitySelection();
     if (typeof window !== 'undefined') {
       window.__IQAI_LAST_PROGRESSIVE_RECEIPT__ = null;
       window.__IQAI_ORCHESTRATOR_STATUS__ = null;
@@ -1313,6 +1317,7 @@ export class AppShell {
         <div class="map-column" aria-label="Map workspace">
           <div id="spatial-command-bar"></div>
           <div id="spatial-research-control-bar" hidden></div>
+          <div id="spatial-fidelity-strip" hidden></div>
           <section class="map-stage">
             <div class="map-frame">
               <button type="button" class="panel-reopen panel-reopen-left" data-reopen="left" hidden>Layers</button>
@@ -1353,6 +1358,11 @@ export class AppShell {
     void import('../intelligence-research-control-bar.js').then(({ mountIntelligenceResearchControlBar }) => {
       this.researchControlBar = mountIntelligenceResearchControlBar(
         this.root.querySelector('#spatial-research-control-bar')
+      );
+    });
+    void import('../fidelity-strip.js').then(({ mountFidelityStrip }) => {
+      this.fidelityStrip = mountFidelityStrip(
+        this.root.querySelector('#spatial-fidelity-strip')
       );
     });
     this.detailPanel = new DetailPanel(this.root.querySelector('#spatial-detail-panel'));
@@ -1507,6 +1517,9 @@ export class AppShell {
         clearActiveSelection();
         this.detailPanel?.setFeatureDetail(attributes, this.lastMapResult, graphic);
         this.eventTray?.highlightResultsRowFromMap(attributes);
+        void import('../fidelity-selection-hub.js').then(({ classifyMapFeatureSelection, publishFidelitySelection }) => {
+          publishFidelitySelection(classifyMapFeatureSelection(attributes, graphic));
+        });
       },
       () => {
         clearActiveSelection();
@@ -1515,6 +1528,9 @@ export class AppShell {
         } else {
           this.detailPanel?.setSelectedFeatureHtml([]);
         }
+        void import('../fidelity-selection-hub.js').then(({ clearFidelitySelection }) => {
+          clearFidelitySelection();
+        });
       }
     );
     this.wirePointIntelligence();

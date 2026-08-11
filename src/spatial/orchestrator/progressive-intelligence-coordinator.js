@@ -43,9 +43,32 @@ export async function runProgressiveIntelligenceGraph(request = {}, deps = {}) {
   const mappedFeatureKeys = new Set();
   const executionReceipts = [];
   const pendingMapPlans = [];
+  /** @type {object[]} All Agent 2 governed outcomes (including HOLD/REJECT). */
+  const governedEvents = [];
+  const governedEventIds = new Set();
   let cancelled = Boolean(deps.cancelled);
   let firstRenderedAt = null;
   let enrichmentPatches = 0;
+
+  async function recordGovernedEvent(governed) {
+    if (!governed) return null;
+    const eventId = governed.governedEventId || governed.candidate?.eventId;
+    if (!eventId || governedEventIds.has(eventId)) return null;
+    governedEventIds.add(eventId);
+    const bundle = {
+      governedEventId: eventId,
+      governedEventVersion: governed.governedEventVersion || 1,
+      admission: governed.admission || governed.admissionDecision || null,
+      admissionDecision: governed.admissionDecision || governed.admission || null,
+      governedCandidate: governed.governedCandidate || null,
+      candidate: governed.candidate || null,
+      receipt: governed.receipt || null,
+      admitted: Boolean(governed.admitted)
+    };
+    governedEvents.push(bundle);
+    await deps.onGovernedEvent?.(bundle);
+    return bundle;
+  }
 
   const objectiveSpec = {
     objectiveId: randomUUID(),
@@ -106,6 +129,7 @@ export async function runProgressiveIntelligenceGraph(request = {}, deps = {}) {
       if (cancelled) return;
       const governStarted = Date.now();
       recordReceipt('task-govern-candidate', 'GOVERN_CANDIDATE', TASK_STATES.SUCCEEDED, Date.now() - governStarted);
+      await recordGovernedEvent(governed);
 
       const geocodeStarted = Date.now();
       const candidate = governed.candidate;
@@ -178,8 +202,8 @@ export async function runProgressiveIntelligenceGraph(request = {}, deps = {}) {
 
       await deps.onMapExecution?.({ governed, plan, receipt, isUpdate });
     },
-    onHeldOrRejected: async () => {
-      /* diagnostics only */
+    onHeldOrRejected: async (governed) => {
+      await recordGovernedEvent(governed);
     }
   }, { ...deps, trace, signal: deps.abortSignal, runStartedAt: started });
 
@@ -237,6 +261,7 @@ export async function runProgressiveIntelligenceGraph(request = {}, deps = {}) {
     mappedFeatureKeys: [...mappedFeatureKeys],
     mappedCount: mappedFeatureKeys.size,
     pendingMapPlans,
+    governedEvents,
     enrichmentPatches,
     taskGraphReceipt,
     taskReceipts,

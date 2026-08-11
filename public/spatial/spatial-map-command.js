@@ -2286,6 +2286,7 @@ export async function wireFeaturePicking(onFeatureSelect, onClearSelection) {
             location: intelHit.graphic.geometry
           });
         }
+        onFeatureSelect?.(intelHit.graphic.attributes || {}, intelHit.graphic);
         logClickDiagnostic(diagnostic);
         return;
       }
