@@ -92,15 +92,34 @@ async function waitForReady(page) {
 }
 
 async function runProgressivePrompt(page, prompt) {
+  const useStream = process.env.AI_MAP_RECEIPT_STREAM !== '0';
   const responseWait = page.waitForResponse(
     (res) => res.url().includes('/api/spatial/orchestrator/progressive-intelligence') && res.request().method() === 'POST',
     { timeout: RESEARCH_TIMEOUT_MS }
   );
-  await page.evaluate(async (text) => {
-    const app = window.__IQAI_APP_SHELL__;
-    if (!app?.runAiMapCommand) throw new Error('AI MAP shell unavailable');
-    await app.runAiMapCommand(text);
-  }, prompt);
+  if (useStream) {
+    await page.evaluate(async (text) => {
+      const app = window.__IQAI_APP_SHELL__;
+      if (!app?.runAiMapCommand) throw new Error('AI MAP shell unavailable');
+      await app.runAiMapCommand(text);
+    }, prompt);
+  } else {
+    await page.evaluate(async ({ text, stream }) => {
+      const app = window.__IQAI_APP_SHELL__;
+      if (!app?.tryRunIntelligenceMapCommand) throw new Error('AI MAP shell unavailable');
+      const { parseIntelligenceMapIntent, buildIntelligenceRequestFromIntent } = await import('/spatial/intelligence-layer-intent.js');
+      const { runProgressiveIntelligenceCommand } = await import('/spatial/orchestrator/progressive-orchestrator-client.js');
+      const intent = parseIntelligenceMapIntent(text);
+      if (!intent) throw new Error('Intelligence intent not recognized');
+      const request = buildIntelligenceRequestFromIntent(intent);
+      await runProgressiveIntelligenceCommand(request, {
+        appShell: app,
+        stream,
+        commandId: 'receipt-proof',
+        viaAiMap: true
+      });
+    }, { text: prompt, stream: false });
+  }
   const response = await responseWait;
   if (!response.ok()) {
     const text = await response.text().catch(() => '');
