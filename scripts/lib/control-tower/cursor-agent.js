@@ -8,8 +8,19 @@ const DEFAULT_AGENT_PATH_WIN = `${process.env.LOCALAPPDATA || ''}\\cursor-agent\
 /**
  * @param {object} config
  */
-export function resolveAgentInvocation(config) {
-  const configured = config.dryRunAgentCommand || config.agentCommand || 'agent';
+export function shouldUseMockAgent(config = {}) {
+  return Boolean(config.useMockAgent) || process.env.IQAI_CONTROL_TOWER_USE_MOCK === '1';
+}
+
+/**
+ * @param {object} config
+ * @param {{ mock?: boolean }} [options]
+ */
+export function resolveAgentInvocation(config, options = {}) {
+  const useMock = options.mock ?? shouldUseMockAgent(config);
+  const configured = useMock && config.dryRunAgentCommand
+    ? config.dryRunAgentCommand
+    : (config.agentCommand || 'agent');
   if (/\.mjs$|\.js$/i.test(configured)) {
     return { command: process.execPath, argv0: configured };
   }
@@ -23,7 +34,7 @@ export function resolveAgentInvocation(config) {
  * @param {object} config
  */
 export function resolveAgentCommand(config) {
-  return resolveAgentInvocation(config).command;
+  return resolveAgentInvocation(config, { mock: false }).command;
 }
 
 /**
@@ -54,9 +65,7 @@ export async function getCursorAuthStatus(agentCommand) {
  * @param {object} [config]
  */
 export async function getCursorVersion(config = null) {
-  const command = config?.dryRunAgentCommand
-    ? (process.platform === 'win32' ? DEFAULT_AGENT_PATH_WIN : 'agent')
-    : resolveAgentCommand(config || {});
+  const command = config?.agentCommand || (process.platform === 'win32' ? DEFAULT_AGENT_PATH_WIN : 'agent');
   try {
     const { stdout } = await runCommand(command, ['--version'], { cwd: process.cwd() });
     return stdout.trim();
@@ -94,8 +103,8 @@ export async function runCursorMission({
   const promptPath = join(inboxDir, `issue-${issueNumber}-prompt.md`);
   writeFileSync(promptPath, prompt, 'utf8');
 
-  const agentCommand = resolveAgentCommand(config);
-  const invocation = resolveAgentInvocation(config);
+  const useMock = shouldUseMockAgent(config);
+  const invocation = resolveAgentInvocation(config, { mock: useMock });
   const wrapperPrompt = [
     'IQAI CONTROL TOWER MISSION',
     `Read and execute the mission verbatim from this file: ${promptPath}`,
@@ -104,7 +113,7 @@ export async function runCursorMission({
   ].join('\n');
 
   let args;
-  if (config.dryRunAgentCommand) {
+  if (useMock) {
     args = invocation.argv0 ? [invocation.argv0, wrapperPrompt] : [wrapperPrompt];
   } else {
     args = [];
@@ -148,7 +157,7 @@ export async function runCursorMission({
     status,
     latencyMs,
     promptPath,
-    agentCommand,
+    agentCommand: invocation.command,
     sessionId
   };
 }
@@ -160,7 +169,13 @@ export async function runCursorMission({
  */
 export function runCommand(command, args, options = {}) {
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, {
+    let spawnCommand = command;
+    let spawnArgs = args;
+    if (process.platform === 'win32' && /\.(cmd|bat)$/i.test(command)) {
+      spawnCommand = process.env.ComSpec || 'cmd.exe';
+      spawnArgs = ['/d', '/s', '/c', command, ...args];
+    }
+    const child = spawn(spawnCommand, spawnArgs, {
       cwd: options.cwd || process.cwd(),
       env: process.env,
       stdio: ['ignore', 'pipe', 'pipe'],

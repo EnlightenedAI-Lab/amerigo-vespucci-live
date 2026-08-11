@@ -2,7 +2,7 @@
 /**
  * IQAI Control Tower bridge — GitHub issue queue to local Cursor Agent CLI.
  */
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { writeFileSync, mkdirSync, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadBridgeConfig } from './lib/control-tower/config.js';
 import {
@@ -28,7 +28,8 @@ import {
   getCursorVersion,
   createCursorSession,
   runCursorMission,
-  resolveAgentCommand
+  resolveAgentCommand,
+  shouldUseMockAgent
 } from './lib/control-tower/cursor-agent.js';
 import {
   extractMissionPrompt,
@@ -47,7 +48,7 @@ function sleep(ms) {
 async function ensureCursorSession(config, stateDir) {
   let session = loadCursorSession(stateDir);
   if (session.sessionId) return session;
-  if (config.dryRunAgentCommand) {
+  if (shouldUseMockAgent(config)) {
     session = {
       sessionId: 'mock-control-tower-session',
       label: config.sessionLabel,
@@ -202,6 +203,20 @@ async function main() {
     return;
   }
 
+  // V2 cutover: refuse to run when disabled or when V2 authority marker is present.
+  const v2AuthorityPath = join(config.stateDir, 'v2-owns-agent1.json');
+  if (existsSync(v2AuthorityPath) || config.enabled === false) {
+    clearBridgePid(config.stateDir);
+    console.log(JSON.stringify({
+      bridge: 'DISABLED',
+      reason: existsSync(v2AuthorityPath)
+        ? 'V2_OWNS_AGENT1'
+        : 'BRIDGE_CONFIG_DISABLED',
+      marker: existsSync(v2AuthorityPath) ? JSON.parse(readFileSync(v2AuthorityPath, 'utf8')) : null
+    }));
+    return;
+  }
+
   writeBridgePid(config.stateDir, process.pid);
   const agentCommand = resolveAgentCommand(config);
   const [gh, cursor, version] = await Promise.all([
@@ -214,7 +229,7 @@ async function main() {
     console.error('GitHub CLI not authenticated. Run: gh auth login');
     process.exit(1);
   }
-  if (!config.dryRunAgentCommand && !cursor.authenticated) {
+  if (!shouldUseMockAgent(config) && !cursor.authenticated) {
     console.error('Cursor Agent CLI not authenticated. Run: agent login');
     process.exit(1);
   }

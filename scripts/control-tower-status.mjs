@@ -14,7 +14,8 @@ import { listOpenAgentIssues, getGhAuthStatus } from './lib/control-tower/github
 import {
   getCursorAuthStatus,
   getCursorVersion,
-  resolveAgentCommand
+  resolveAgentCommand,
+  shouldUseMockAgent
 } from './lib/control-tower/cursor-agent.js';
 import { parseMissionTitle, MISSION_STATES } from './lib/control-tower/protocol.js';
 
@@ -46,7 +47,9 @@ async function main() {
   const session = loadCursorSession(config.stateDir);
   const pid = readBridgePid(config.stateDir);
   const daemonRunning = isProcessRunning(pid);
-  const agentCommand = resolveAgentCommand(config);
+  const agentCommand = config.agentCommand || resolveAgentCommand(config);
+  const productionAgent = config.agentCommand;
+  const useMock = shouldUseMockAgent(config);
 
   const [gh, cursor, version, issues] = await Promise.all([
     getGhAuthStatus(),
@@ -80,6 +83,13 @@ async function main() {
       authenticated: cursor.authenticated,
       version
     },
+    productionAgent,
+    mockUsedForProduction: useMock,
+    readyForControlTowerMission: config.enabled
+      && gh.connected
+      && cursor.authenticated
+      && !bridgeState.runningIssue
+      && !useMock,
     lastResult: bridgeState.lastResult,
     pid: daemonRunning ? pid : null,
     configPath: config.configPath,

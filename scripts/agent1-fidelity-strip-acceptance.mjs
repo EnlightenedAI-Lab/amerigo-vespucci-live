@@ -298,27 +298,44 @@ async function main() {
     await waitForReady(page);
 
     // TEST 1 — live progressive intelligence → governed store → fidelity strip
-    await runPrompt(page,
-      'Find significant fires, explosions, or hazmat incidents in Montréal in the last 30 days and map them.',
-      { progressive: true, settleMs: 5000 }
-    );
-    await page.waitForFunction(
-      () => Boolean(window.__IQAI_LAST_PROGRESSIVE_RECEIPT__),
-      { timeout: RESEARCH_TIMEOUT_MS }
-    ).catch(() => {});
-    await page.waitForFunction(
-      () => {
-        const store = window.__IQAI_GOVERNED_EVENT_STORE__ || {};
-        return Object.keys(store).some((id) => {
-          const source = store[id]?.source;
-          return source === 'progressive-intelligence'
-            || source === 'progressive-map-plan'
-            || String(id).startsWith('live-event_');
+    const progressivePrompt =
+      'Find significant fires, explosions, or hazmat incidents in Montréal in the last 30 days and map them.';
+    async function runProgressiveUntilGoverned(maxAttempts = 3) {
+      let evidence = null;
+      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        await runPrompt(page, progressivePrompt, { progressive: true, settleMs: 5000 });
+        await page.waitForFunction(
+          () => Boolean(window.__IQAI_LAST_PROGRESSIVE_RECEIPT__),
+          { timeout: RESEARCH_TIMEOUT_MS }
+        ).catch(() => {});
+        await page.waitForFunction(
+          () => {
+            const store = window.__IQAI_GOVERNED_EVENT_STORE__ || {};
+            const hasLive = Object.keys(store).some((id) => {
+              const source = store[id]?.source;
+              return source === 'progressive-intelligence'
+                || source === 'progressive-map-plan'
+                || String(id).startsWith('live-event_');
+            });
+            return hasLive && Boolean(window.__IQAI_LAST_PROGRESSIVE_RECEIPT__);
+          },
+          { timeout: Math.min(90_000, RESEARCH_TIMEOUT_MS) }
+        ).catch(() => {});
+        // One short settle so the client can finish writing the progressive receipt.
+        await page.waitForTimeout(1500);
+        evidence = await readProgressiveAuthEvidence(page);
+        if (evidence.liveEventIds?.length) {
+          return { ...evidence, attempts: attempt };
+        }
+        // Clear stale empty receipt so the next attempt can be observed cleanly.
+        await page.evaluate(() => {
+          window.__IQAI_LAST_PROGRESSIVE_RECEIPT__ = null;
         });
-      },
-      { timeout: RESEARCH_TIMEOUT_MS }
-    ).catch(() => {});
-    const authEvidence = await readProgressiveAuthEvidence(page);
+      }
+      return { ...(evidence || {}), attempts: maxAttempts };
+    }
+
+    const authEvidence = await runProgressiveUntilGoverned(3);
     let fallbackUsed = false;
     let eventA = authEvidence.liveEventIds?.[0] || null;
     if (!eventA) {

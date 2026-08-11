@@ -126,6 +126,7 @@ async function writeTestConfig() {
   // Patch bridge to invoke mock agent via node mock-agent.mjs
   writeFileSync(CONFIG_PATH, JSON.stringify({
     ...config,
+    useMockAgent: true,
     dryRunAgentCommand: MOCK_AGENT,
     agentCommand: MOCK_AGENT
   }, null, 2));

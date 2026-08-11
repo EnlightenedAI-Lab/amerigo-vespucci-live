@@ -154,6 +154,36 @@ export async function runProgressiveIntelligenceCommand(intent = {}, options = {
     executions.push(...runResult.executions);
     timeToFirstRenderedFeatureMs = runResult.timeToFirstRenderedFeatureMs
       ?? timeToFirstRenderedFeatureMs;
+  } else if (
+    useStream
+    && !(serverBody?.governedEvents?.length)
+    && !(serverBody?.pendingMapPlans?.length)
+    && !(serverBody?.streamResult?.governanceStats?.candidates > 0)
+  ) {
+    // Stream completed empty — one non-stream recovery pass for flaky provider windows.
+    try {
+      const recoveryResponse = await fetchProgressive(false);
+      const recoveryBody = await recoveryResponse.json().catch(() => ({}));
+      if (recoveryResponse.ok && (recoveryBody?.governedEvents?.length || recoveryBody?.pendingMapPlans?.length)) {
+        serverBody = recoveryBody;
+        const runResult = await runClientMapExecutions(serverBody, {
+          layerId,
+          trace,
+          idempotencyStore,
+          intent,
+          cancelled: options.cancelled,
+          submitStarted,
+          onProgress
+        });
+        mappedCount = runResult.mappedCount ?? mappedCount;
+        executions.push(...runResult.executions);
+        timeToFirstRenderedFeatureMs = runResult.timeToFirstRenderedFeatureMs
+          ?? timeToFirstRenderedFeatureMs;
+        streamedOk = false;
+      }
+    } catch (recoveryError) {
+      console.warn('[iqai-progressive] Empty-stream recovery failed', recoveryError?.message || recoveryError);
+    }
   }
 
   const finalPhase = serverBody?.finalState === 'DEGRADED' ? 'DEGRADED'
