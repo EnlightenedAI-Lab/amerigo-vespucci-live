@@ -97,9 +97,10 @@ function attributesFromRecord(record) {
     provider: record.provider || '',
     dataset: record.dataset || '',
     sourceUrl: record.sourceUrl || '',
-      sourceFamily: record.subtype === 'hydrometric-registry'
-      ? 'hydrometric'
-      : (record.family === 'hydrometric' ? 'hydrometric-measurement' : 'weather'),
+      sourceFamily: (record.sourceFamilies && record.sourceFamilies[0])
+      || (record.subtype === 'hydrometric-registry'
+        ? 'hydrometric'
+        : (record.family === 'hydrometric' ? 'hydrometric-measurement' : record.family)),
     role: 'pi-station',
     aoiClassification: record.aoiClassification || '',
     aoiBoundaryDistanceMeters: record.aoiBoundaryDistanceMeters,
@@ -208,29 +209,22 @@ function bindPointerHandlers(view) {
   pointerLeaveHandle = view.on('pointer-leave', () => hideHover());
 }
 
-export async function ensurePointIntelligenceStationLayer() {
-  const view = getMapView();
-  const webMap = view?.map;
-  if (!webMap) return null;
-  const existing = webMap.findLayerById(POINT_INTEL_STATION_LAYER_ID);
-  if (existing) {
-    stationLayer = existing;
-    await ensureSelectionLayer();
-    await ensureHoverHost(view);
-    bindPointerHandlers(view);
-    return stationLayer;
-  }
+function stationSourceFamily(record) {
+  if (record?.subtype === 'hydrometric-registry') return 'hydrometric';
+  if (record?.family === 'hydrometric') return 'hydrometric-measurement';
+  if (record?.sourceFamilies?.length) return record.sourceFamilies[0];
+  return record?.family || null;
+}
 
-  const [FeatureLayer, CIMSymbol, UniqueValueRenderer, UniqueValueInfo, LabelClass] = await Promise.all([
-    importArc('@arcgis/core/layers/FeatureLayer.js'),
+async function applyProofStationRenderer(layer) {
+  if (!layer) return;
+  const [CIMSymbol, UniqueValueRenderer, UniqueValueInfo] = await Promise.all([
     importArc('@arcgis/core/symbols/CIMSymbol.js'),
     importArc('@arcgis/core/renderers/UniqueValueRenderer.js'),
-    importArc('@arcgis/core/renderers/support/UniqueValueInfo.js'),
-    importArc('@arcgis/core/layers/support/LabelClass.js')
+    importArc('@arcgis/core/renderers/support/UniqueValueInfo.js')
   ]);
-
   const rendererSpec = buildProofStationRenderer(CIMSymbol);
-  const renderer = new UniqueValueRenderer({
+  layer.renderer = new UniqueValueRenderer({
     field: rendererSpec.field,
     defaultSymbol: rendererSpec.defaultSymbol,
     uniqueValueInfos: rendererSpec.uniqueValueInfos.map((info) => new UniqueValueInfo({
@@ -240,6 +234,27 @@ export async function ensurePointIntelligenceStationLayer() {
       alternateSymbols: info.alternateSymbols || []
     }))
   });
+}
+
+export async function ensurePointIntelligenceStationLayer() {
+  const view = getMapView();
+  const webMap = view?.map;
+  if (!webMap) return null;
+  const existing = webMap.findLayerById(POINT_INTEL_STATION_LAYER_ID);
+  if (existing) {
+    stationLayer = existing;
+    await applyProofStationRenderer(stationLayer);
+    await ensureSelectionLayer();
+    await ensureHoverHost(view);
+    bindPointerHandlers(view);
+    return stationLayer;
+  }
+
+  const [FeatureLayer, LabelClass] = await Promise.all([
+    importArc('@arcgis/core/layers/FeatureLayer.js'),
+    importArc('@arcgis/core/layers/support/LabelClass.js')
+  ]);
+
   stationLayer = new FeatureLayer({
     id: POINT_INTEL_STATION_LAYER_ID,
     title: 'Point Intelligence stations',
@@ -248,13 +263,13 @@ export async function ensurePointIntelligenceStationLayer() {
     fields: STATION_FIELDS,
     geometryType: 'point',
     spatialReference: { wkid: 4326 },
-    renderer,
     labelingInfo: buildProofStationLabelingInfo().map((info) => new LabelClass(info)),
     labelsVisible: true,
     popupEnabled: false,
     listMode: 'hide',
     outFields: ['*']
   });
+  await applyProofStationRenderer(stationLayer);
   addRuntimeLayer(stationLayer);
   await stationLayer.load();
   await ensureSelectionLayer();
@@ -446,9 +461,7 @@ function stationHitFromRecord(record, graphic = null) {
   if (!record) return null;
   return {
     observationId: record.observationId,
-    family: record.subtype === 'hydrometric-registry'
-      ? 'hydrometric'
-      : (record.family === 'hydrometric' ? 'hydrometric-measurement' : 'weather'),
+    family: stationSourceFamily(record),
     assetKey: record.assetKey,
     observationIds: record.observationIds || [],
     graphic,

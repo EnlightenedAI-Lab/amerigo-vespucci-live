@@ -10,10 +10,13 @@ import {
 } from '../public/spatial/point-intelligence-station-model.js';
 import {
   PI_LOCAL_INSTRUMENT_MIN_SCALE,
+  buildAirQualityCimSymbol,
+  buildClimateCimSymbol,
   buildHydrometricCimSymbol,
   buildProofStationRenderer,
   buildRegionalFireflyCimSymbol,
-  buildWeatherCimSymbol
+  buildWeatherCimSymbol,
+  buildWeatherCurrentCimSymbol
 } from '../public/spatial/point-intelligence-station-symbols.js';
 
 const NOW = Date.parse('2026-08-13T17:30:00Z');
@@ -107,24 +110,112 @@ test('SWOB observations from the same persistent station collapse', () => {
   assert.equal(records[0].freshnessClass, FRESHNESS_CLASS.CURRENT);
 });
 
-test('climate and citypage are not proof station objects', () => {
+test('climate, citypage, and AQHI are mapped as station objects', () => {
   const records = buildProofStationRecords([
     hydroRegistry(),
     {
       resultId: 'clim',
       category: 'climate',
+      clickDistanceMeters: 800,
       geometry: { type: 'Point', coordinates: [-73.58, 45.50] },
-      properties: { CLIMATE_IDENTIFIER: '7024745', STATION_NAME: 'MCTAVISH' }
+      observation: { property: 'MEAN_TEMPERATURE', value: 18.2, unit: 'C', observedAt: '2026-08-12' },
+      properties: { CLIMATE_IDENTIFIER: '7025251', STATION_NAME: 'MONTREAL/PIERRE ELLIOTT TRUDEAU INTL' }
     },
     {
       resultId: 'city',
       category: 'weather-current',
+      clickDistanceMeters: 1400,
       geometry: { type: 'Point', coordinates: [-73.55, 45.51] },
+      observation: { property: 'temperature', value: 14.4, unit: 'C', observedAt: '2026-08-13T17:00:00Z' },
       properties: { name: { en: 'Montréal' } }
+    },
+    {
+      resultId: 'aqhi',
+      category: 'air-quality',
+      clickDistanceMeters: 9000,
+      geometry: { type: 'Point', coordinates: [-73.54, 45.55] },
+      observation: { property: 'aqhi', value: 3, unit: 'AQHI', observedAt: '2026-08-13T17:00:00Z' },
+      properties: { location_name_en: 'Montreal', aqhi: 3 }
+    }
+  ], { nowMs: NOW });
+  assert.equal(records.length, 4);
+  assert.equal(records.filter((row) => row.family === 'hydrometric').length, 1);
+  assert.equal(records.filter((row) => row.family === 'climate').length, 1);
+  assert.equal(records.filter((row) => row.family === 'weather-current').length, 1);
+  assert.equal(records.filter((row) => row.family === 'air-quality').length, 1);
+});
+
+test('weather and climate at the same physical site collapse to one station with channels', () => {
+  const records = buildProofStationRecords([
+    swob('a', 2),
+    {
+      resultId: 'clim-hourly',
+      category: 'climate-hourly',
+      clickDistanceMeters: 900,
+      geometry: { type: 'Point', coordinates: [-73.579185, 45.504926] },
+      observation: { property: 'TEMP', value: 24.1, unit: 'C', observedAt: '2026-08-13T17:00:00Z' },
+      properties: { CLIMATE_IDENTIFIER: '7024745', STATION_NAME: 'MCTAVISH', TEMP: 24.1 }
+    },
+    {
+      resultId: 'clim-daily',
+      category: 'climate',
+      clickDistanceMeters: 900,
+      geometry: { type: 'Point', coordinates: [-73.579185, 45.504926] },
+      observation: { property: 'MEAN_TEMPERATURE', value: 18.4, unit: 'C', observedAt: '2026-08-12' },
+      properties: { CLIMATE_IDENTIFIER: '7024745', STATION_NAME: 'MCTAVISH', MEAN_TEMPERATURE: 18.4 }
     }
   ], { nowMs: NOW });
   assert.equal(records.length, 1);
-  assert.equal(records[0].family, 'hydrometric');
+  assert.equal(records[0].family, 'weather');
+  const families = records[0].channels.map((channel) => channel.family);
+  assert.deepEqual(families, ['weather', 'climate-hourly', 'climate']);
+  const hover = formatProofHoverModel(records[0]);
+  assert.equal(hover.familyLabel, 'WEATHER / CLIMATE STATION');
+  assert.match(hover.lines.join('\n'), /SWOB WEATHER/);
+  assert.match(hover.lines.join('\n'), /CLIMATE HOURLY/);
+  assert.match(hover.lines.join('\n'), /CLIMATE DAILY/);
+});
+
+test('coincident citypage places collapse to one map object', () => {
+  const records = buildProofStationRecords([
+    {
+      resultId: 'city-a',
+      category: 'weather-current',
+      clickDistanceMeters: 10198,
+      geometry: { type: 'Point', coordinates: [-73.57, 45.41] },
+      observation: { property: 'temperature', value: 22.8, unit: 'C', observedAt: '2026-08-13T17:00:00Z' },
+      properties: { name: { en: 'La Prairie' } }
+    },
+    {
+      resultId: 'city-b',
+      category: 'weather-current',
+      clickDistanceMeters: 10198,
+      geometry: { type: 'Point', coordinates: [-73.57, 45.41] },
+      observation: { property: 'temperature', value: 22.8, unit: 'C', observedAt: '2026-08-13T17:00:00Z' },
+      properties: { name: { en: 'Sainte-Catherine' } }
+    }
+  ], { nowMs: NOW });
+  assert.equal(records.length, 1);
+  assert.equal(records[0].family, 'weather-current');
+  assert.match(records[0].stationName, /La Prairie/);
+  assert.match(records[0].stationName, /Sainte-Catherine/);
+});
+
+test('citypage current weather does not collapse onto a SWOB station', () => {
+  const records = buildProofStationRecords([
+    swob('a', 2),
+    {
+      resultId: 'city',
+      category: 'weather-current',
+      clickDistanceMeters: 400,
+      geometry: { type: 'Point', coordinates: [-73.579185, 45.504926] },
+      observation: { property: 'temperature', value: 14.4, unit: 'C', observedAt: '2026-08-13T17:00:00Z' },
+      properties: { name: { en: 'Montréal' } }
+    }
+  ], { nowMs: NOW });
+  assert.equal(records.length, 2);
+  assert.equal(records.some((row) => row.family === 'weather'), true);
+  assert.equal(records.some((row) => row.family === 'weather-current'), true);
 });
 
 test('freshness uses family-specific cadences', () => {
@@ -154,8 +245,8 @@ test('trend is computed only from chronological same-property observations', () 
 test('hover omits invented wind, quality, and trend', () => {
   const [record] = buildProofStationRecords([swob('h', 3)], { nowMs: NOW });
   const hover = formatProofHoverModel(record);
-  assert.equal(hover.title, 'CWTA');
-  assert.match(hover.lines.join('\n'), /TEMPERATURE/);
+  assert.equal(hover.title, 'MCTAVISH');
+  assert.match(hover.lines.join('\n'), /SWOB WEATHER/);
   assert.doesNotMatch(hover.lines.join('\n'), /WIND|TREND|QUALITY|air_temp/i);
   assert.equal(record.qualityState, null);
 });
@@ -221,6 +312,15 @@ test('CIM symbols are static multilayer point references', () => {
   assert.equal(renderer.visualVariables, undefined);
   assert.ok(renderer.uniqueValueInfos.some((info) => info.value === 'hydrometric-CURRENT'));
   assert.ok(renderer.uniqueValueInfos.some((info) => info.value === 'weather-STALE'));
+  assert.ok(renderer.uniqueValueInfos.some((info) => info.value === 'climate-STALE'));
+  assert.ok(renderer.uniqueValueInfos.some((info) => info.value === 'weather-current-CURRENT'));
+  assert.ok(renderer.uniqueValueInfos.some((info) => info.value === 'air-quality-CURRENT'));
+  const climate = buildClimateCimSymbol(FRESHNESS_CLASS.STALE);
+  const citypage = buildWeatherCurrentCimSymbol(FRESHNESS_CLASS.CURRENT);
+  const air = buildAirQualityCimSymbol(FRESHNESS_CLASS.CURRENT);
+  assert.equal(climate.data.symbol.type, 'CIMPointSymbol');
+  assert.equal(citypage.data.symbol.animations, undefined);
+  assert.equal(air.data.symbol.type, 'CIMPointSymbol');
   const fireflyInfo = renderer.uniqueValueInfos.find((info) => info.value === 'hydrometric-CURRENT-inside');
   assert.equal(fireflyInfo.symbol.data.maxScale, PI_LOCAL_INSTRUMENT_MIN_SCALE);
   assert.equal(fireflyInfo.alternateSymbols.length, 1);

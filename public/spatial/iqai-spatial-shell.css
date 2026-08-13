@@ -2234,7 +2234,7 @@
   position: absolute;
   z-index: 40;
   min-width: 148px;
-  max-width: 220px;
+  max-width: 260px;
   padding: 0.45rem 0.55rem;
   pointer-events: none;
   background: rgba(10, 16, 22, 0.92);
@@ -2293,6 +2293,28 @@
   border: 1px solid #8cba9a;
   background: #122820;
   transform: rotate(45deg);
+}
+
+.pi-station-legend__mark--climate {
+  width: 10px;
+  height: 10px;
+  border: 1px solid #c4a860;
+  background: #242010;
+  transform: rotate(45deg);
+}
+
+.pi-station-legend__mark--citypage {
+  width: 0;
+  height: 0;
+  border: 6px solid transparent;
+  border-bottom-color: #d6b052;
+  background: transparent;
+}
+
+.pi-station-legend__mark--air {
+  background: #1c1628;
+  border: 1px solid #a494c4;
+  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
 }
 
 .pi-station-legend__states {

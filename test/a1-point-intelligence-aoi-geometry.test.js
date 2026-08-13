@@ -182,10 +182,10 @@ test('hover copy distinguishes inside acquisition from supporting observation', 
   );
   const inside = formatProofHoverModel(records.find((row) => row.stationId === 'WTA'));
   const external = formatProofHoverModel(records.find((row) => row.stationId === '02OA016'));
-  assert.equal(inside.familyLabel, 'WEATHER');
+  assert.equal(inside.familyLabel, 'WEATHER STATION');
   assert.match(inside.lines.join('\n'), /INSIDE ACQUISITION AREA/);
   assert.doesNotMatch(inside.lines.join('\n'), /SUPPORTING/);
-  assert.equal(external.familyLabel, 'HYDROMETRIC');
+  assert.equal(external.familyLabel, 'HYDROMETRIC STATION');
   assert.match(external.lines.join('\n'), /OUTSIDE AOI/);
   assert.match(external.lines.join('\n'), /SUPPORTING OBSERVATION/);
   assert.doesNotMatch(external.lines.join('\n'), /local observation/i);
@@ -320,7 +320,7 @@ test('evidence-driven footprint is cartographic geography, not coverage or searc
   assert.notEqual(footprint.method, 'PROVIDER_SEARCH_RADIUS');
 });
 
-test('AUTO evidence prefers live observations over nearer registry stations', () => {
+test('AUTO evidence maps registry and live hydrometric as separate physical stations', () => {
   const registry = {
     resultId: 'hydro-02OA046',
     category: 'hydrometric',
@@ -339,7 +339,7 @@ test('AUTO evidence prefers live observations over nearer registry stations', ()
   ]));
   const hydroRows = records.filter((row) => row.family === 'hydrometric');
   assert.equal(hydroRows.some((row) => row.stationId === '02OA016'), true);
-  assert.equal(hydroRows.some((row) => row.stationId === '02OA046'), false);
+  assert.equal(hydroRows.some((row) => row.stationId === '02OA046'), true);
 });
 
 test('AUTO evidence keeps true coordinates and does not use SUPPORTING_EXTERNAL', () => {
@@ -362,10 +362,12 @@ test('evidence hover shows query-origin distance, not outside-AOI language', () 
     weather('WTA', WEST_12.longitude, WEST_12.latitude, 4000)
   ]));
   const hover = formatProofHoverModel(station);
-  assert.equal(hover.familyLabel, 'WEATHER OBSERVATION');
-  assert.match(hover.lines.join('\n'), /4\.0 km FROM QUERY ORIGIN/);
+  assert.equal(hover.familyLabel, 'WEATHER STATION');
+  assert.match(hover.lines.join('\n'), /DISTANCE FROM QUERY ORIGIN/);
+  assert.match(hover.lines.join('\n'), /4\.0 km/);
   assert.match(hover.lines.join('\n'), /SUPPORTING OBSERVATION/);
-  assert.match(hover.lines.join('\n'), /SOURCE · MSC/);
+  assert.match(hover.lines.join('\n'), /SOURCE/);
+  assert.match(hover.lines.join('\n'), /MSC/);
   assert.doesNotMatch(hover.lines.join('\n'), /OUTSIDE AOI/);
   assert.doesNotMatch(hover.lines.join('\n'), /INSIDE ACQUISITION AREA/);
 });
@@ -402,11 +404,59 @@ test('evidence acquisition summary stays compact and does not fabricate values',
   const html = renderAcquisitionSummaryHtml(summary);
   assert.match(html, /EVIDENCE ACQUISITION/);
   assert.match(html, /ORIGIN/);
-  assert.match(html, /FOOTPRINT/);
+  assert.match(html, /PHYSICAL STATIONS/);
+  assert.match(html, /INFORMATION FAMILIES/);
   assert.match(html, /FARTHEST EVIDENCE/);
   assert.match(html, /4\.0 km/);
   assert.doesNotMatch(html, /Downtown Montréal/);
   assert.doesNotMatch(html, /dashboard/i);
   assert.equal(summary.stationCount, 2);
+  assert.equal(summary.weatherStationCount, 1);
+  assert.equal(summary.hydrometricStationCount, 1);
+  assert.equal(summary.airQualityStationCount, 0);
   assert.ok(summary.footprintKm2 > 0);
+});
+
+test('far hydrometric evidence builds a local body plus remote corridor', () => {
+  const nearWeather = { longitude: -73.579185, latitude: 45.504926 };
+  const farHydro = { longitude: -73.62316, latitude: 45.41501 };
+  const footprint = buildEvidenceAcquisitionFootprint({
+    origin: ORIGIN,
+    evidence: [nearWeather, farHydro]
+  });
+  assert.equal(footprint.method, 'LOCAL_BODY_PLUS_REMOTE_CORRIDOR');
+  assert.equal(footprint.polygon.type, 'MultiPolygon');
+  assert.equal(pointInPolygon(ORIGIN.longitude, ORIGIN.latitude, footprint.polygon), true);
+  assert.equal(pointInPolygon(nearWeather.longitude, nearWeather.latitude, footprint.polygon), true);
+  assert.equal(pointInPolygon(farHydro.longitude, farHydro.latitude, footprint.polygon), true);
+  const env = polygonEnvelope(footprint.polygon);
+  assert.ok(ORIGIN.latitude - env.minLat > 0.05);
+});
+
+test('AUTO evidence includes climate and citypage stations', () => {
+  const records = selectEvidenceUsedStations(buildProofStationRecords([
+    weather('WTA', MCTAVISH.longitude, MCTAVISH.latitude, 800),
+    {
+      resultId: 'city',
+      category: 'weather-current',
+      clickDistanceMeters: 1400,
+      geometry: { type: 'Point', coordinates: [-73.55, 45.51] },
+      observation: { property: 'temperature', value: 14.4, unit: 'C', observedAt: '2026-08-13T17:00:00Z' },
+      properties: { name: { en: 'Montréal' } }
+    },
+    {
+      resultId: 'clim',
+      category: 'climate',
+      clickDistanceMeters: 3200,
+      geometry: { type: 'Point', coordinates: [-73.60, 45.48] },
+      observation: { property: 'MEAN_TEMPERATURE', value: 18.2, unit: 'C', observedAt: '2026-08-12' },
+      properties: { CLIMATE_IDENTIFIER: '7025251', STATION_NAME: 'TRUDEAU' }
+    }
+  ]));
+  assert.equal(records.some((row) => row.family === 'weather'), true);
+  assert.equal(records.some((row) => row.family === 'weather-current'), true);
+  assert.equal(records.some((row) => row.family === 'climate'), true);
+  const summary = summarizeEvidenceAcquisition({ origin: ORIGIN, stations: records });
+  assert.equal(summary.weatherStationCount, 2);
+  assert.equal(summary.climateStationCount, 1);
 });

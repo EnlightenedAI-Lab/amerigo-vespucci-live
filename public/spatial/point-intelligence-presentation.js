@@ -1019,13 +1019,15 @@ export function renderAcquisitionSummaryHtml(summary) {
     <div class="pi-acquisition-summary" aria-label="Evidence acquisition">
       <div class="pi-acquisition-summary__title">EVIDENCE ACQUISITION</div>
       ${summary.originLabel ? `<div class="pi-acquisition-summary__line">ORIGIN ${escapeHtml(summary.originLabel)}</div>` : ''}
-      ${summary.footprintLabel ? `<div class="pi-acquisition-summary__line">FOOTPRINT ${escapeHtml(summary.footprintLabel)} km²</div>` : ''}
-      ${summary.farthestEvidenceLabel ? `<div class="pi-acquisition-summary__line">FARTHEST EVIDENCE ${escapeHtml(summary.farthestEvidenceLabel)}</div>` : ''}
       <dl class="pi-acquisition-summary__grid pi-acquisition-summary__grid--evidence">
-        <div><dt>STATIONS</dt><dd>${summary.stationCount ?? 0}</dd></div>
-        <div><dt>CURRENT</dt><dd>${freshness.CURRENT ?? 0}</dd></div>
-        <div><dt>RECENT</dt><dd>${freshness.RECENT ?? 0}</dd></div>
+        <div><dt>PHYSICAL STATIONS</dt><dd>${summary.stationCount ?? 0}</dd></div>
+        <div><dt>INFORMATION FAMILIES</dt><dd>${summary.familyCount ?? 0}</dd></div>
+        <div><dt>WEATHER</dt><dd>${summary.weatherStationCount ?? 0}</dd></div>
+        <div><dt>HYDROMETRIC</dt><dd>${summary.hydrometricStationCount ?? 0}</dd></div>
+        <div><dt>AIR QUALITY</dt><dd>${summary.airQualityStationCount ?? 0}</dd></div>
+        <div><dt>CLIMATE</dt><dd>${summary.climateStationCount ?? 0}</dd></div>
       </dl>
+      ${summary.farthestEvidenceLabel ? `<div class="pi-acquisition-summary__line">FARTHEST EVIDENCE ${escapeHtml(summary.farthestEvidenceLabel)}</div>` : ''}
     </div>`;
   }
   return `

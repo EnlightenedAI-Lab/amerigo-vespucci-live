@@ -6,7 +6,7 @@ import {
   getMapView,
   importArc
 } from './spatial-arcgis-runtime.js';
-import { toGeoJsonPolygon } from './point-intelligence-aoi-geometry.js';
+import { polygonRingSets, toGeoJsonPolygon } from './point-intelligence-aoi-geometry.js';
 import {
   buildAcquisitionMeshSymbol,
   clearAcquisitionMesh,
@@ -186,11 +186,21 @@ export async function fitViewToAcquisition(polygon, response, origin = null) {
   const view = getMapView();
   if (!view) return;
   const Polygon = await importArc('@arcgis/core/geometry/Polygon.js');
-  const rings = polygon?.coordinates || polygon?.rings;
+  const ringSets = polygonRingSets(polygon);
   let extent = null;
-  if (rings?.length) {
+  for (const rings of ringSets) {
+    if (!rings?.length) continue;
     const aoi = new Polygon({ rings, spatialReference: { wkid: 4326 } });
-    extent = aoi.extent?.clone?.() || null;
+    const part = aoi.extent?.clone?.() || null;
+    if (!part) continue;
+    if (!extent) {
+      extent = part;
+      continue;
+    }
+    extent.xmin = Math.min(extent.xmin, part.xmin);
+    extent.ymin = Math.min(extent.ymin, part.ymin);
+    extent.xmax = Math.max(extent.xmax, part.xmax);
+    extent.ymax = Math.max(extent.ymax, part.ymax);
   }
   const seed = origin || response?.acquisition?.origin;
   if (!extent && seed && Number.isFinite(seed.longitude) && Number.isFinite(seed.latitude)) {

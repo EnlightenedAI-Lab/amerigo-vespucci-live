@@ -17,7 +17,18 @@ export const EVIDENCE_ROLE = 'SUPPORTING_OBSERVATION';
 export const ACQUISITION_CARTOGRAPHIC_BUFFER_METERS = 550;
 export const EVIDENCE_PER_FAMILY_LIMIT = 6;
 
-export const AOI_PROOF_FAMILIES = Object.freeze(['hydrometric', 'weather']);
+export const AOI_PROOF_FAMILIES = Object.freeze([
+  'hydrometric',
+  'weather',
+  'climate',
+  'weather-current',
+  'air-quality'
+]);
+export const LOCAL_ACQUISITION_METERS = 4500;
+export const REMOTE_EVIDENCE_METERS = 5500;
+export const REMOTE_GAP_METERS = 3500;
+export const REMOTE_CLUSTER_METERS = 3500;
+export const ACQUISITION_CORRIDOR_BUFFER_METERS = 250;
 
 /** Extra retrieval beyond AOI envelope so a family with no inside station can still find a supporting source. */
 export const AOI_EXTERNAL_BUFFER_METERS = 15000;
@@ -34,12 +45,33 @@ export function haversineMeters(lon1, lat1, lon2, lat2) {
   return 2 * EARTH_M * Math.asin(Math.min(1, Math.sqrt(a)));
 }
 
+export function polygonRingSets(polygon) {
+  if (!polygon) return [];
+  if (polygon.type === 'MultiPolygon' && Array.isArray(polygon.coordinates)) {
+    return polygon.coordinates;
+  }
+  if (Array.isArray(polygon.coordinates)) {
+    const first = polygon.coordinates[0];
+    if (Array.isArray(first?.[0]?.[0])) return polygon.coordinates;
+    return [polygon.coordinates];
+  }
+  if (Array.isArray(polygon.rings)) {
+    const first = polygon.rings[0];
+    if (Array.isArray(first?.[0]?.[0])) return polygon.rings;
+    return [polygon.rings];
+  }
+  return [];
+}
+
 export function polygonRings(polygon) {
   if (!polygon) return [];
+  if (polygon.type === 'MultiPolygon') return polygonRingSets(polygon).flat();
   if (Array.isArray(polygon.rings)) return polygon.rings;
   if (polygon.type === 'Polygon' && Array.isArray(polygon.coordinates)) return polygon.coordinates;
-  if (polygon.type === 'MultiPolygon' && Array.isArray(polygon.coordinates)) {
-    return polygon.coordinates.flat();
+  if (Array.isArray(polygon.coordinates)) {
+    const first = polygon.coordinates[0];
+    if (Array.isArray(first?.[0]?.[0])) return polygon.coordinates.flat();
+    return polygon.coordinates;
   }
   return [];
 }
@@ -155,8 +187,13 @@ export function pointInRing(longitude, latitude, ring) {
   return inside;
 }
 
-/** Exterior ring even-odd, holes subtract. */
+/** Exterior ring even-odd, holes subtract. MultiPolygon is true if any part contains the point. */
 export function pointInPolygon(longitude, latitude, polygon) {
+  if (polygon?.type === 'MultiPolygon' && Array.isArray(polygon.coordinates)) {
+    return polygon.coordinates.some((coordinates) => (
+      pointInPolygon(longitude, latitude, { type: 'Polygon', coordinates })
+    ));
+  }
   const rings = polygonRings(polygon);
   if (!rings.length) return false;
   if (!pointInRing(longitude, latitude, rings[0])) return false;
@@ -244,7 +281,11 @@ export function selectConstellationStations(records = [], polygon) {
   });
 
   const selected = [];
-  for (const family of AOI_PROOF_FAMILIES) {
+  const families = [...new Set([
+    ...AOI_PROOF_FAMILIES,
+    ...classified.map((row) => row.family).filter(Boolean)
+  ])];
+  for (const family of families) {
     const familyRows = classified.filter((row) => row.family === family);
     const inside = familyRows.filter((row) => row.aoiClassification === AOI_CLASS.INSIDE_AOI);
     if (inside.length) {
@@ -482,6 +523,11 @@ export function capsulePolygon(a, b, bufferMeters, steps = 20) {
 }
 
 export function polygonAreaKm2(polygon) {
+  if (polygon?.type === 'MultiPolygon' && Array.isArray(polygon.coordinates)) {
+    return polygon.coordinates.reduce((sum, coordinates) => (
+      sum + polygonAreaKm2({ type: 'Polygon', coordinates })
+    ), 0);
+  }
   const ring = polygonRings(polygon)[0];
   if (!ring || ring.length < 4) return 0;
   const origin = { longitude: ring[0][0], latitude: ring[0][1] };
@@ -508,6 +554,137 @@ export function formatOriginCoordinates(origin) {
   const point = normalizeLonLatPoint(origin);
   if (!point) return null;
   return `${point.latitude.toFixed(4)}, ${point.longitude.toFixed(4)}`;
+}
+
+function bufferedHullPolygon(origin, points, bufferMeters) {
+  const members = uniqueLonLatPoints(points);
+  if (!members.length) return null;
+  if (members.length === 1) {
+    return circlePolygon(members[0].longitude, members[0].latitude, bufferMeters);
+  }
+  if (members.length === 2) {
+    return capsulePolygon(members[0], members[1], bufferMeters);
+  }
+  const localPoints = members.map((point) => toLocalMeters(origin, point));
+  let hull = convexHullLocal(localPoints);
+  if (hull.length < 3) {
+    return capsulePolygon(members[0], members[members.length - 1], bufferMeters);
+  }
+  if (localArea(hull) < 0) hull = hull.reverse();
+  const buffered = offsetConvexLocal(hull, bufferMeters);
+  const ring = buffered.map((pt) => {
+    const geo = fromLocalMeters(origin, pt.x, pt.y);
+    return [geo.longitude, geo.latitude];
+  });
+  return toGeoJsonPolygon([ring]);
+}
+
+function clusterLonLatPoints(points, maxMeters = REMOTE_CLUSTER_METERS) {
+  const clusters = [];
+  for (const point of uniqueLonLatPoints(points)) {
+    let found = null;
+    for (const cluster of clusters) {
+      if (cluster.some((other) => (
+        haversineMeters(point.longitude, point.latitude, other.longitude, other.latitude) <= maxMeters
+      ))) {
+        found = cluster;
+        break;
+      }
+    }
+    if (found) found.push(point);
+    else clusters.push([point]);
+  }
+  return clusters;
+}
+
+function clusterCentroid(cluster) {
+  if (!cluster?.length) return null;
+  return {
+    longitude: cluster.reduce((sum, point) => sum + point.longitude, 0) / cluster.length,
+    latitude: cluster.reduce((sum, point) => sum + point.latitude, 0) / cluster.length
+  };
+}
+
+export function partitionLocalRemoteEvidence(origin, evidence = []) {
+  const start = normalizeLonLatPoint(origin);
+  const stations = uniqueLonLatPoints(evidence);
+  if (!start || !stations.length) {
+    return { local: stations, remote: [], farthestMeters: 0 };
+  }
+  const ranked = stations
+    .map((point) => ({
+      ...point,
+      dist: haversineMeters(start.longitude, start.latitude, point.longitude, point.latitude)
+    }))
+    .sort((a, b) => a.dist - b.dist);
+  const farthestMeters = ranked[ranked.length - 1]?.dist || 0;
+  if (ranked.length < 2 || farthestMeters < REMOTE_EVIDENCE_METERS) {
+    return { local: ranked, remote: [], farthestMeters };
+  }
+
+  let gapIdx = 0;
+  let gapSize = 0;
+  for (let i = 0; i < ranked.length - 1; i += 1) {
+    const gap = ranked[i + 1].dist - ranked[i].dist;
+    if (gap > gapSize) {
+      gapSize = gap;
+      gapIdx = i;
+    }
+  }
+  const localMax = ranked[gapIdx].dist;
+  const remoteMin = ranked[gapIdx + 1].dist;
+  if (gapSize >= REMOTE_GAP_METERS && remoteMin >= REMOTE_EVIDENCE_METERS && localMax <= LOCAL_ACQUISITION_METERS * 1.8) {
+    return {
+      local: ranked.slice(0, gapIdx + 1),
+      remote: ranked.slice(gapIdx + 1),
+      farthestMeters
+    };
+  }
+
+  const local = ranked.filter((point) => point.dist <= LOCAL_ACQUISITION_METERS);
+  const remote = ranked.filter((point) => point.dist > LOCAL_ACQUISITION_METERS);
+  if (local.length && remote.length) {
+    return { local, remote, farthestMeters };
+  }
+  return { local: ranked, remote: [], farthestMeters };
+}
+
+function toMultiPolygon(parts) {
+  const coordinates = parts
+    .map((part) => part?.coordinates)
+    .filter((coords) => Array.isArray(coords) && coords.length);
+  if (!coordinates.length) return null;
+  if (coordinates.length === 1) {
+    return { type: 'Polygon', coordinates: coordinates[0] };
+  }
+  return { type: 'MultiPolygon', coordinates };
+}
+
+function buildHybridFootprint(origin, local, remote, bufferMeters) {
+  const parts = [];
+  const localBody = bufferedHullPolygon(origin, [origin, ...local], bufferMeters);
+  if (localBody) parts.push(localBody);
+  const corridorBuffer = Number.isFinite(ACQUISITION_CORRIDOR_BUFFER_METERS)
+    ? ACQUISITION_CORRIDOR_BUFFER_METERS
+    : Math.max(220, Math.round(bufferMeters * 0.45));
+  for (const cluster of clusterLonLatPoints(remote)) {
+    const centroid = clusterCentroid(cluster);
+    if (centroid) parts.push(capsulePolygon(origin, centroid, corridorBuffer));
+    const lobe = cluster.length === 1
+      ? circlePolygon(cluster[0].longitude, cluster[0].latitude, bufferMeters)
+      : bufferedHullPolygon(origin, cluster, bufferMeters);
+    if (lobe) parts.push(lobe);
+  }
+  return {
+    polygon: toMultiPolygon(parts),
+    method: 'LOCAL_BODY_PLUS_REMOTE_CORRIDOR',
+    meaning: FOOTPRINT_MEANING,
+    bufferMeters,
+    originIncluded: true,
+    evidenceCount: local.length + remote.length,
+    localCount: local.length,
+    remoteCount: remote.length
+  };
 }
 
 /**
@@ -547,32 +724,14 @@ export function buildEvidenceAcquisitionFootprint({ origin, evidence = [], buffe
     };
   }
 
-  const localOrigin = start;
-  const localPoints = members.map((point) => toLocalMeters(localOrigin, point));
-  let hull = convexHullLocal(localPoints);
-  if (hull.length < 3) {
-    const farthest = stations.reduce((best, point) => {
-      const dist = haversineMeters(start.longitude, start.latitude, point.longitude, point.latitude);
-      return !best || dist > best.dist ? { point, dist } : best;
-    }, null);
-    const polygon = capsulePolygon(start, farthest?.point || stations[0], buffer);
-    return {
-      polygon,
-      method: 'BUFFERED_GEODESIC_CORRIDOR',
-      meaning: FOOTPRINT_MEANING,
-      bufferMeters: buffer,
-      originIncluded: true,
-      evidenceCount: stations.length
-    };
+  const partition = partitionLocalRemoteEvidence(start, stations);
+  if (partition.remote.length) {
+    return buildHybridFootprint(start, partition.local, partition.remote, buffer);
   }
-  if (localArea(hull) < 0) hull = hull.reverse();
-  const buffered = offsetConvexLocal(hull, buffer);
-  const ring = buffered.map((pt) => {
-    const geo = fromLocalMeters(localOrigin, pt.x, pt.y);
-    return [geo.longitude, geo.latitude];
-  });
+
+  const polygon = bufferedHullPolygon(start, members, buffer);
   return {
-    polygon: toGeoJsonPolygon([ring]),
+    polygon,
     method: stations.length === 2 ? 'BUFFERED_MINIMAL_ENVELOPE' : 'BUFFERED_CONVEX_HULL',
     meaning: FOOTPRINT_MEANING,
     bufferMeters: buffer,
@@ -584,19 +743,15 @@ export function buildEvidenceAcquisitionFootprint({ origin, evidence = [], buffe
 export function selectEvidenceUsedStations(records = [], options = {}) {
   const limit = Number.isFinite(options.perFamilyLimit) ? options.perFamilyLimit : EVIDENCE_PER_FAMILY_LIMIT;
   const selected = [];
-  const liveRank = { CURRENT: 0, RECENT: 1, STALE: 2, REGISTRY: 3 };
-  for (const family of AOI_PROOF_FAMILIES) {
+  const families = [...new Set([
+    ...AOI_PROOF_FAMILIES,
+    ...records.map((row) => row.family).filter(Boolean)
+  ])];
+  for (const family of families) {
     const rows = records
       .filter((row) => row.family === family)
-      .sort((a, b) => {
-        const rankA = liveRank[a.freshnessClass] ?? 4;
-        const rankB = liveRank[b.freshnessClass] ?? 4;
-        if (rankA !== rankB) return rankA - rankB;
-        return (a.distanceMeters ?? 1e12) - (b.distanceMeters ?? 1e12);
-      });
-    const live = rows.filter((row) => row.freshnessClass === 'CURRENT' || row.freshnessClass === 'RECENT');
-    const chosen = (live.length ? live : rows.slice(0, 1)).slice(0, limit);
-    selected.push(...chosen.map((row) => ({
+      .sort((a, b) => (a.distanceMeters ?? 1e12) - (b.distanceMeters ?? 1e12));
+    selected.push(...rows.slice(0, limit).map((row) => ({
       ...row,
       acquisitionRole: EVIDENCE_ROLE,
       queryOriginDistanceMeters: row.distanceMeters ?? null,
@@ -630,6 +785,32 @@ export function stampResultsWithEvidence(results = [], stationRecords = []) {
   });
 }
 
+function stationHasFamily(row, families) {
+  const wanted = new Set(families);
+  if (wanted.has(row?.family)) return true;
+  for (const channel of row?.channels || []) {
+    if (wanted.has(channel.family)) return true;
+  }
+  for (const source of row?.sourceFamilies || []) {
+    if (wanted.has(source)) return true;
+  }
+  return false;
+}
+
+function informationFamiliesOf(stations = []) {
+  const families = new Set();
+  for (const row of stations) {
+    for (const source of row.sourceFamilies || []) {
+      families.add(source === 'hydrometric-measurement' ? 'hydrometric' : source);
+    }
+    if (row.family) families.add(row.family);
+    for (const channel of row.channels || []) {
+      families.add(channel.family === 'hydrometric-measurement' ? 'hydrometric' : channel.family);
+    }
+  }
+  return [...families].filter(Boolean);
+}
+
 export function summarizeEvidenceAcquisition({ origin, stations = [], polygon } = {}) {
   const freshness = { CURRENT: 0, RECENT: 0, STALE: 0, REGISTRY: 0 };
   let farthestMeters = 0;
@@ -643,6 +824,7 @@ export function summarizeEvidenceAcquisition({ origin, stations = [], polygon } 
     }
   }
   const families = [...new Set(stations.map((row) => row.family).filter(Boolean))];
+  const informationFamilies = informationFamiliesOf(stations);
   const areaKm2 = polygon ? polygonAreaKm2(polygon) : 0;
   return {
     kind: 'EVIDENCE',
@@ -653,8 +835,12 @@ export function summarizeEvidenceAcquisition({ origin, stations = [], polygon } 
     farthestEvidenceLabel: formatAoiDistanceLabel(farthestMeters),
     farthestStationId: farthestStation?.stationId || null,
     stationCount: stations.length,
-    familyCount: families.length,
-    families,
+    familyCount: informationFamilies.length || families.length,
+    families: informationFamilies.length ? informationFamilies : families,
+    weatherStationCount: stations.filter((row) => stationHasFamily(row, ['weather', 'weather-current'])).length,
+    hydrometricStationCount: stations.filter((row) => stationHasFamily(row, ['hydrometric', 'hydrometric-measurement'])).length,
+    airQualityStationCount: stations.filter((row) => stationHasFamily(row, ['air-quality'])).length,
+    climateStationCount: stations.filter((row) => stationHasFamily(row, ['climate', 'climate-hourly'])).length,
     freshness,
     meaning: FOOTPRINT_MEANING
   };

@@ -115,11 +115,37 @@ const PALETTE = Object.freeze({
     chassisStroke: [206, 224, 214, 255],
     accent: [140, 186, 154, 255],
     measure: [196, 220, 200, 255]
+  },
+  climate: {
+    chassis: [36, 32, 18, 230],
+    chassisStroke: [226, 214, 186, 255],
+    accent: [196, 168, 96, 255],
+    measure: [228, 214, 170, 255]
+  },
+  weatherCurrent: {
+    chassis: [32, 28, 16, 230],
+    chassisStroke: [232, 214, 168, 255],
+    accent: [214, 176, 82, 255],
+    measure: [236, 220, 164, 255]
+  },
+  air: {
+    chassis: [28, 22, 40, 230],
+    chassisStroke: [214, 206, 228, 255],
+    accent: [164, 148, 196, 255],
+    measure: [206, 198, 224, 255]
   }
 });
 
+function paletteKey(family) {
+  if (family === 'hydrometric' || family === 'hydro') return 'hydro';
+  if (family === 'climate') return 'climate';
+  if (family === 'weather-current' || family === 'weatherCurrent') return 'weatherCurrent';
+  if (family === 'air-quality' || family === 'air') return 'air';
+  return 'weather';
+}
+
 function freshnessStyle(family, freshnessClass, supporting = false) {
-  const base = PALETTE[family];
+  const base = PALETTE[paletteKey(family)];
   let style;
   if (freshnessClass === FRESHNESS_CLASS.CURRENT) {
     style = { ring: base.accent, ringWidth: 1.15, size: 18, chassisAlpha: 230 };
@@ -144,6 +170,30 @@ function freshnessStyle(family, freshnessClass, supporting = false) {
 
 function withAlpha(color, alpha) {
   return [color[0], color[1], color[2], alpha];
+}
+
+function diamondRings(radius) {
+  return [[[0, -radius], [radius, 0], [0, radius], [-radius, 0], [0, -radius]]];
+}
+
+function squareRings(radius) {
+  return [[[-radius, -radius], [radius, -radius], [radius, radius], [-radius, radius], [-radius, -radius]]];
+}
+
+function triangleRings(radius) {
+  return [[[0, -radius], [radius * 0.92, radius * 0.72], [-radius * 0.92, radius * 0.72], [0, -radius]]];
+}
+
+function regularPolygonRings(sides, radius, rotation = -Math.PI / 2) {
+  const path = [];
+  for (let i = 0; i <= sides; i += 1) {
+    const angle = rotation + (i / sides) * Math.PI * 2;
+    path.push([
+      Number((Math.cos(angle) * radius).toFixed(3)),
+      Number((Math.sin(angle) * radius).toFixed(3))
+    ]);
+  }
+  return [path];
 }
 
 export function buildHydrometricCimSymbol(freshnessClass = FRESHNESS_CLASS.CURRENT, options = {}) {
@@ -191,42 +241,91 @@ export function buildWeatherCimSymbol(freshnessClass = FRESHNESS_CLASS.CURRENT, 
   return cimSymbol(graphics, style.size);
 }
 
+export function buildClimateCimSymbol(freshnessClass = FRESHNESS_CLASS.CURRENT, options = {}) {
+  const style = freshnessStyle('climate', freshnessClass, options.supporting);
+  const chassis = withAlpha(PALETTE.climate.chassis, style.chassisAlpha);
+  const graphics = [
+    lineGraphic(circlePath(options.supporting ? 8.6 : 8.2), style.ring, style.ringWidth),
+    fillGraphic(diamondRings(5.4), chassis, PALETTE.climate.chassisStroke, 0.55),
+    lineGraphic([[[-2.4, 0], [2.4, 0]]], PALETTE.climate.measure, 0.7),
+    lineGraphic([[[-1.6, -1.8], [1.6, -1.8]]], PALETTE.climate.accent, 0.55),
+    lineGraphic([[[-1.6, 1.8], [1.6, 1.8]]], PALETTE.climate.accent, 0.55)
+  ];
+  return cimSymbol(graphics, style.size);
+}
+
+export function buildWeatherCurrentCimSymbol(freshnessClass = FRESHNESS_CLASS.CURRENT, options = {}) {
+  const style = freshnessStyle('weather-current', freshnessClass, options.supporting);
+  const chassis = withAlpha(PALETTE.weatherCurrent.chassis, style.chassisAlpha);
+  const graphics = [
+    lineGraphic(circlePath(options.supporting ? 8.6 : 8.2), style.ring, style.ringWidth),
+    fillGraphic(triangleRings(5.8), chassis, PALETTE.weatherCurrent.chassisStroke, 0.55),
+    lineGraphic([[[0, -5.2], [0, 3.4]]], PALETTE.weatherCurrent.measure, 0.7),
+    lineGraphic([[[-1.6, 1.4], [1.6, 1.4]]], PALETTE.weatherCurrent.accent, 0.55)
+  ];
+  return cimSymbol(graphics, style.size);
+}
+
+export function buildAirQualityCimSymbol(freshnessClass = FRESHNESS_CLASS.CURRENT, options = {}) {
+  const style = freshnessStyle('air-quality', freshnessClass, options.supporting);
+  const chassis = withAlpha(PALETTE.air.chassis, style.chassisAlpha);
+  const graphics = [
+    lineGraphic(circlePath(options.supporting ? 8.6 : 8.2), style.ring, style.ringWidth),
+    fillGraphic(regularPolygonRings(6, 5.2), chassis, PALETTE.air.chassisStroke, 0.55),
+    lineGraphic([[[0, 0], [0, -3.4]]], PALETTE.air.measure, 0.7),
+    lineGraphic([[[0, 0], [2.9, 1.7]]], PALETTE.air.accent, 0.55),
+    lineGraphic([[[0, 0], [-2.9, 1.7]]], PALETTE.air.accent, 0.55)
+  ];
+  return cimSymbol(graphics, style.size);
+}
+
 /**
- * Regional constellation node: small luminous disc + tight halo.
- * Not a coverage blob, not a pulse, not map-wide bloom.
+ * Regional constellation node: small luminous core + tight halo.
+ * Core shape follows family. Not a coverage blob, not a pulse, not map-wide bloom.
  */
 export function buildRegionalFireflyCimSymbol(family = 'hydrometric', freshnessClass = FRESHNESS_CLASS.CURRENT, options = {}) {
-  const key = family === 'weather' ? 'weather' : 'hydro';
-  const style = freshnessStyle(key, freshnessClass, options.supporting);
+  const key = paletteKey(family);
+  const style = freshnessStyle(family, freshnessClass, options.supporting);
   const core = options.supporting
     ? [210, 224, 110, 230]
     : [...PALETTE[key].accent.slice(0, 3), freshnessClass === FRESHNESS_CLASS.CURRENT ? 240 : 190];
   const halo = options.supporting
     ? [196, 214, 72, 70]
     : [...PALETTE[key].accent.slice(0, 3), 55];
+  let coreRings = circlePath(2.35);
+  if (family === 'weather') coreRings = squareRings(1.85);
+  else if (family === 'climate') coreRings = diamondRings(2.25);
+  else if (family === 'weather-current') coreRings = triangleRings(2.45);
+  else if (family === 'air-quality') coreRings = regularPolygonRings(6, 2.2);
   const graphics = [
     fillGraphic(circlePath(6.2), halo, null),
-    fillGraphic(circlePath(2.35), core, [244, 248, 250, 200], 0.35)
+    fillGraphic(coreRings, core, [244, 248, 250, 200], 0.35)
   ];
-  return cimSymbol(graphics, 8);
+  return cimSymbol(graphics, 12);
+}
+
+function familySymbolBuilder(family) {
+  if (family === 'hydrometric') return buildHydrometricCimSymbol;
+  if (family === 'climate') return buildClimateCimSymbol;
+  if (family === 'weather-current') return buildWeatherCurrentCimSymbol;
+  if (family === 'air-quality') return buildAirQualityCimSymbol;
+  return buildWeatherCimSymbol;
 }
 
 export function buildProofStationRenderer(CIMSymbolCtor = null) {
   const wrap = (symbol) => (CIMSymbolCtor ? new CIMSymbolCtor({ data: symbol.data }) : symbol);
   const infos = [];
-  const families = [
-    ['hydrometric', buildHydrometricCimSymbol],
-    ['weather', buildWeatherCimSymbol]
-  ];
+  const families = ['hydrometric', 'weather', 'climate', 'weather-current', 'air-quality'];
   const freshnessValues = [
     FRESHNESS_CLASS.CURRENT,
     FRESHNESS_CLASS.RECENT,
     FRESHNESS_CLASS.STALE,
     FRESHNESS_CLASS.REGISTRY
   ];
-  for (const [family, builder] of families) {
+  for (const family of families) {
+    const builder = familySymbolBuilder(family);
     for (const freshness of freshnessValues) {
-      if (family === 'weather' && freshness === FRESHNESS_CLASS.REGISTRY) continue;
+      if (family !== 'hydrometric' && freshness === FRESHNESS_CLASS.REGISTRY) continue;
       const rows = [
         { value: `${family}-${freshness}`, supporting: false },
         { value: `${family}-${freshness}-inside`, supporting: false },
@@ -298,6 +397,18 @@ export function renderProofLegendHtml() {
       <div class="pi-station-legend__row">
         <span class="pi-station-legend__mark pi-station-legend__mark--weather" aria-hidden="true"></span>
         <span>SWOB weather station</span>
+      </div>
+      <div class="pi-station-legend__row">
+        <span class="pi-station-legend__mark pi-station-legend__mark--climate" aria-hidden="true"></span>
+        <span>Climate station</span>
+      </div>
+      <div class="pi-station-legend__row">
+        <span class="pi-station-legend__mark pi-station-legend__mark--citypage" aria-hidden="true"></span>
+        <span>Current weather</span>
+      </div>
+      <div class="pi-station-legend__row">
+        <span class="pi-station-legend__mark pi-station-legend__mark--air" aria-hidden="true"></span>
+        <span>Air quality / AQHI</span>
       </div>
       <div class="pi-station-legend__states">
         <span>Current</span>

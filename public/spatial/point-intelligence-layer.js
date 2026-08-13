@@ -137,10 +137,10 @@ export async function renderPointIntelligenceClickMarker(point) {
   clickLayer.removeAll();
   const geometry = new Point({ longitude: point.longitude, latitude: point.latitude });
   const symbol = new SimpleMarkerSymbol({
-    style: 'cross',
+    style: 'circle',
     color: [255, 140, 0, 0.95],
-    size: 14,
-    outline: { color: [255, 255, 255, 0.95], width: 2 }
+    size: 11,
+    outline: { color: [255, 244, 230, 0.98], width: 1.6 }
   });
   clickLayer.add(new Graphic({ geometry, symbol, attributes: { role: 'pi-click' } }));
 }

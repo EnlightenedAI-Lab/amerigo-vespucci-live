@@ -120,7 +120,11 @@ async function main() {
     ? await fetchPreauthToken()
     : null;
 
-  const browser = await chromium.launch({ headless: !HEADED, slowMo: HEADED ? 40 : 0 });
+  const browser = await chromium.launch({
+    headless: !HEADED,
+    slowMo: HEADED ? 40 : 0,
+    args: ['--disable-http-cache']
+  });
   let context;
   let page;
   if (preauth) {
@@ -225,39 +229,101 @@ async function main() {
         latitude: row.latitude,
         observationId: row.observationId,
         primaryLabel: row.primaryLabel,
-        primaryValue: row.primaryValue
+        primaryValue: row.primaryValue,
+        channels: (row.channels || []).map((channel) => channel.family),
+        sourceFamilies: row.sourceFamilies || []
       }))
     };
   });
   report.acquired = acquired;
   await page.waitForTimeout(500);
-  report.screenshots.sensors = await shot(page, 'C-returned-sensor-coordinates');
-  report.screenshots.mesh = await shot(page, 'D-automatic-acquisition-fishnet');
 
   const stations = acquired.stations || [];
   const farthest = [...stations].sort((a, b) => (
     (b.queryOriginDistanceMeters || 0) - (a.queryOriginDistanceMeters || 0)
   ))[0] || null;
-  const hydro = stations.find((row) => row.family === 'hydrometric');
+  const hydro = stations.find((row) => row.family === 'hydrometric' && row.primaryValue != null)
+    || stations.find((row) => row.family === 'hydrometric');
   const swob = stations.find((row) => row.family === 'weather');
+  const climate = stations.find((row) => row.family === 'climate' || (row.channels || []).includes('climate'));
+  const citypage = stations.find((row) => row.family === 'weather-current');
+  const air = stations.find((row) => row.family === 'air-quality');
+  report.familyPresence = {
+    weather: Boolean(swob),
+    hydrometric: Boolean(hydro),
+    climate: Boolean(climate),
+    weatherCurrent: Boolean(citypage),
+    airQuality: Boolean(air)
+  };
+
+  await page.evaluate(async (origin) => {
+    const runtime = await import('/spatial/spatial-arcgis-runtime.js');
+    const view = runtime.getMapView();
+    await view.goTo({ center: [origin.longitude, origin.latitude], scale: 140000 }, { duration: 240 });
+  }, ORIGIN);
+  await page.waitForTimeout(280);
+  report.screenshots.perimeter = await shot(page, 'C-automatic-perimeter');
+  report.screenshots.mesh = await shot(page, 'D-visible-technical-mesh');
+
+  async function goToStation(station, scale) {
+    if (!station) return;
+    await page.evaluate(async ({ station: target, scale: nextScale }) => {
+      const runtime = await import('/spatial/spatial-arcgis-runtime.js');
+      const view = runtime.getMapView();
+      await view.goTo({ center: [target.longitude, target.latitude], scale: nextScale }, { duration: 200 });
+    }, { station, scale });
+    await page.waitForTimeout(220);
+  }
+
+  if (swob) {
+    await goToStation(swob, 8000);
+    report.screenshots.weather = await shot(page, 'E-weather-evidence');
+  }
+  if (hydro) {
+    await goToStation(hydro, 8000);
+    report.screenshots.hydrometric = await shot(page, 'F-hydrometric-evidence');
+  }
+  if (air) {
+    await goToStation(air, 8000);
+    report.screenshots.airQuality = await shot(page, 'G-air-quality-evidence');
+  } else {
+    report.notes.push('AQHI / air-quality: NO DATA in this query');
+  }
+  const climateOrCity = climate || citypage;
+  if (climateOrCity) {
+    await goToStation(climateOrCity, 8000);
+    report.screenshots.climateCurrentWeather = await shot(page, 'H-climate-current-weather-evidence');
+  }
 
   if (farthest) {
     await page.evaluate(async ({ origin, farthest: target }) => {
       const runtime = await import('/spatial/spatial-arcgis-runtime.js');
+      const Extent = await runtime.importArc('@arcgis/core/geometry/Extent.js');
       const view = runtime.getMapView();
-      await view.goTo({
-        target: {
-          xmin: Math.min(origin.longitude, target.longitude) - 0.03,
-          ymin: Math.min(origin.latitude, target.latitude) - 0.03,
-          xmax: Math.max(origin.longitude, target.longitude) + 0.03,
-          ymax: Math.max(origin.latitude, target.latitude) + 0.03,
-          spatialReference: { wkid: 4326 }
-        },
-        padding: { top: 72, right: 72, bottom: 72, left: 72 }
-      }, { duration: 240 });
+      await view.goTo(new Extent({
+        xmin: Math.min(origin.longitude, target.longitude) - 0.04,
+        ymin: Math.min(origin.latitude, target.latitude) - 0.04,
+        xmax: Math.max(origin.longitude, target.longitude) + 0.04,
+        ymax: Math.max(origin.latitude, target.latitude) + 0.04,
+        spatialReference: { wkid: 4326 }
+      }), { duration: 240 });
     }, { origin: ORIGIN, farthest });
     await page.waitForTimeout(280);
-    report.screenshots.farthest = await shot(page, 'E-farthest-sensor-expands-footprint');
+    report.screenshots.farthest = await shot(page, 'I-farthest-station-extends-footprint');
+  }
+
+  await page.evaluate(async (origin) => {
+    const runtime = await import('/spatial/spatial-arcgis-runtime.js');
+    const view = runtime.getMapView();
+    await view.goTo({ center: [origin.longitude, origin.latitude], scale: 220000 }, { duration: 240 });
+  }, ORIGIN);
+  await page.waitForTimeout(280);
+  report.screenshots.regional = await shot(page, 'J-regional-evidence-constellation');
+
+  const localTarget = swob || hydro || stations[0];
+  if (localTarget) {
+    await goToStation(localTarget, 4500);
+    report.screenshots.local = await shot(page, 'K-local-engineered-station');
   }
 
   report.manualDrawingRequired = false;
@@ -265,7 +331,6 @@ async function main() {
     const area = await import('/spatial/point-intelligence-area-controller.js');
     return area.isPointIntelligenceAreaSketchActive();
   });
-  report.screenshots.noManualTriangle = await shot(page, 'F-no-manual-triangle');
 
   async function hoverStation(station, scale = 5000) {
     if (!station) return null;
@@ -283,15 +348,37 @@ async function main() {
     });
   }
 
-  const hoverTarget = farthest || swob || hydro;
-  report.hover = await hoverStation(hoverTarget);
-  report.screenshots.hover = await shot(page, 'G-hover-query-origin-distance');
+  report.hover = {
+    weather: await hoverStation(swob),
+    hydrometric: await hoverStation(hydro),
+    climate: await hoverStation(climate && climate.assetKey !== swob?.assetKey ? climate : null),
+    weatherCurrent: await hoverStation(citypage),
+    airQuality: await hoverStation(air)
+  };
+  const hoverShotTarget = swob || hydro || citypage;
+  if (hoverShotTarget) {
+    await hoverStation(hoverShotTarget, 5000);
+    report.screenshots.hoverWeather = await shot(page, 'L-hover-weather');
+  }
+  if (hydro) {
+    await hoverStation(hydro, 5000);
+    report.screenshots.hoverHydro = await shot(page, 'L2-hover-hydrometric');
+  }
+  if (citypage) {
+    await hoverStation(citypage, 5000);
+    report.screenshots.hoverCitypage = await shot(page, 'L3-hover-current-weather');
+  } else if (climate && climate.assetKey !== swob?.assetKey) {
+    await hoverStation(climate, 5000);
+    report.screenshots.hoverClimate = await shot(page, 'L3-hover-climate');
+  }
 
-  if (hoverTarget?.observationId) {
+  report.screenshots.summary = await shot(page, 'M-acquisition-summary');
+
+  if (hoverShotTarget?.observationId) {
     await page.evaluate(async (observationId) => {
       const focus = await import('/spatial/point-intelligence-focus-controller.js');
       await focus.focusEvidenceFromMap({ observationId });
-    }, hoverTarget.observationId);
+    }, hoverShotTarget.observationId);
     await page.waitForTimeout(300);
     report.inspector = await page.evaluate(() => {
       const inspector = document.querySelector('#lif-inspector-host');
@@ -318,7 +405,7 @@ async function main() {
     await view.goTo({ center: [origin.longitude, origin.latitude], scale: 60000 }, { duration: 200 });
   }, ORIGIN);
   report.cleared = cleared;
-  report.screenshots.clear = await shot(page, 'H-clear');
+  report.screenshots.clear = await shot(page, 'N-clear');
 
   const pointRegression = await page.evaluate(async (origin) => {
     const service = await import('/spatial/point-intelligence-service.js');

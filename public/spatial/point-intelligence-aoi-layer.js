@@ -14,6 +14,7 @@ import {
   buildEvidenceAcquisitionFootprint,
   circlePolygon,
   formatAoiDistanceLabel,
+  polygonRingSets,
   toGeoJsonPolygon
 } from './point-intelligence-aoi-geometry.js';
 
@@ -35,11 +36,11 @@ let currentAoiPolygon = null;
 export function buildAcquisitionMeshSymbol() {
   return {
     type: 'simple-fill',
-    color: [196, 214, 72, 0.2],
+    color: [196, 214, 72, 0.32],
     style: 'diagonal-cross',
     outline: {
-      color: [168, 186, 52, 0.95],
-      width: 1.35
+      color: [118, 136, 28, 0.98],
+      width: 3.15
     }
   };
 }
@@ -53,20 +54,20 @@ export function buildAcquisitionMeshCimData() {
         {
           type: 'CIMSolidFill',
           enable: true,
-          color: [196, 214, 72, 28]
+          color: [196, 214, 72, 72]
         },
         {
           type: 'CIMHatchFill',
           enable: true,
           rotation: 0,
-          separation: 12,
+          separation: 7,
           lineSymbol: {
             type: 'CIMLineSymbol',
             symbolLayers: [{
               type: 'CIMSolidStroke',
               enable: true,
-              color: [176, 196, 72, 88],
-              width: 0.45
+              color: [168, 186, 48, 185],
+              width: 1.05
             }]
           }
         },
@@ -74,22 +75,22 @@ export function buildAcquisitionMeshCimData() {
           type: 'CIMHatchFill',
           enable: true,
           rotation: 90,
-          separation: 12,
+          separation: 7,
           lineSymbol: {
             type: 'CIMLineSymbol',
             symbolLayers: [{
               type: 'CIMSolidStroke',
               enable: true,
-              color: [176, 196, 72, 70],
-              width: 0.4
+              color: [168, 186, 48, 160],
+              width: 0.9
             }]
           }
         },
         {
           type: 'CIMSolidStroke',
           enable: true,
-          color: [168, 186, 52, 230],
-          width: 1.35
+          color: [118, 136, 28, 255],
+          width: 3.15
         }
       ]
     }
@@ -154,8 +155,8 @@ export async function renderAcquisitionMesh(polygon) {
     importArc('@arcgis/core/symbols/SimpleFillSymbol.js'),
     importArc('@arcgis/core/symbols/CIMSymbol.js')
   ]);
-  const rings = polygon?.coordinates || polygon?.rings;
-  if (!rings?.length) return false;
+  const ringSets = polygonRingSets(polygon);
+  if (!ringSets.length) return false;
   layers.aoiLayer.removeAll();
   let symbol;
   try {
@@ -163,23 +164,27 @@ export async function renderAcquisitionMesh(polygon) {
   } catch {
     symbol = new SimpleFillSymbol(buildAcquisitionMeshSymbol());
   }
-  layers.aoiLayer.add(new Graphic({
-    geometry: new Polygon({ rings, spatialReference: { wkid: 4326 } }),
-    symbol,
-    attributes: {
-      role: 'pi-aoi-mesh',
-      meaning: FOOTPRINT_MEANING,
-      analytical: 0,
-      coverage: 0,
-      influence: 0,
-      interpolation: 0,
-      impact: 0,
-      searchRadius: 0,
-      drapeReady: 1,
-      hasZ: 0
-    }
-  }));
-  currentAoiPolygon = polygon.type ? polygon : toGeoJsonPolygon(rings);
+  const meshAttributes = {
+    role: 'pi-aoi-mesh',
+    meaning: FOOTPRINT_MEANING,
+    analytical: 0,
+    coverage: 0,
+    influence: 0,
+    interpolation: 0,
+    impact: 0,
+    searchRadius: 0,
+    drapeReady: 1,
+    hasZ: 0
+  };
+  for (const partRings of ringSets) {
+    if (!partRings?.length) continue;
+    layers.aoiLayer.add(new Graphic({
+      geometry: new Polygon({ rings: partRings, spatialReference: { wkid: 4326 } }),
+      symbol,
+      attributes: { ...meshAttributes }
+    }));
+  }
+  currentAoiPolygon = polygon.type ? polygon : toGeoJsonPolygon(ringSets[0]);
   reorderAcquisitionLayers();
   return true;
 }
@@ -215,6 +220,17 @@ export async function renderEvidenceDrivenFootprint({
   meaning = FOOTPRINT_MEANING,
   bufferMeters = ACQUISITION_CARTOGRAPHIC_BUFFER_METERS
 } = {}) {
+  const hybrid = fallbackPolygon?.type === 'MultiPolygon'
+    || method === 'LOCAL_BODY_PLUS_REMOTE_CORRIDOR';
+  if (hybrid && fallbackPolygon) {
+    const ok = await renderAcquisitionMesh(fallbackPolygon);
+    const graphic = aoiLayer?.graphics?.getItemAt?.(0) || aoiLayer?.graphics?.items?.[0];
+    if (graphic?.attributes) {
+      graphic.attributes.method = method || 'LOCAL_BODY_PLUS_REMOTE_CORRIDOR';
+      graphic.attributes.meaning = meaning;
+    }
+    return ok;
+  }
   let polygon = fallbackPolygon;
   let resolvedMethod = method;
   try {

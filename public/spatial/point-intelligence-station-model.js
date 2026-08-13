@@ -3,17 +3,24 @@
  * Presentation model only. Does not alter canonical bundle evidence.
  */
 import { getObservationId } from './point-intelligence-map-presentation.js';
-import { AOI_CLASS, formatAoiDistanceLabel } from './point-intelligence-aoi-geometry.js';
+import { AOI_CLASS, formatAoiDistanceLabel, haversineMeters } from './point-intelligence-aoi-geometry.js';
 
 export const PI_PROOF_VISUAL_FAMILIES = Object.freeze({
   HYDROMETRIC: 'hydrometric',
-  WEATHER: 'weather'
+  WEATHER: 'weather',
+  CLIMATE: 'climate',
+  WEATHER_CURRENT: 'weather-current',
+  AIR_QUALITY: 'air-quality'
 });
 
 export const PI_PROOF_SOURCE_FAMILIES = Object.freeze([
   'hydrometric',
   'hydrometric-measurement',
-  'weather'
+  'weather',
+  'weather-current',
+  'climate',
+  'climate-hourly',
+  'air-quality'
 ]);
 
 export const FRESHNESS_CLASS = Object.freeze({
@@ -26,8 +33,14 @@ export const FRESHNESS_CLASS = Object.freeze({
 /** Family-specific age thresholds for NEAR_REAL_TIME observations (seconds). */
 export const FRESHNESS_POLICY = Object.freeze({
   hydrometric: { currentSeconds: 30 * 60, recentSeconds: 3 * 60 * 60 },
-  weather: { currentSeconds: 15 * 60, recentSeconds: 60 * 60 }
+  weather: { currentSeconds: 15 * 60, recentSeconds: 60 * 60 },
+  'weather-current': { currentSeconds: 15 * 60, recentSeconds: 60 * 60 },
+  'air-quality': { currentSeconds: 30 * 60, recentSeconds: 2 * 60 * 60 },
+  'climate-hourly': { currentSeconds: 90 * 60, recentSeconds: 6 * 60 * 60 },
+  climate: { currentSeconds: 0, recentSeconds: 0 }
 });
+
+const ATMOSPHERE_MERGE_METERS = 60;
 
 export function isProofSourceFamily(family) {
   return PI_PROOF_SOURCE_FAMILIES.includes(String(family || ''));
@@ -38,6 +51,9 @@ export function visualFamilyForSource(family) {
     return PI_PROOF_VISUAL_FAMILIES.HYDROMETRIC;
   }
   if (family === 'weather') return PI_PROOF_VISUAL_FAMILIES.WEATHER;
+  if (family === 'weather-current') return PI_PROOF_VISUAL_FAMILIES.WEATHER_CURRENT;
+  if (family === 'climate' || family === 'climate-hourly') return PI_PROOF_VISUAL_FAMILIES.CLIMATE;
+  if (family === 'air-quality') return PI_PROOF_VISUAL_FAMILIES.AIR_QUALITY;
   return null;
 }
 
@@ -86,6 +102,36 @@ export function swobStationId(result) {
   return null;
 }
 
+export function climateStationId(result) {
+  const props = propsOf(result);
+  const id = props.CLIMATE_IDENTIFIER
+    || props['clim_id-value']
+    || props.clim_id
+    || props.CLIMATE_ID
+    || null;
+  return id != null && String(id).trim() ? String(id).trim() : null;
+}
+
+export function citypageStationId(result) {
+  const props = propsOf(result);
+  const name = (typeof props.name === 'object' ? (props.name.en || props.name.fr) : props.name)
+    || props.CITY
+    || result?.stationName
+    || null;
+  if (name && String(name).trim()) return String(name).trim();
+  return result?.nativeRecordId ? String(result.nativeRecordId) : null;
+}
+
+export function aqhiStationId(result) {
+  const props = propsOf(result);
+  const id = props.location_id
+    || props.location_name_en
+    || props.location_name_fr
+    || result?.stationName
+    || null;
+  return id != null && String(id).trim() ? String(id).trim() : null;
+}
+
 export function proofStationAssetKey(result) {
   const family = result?.category || result?.nativeCollectionId;
   const visual = visualFamilyForSource(family);
@@ -93,9 +139,23 @@ export function proofStationAssetKey(result) {
     const id = hydrometricStationId(result);
     return id ? `hydro:${id}` : null;
   }
-  if (visual === PI_PROOF_VISUAL_FAMILIES.WEATHER) {
-    const id = swobStationId(result);
-    return id ? `swob:${id}` : null;
+  if (visual === PI_PROOF_VISUAL_FAMILIES.WEATHER_CURRENT) {
+    const id = citypageStationId(result);
+    return id ? `citypage:${id}` : null;
+  }
+  if (visual === PI_PROOF_VISUAL_FAMILIES.AIR_QUALITY) {
+    const id = aqhiStationId(result);
+    return id ? `aqhi:${id}` : null;
+  }
+  if (visual === PI_PROOF_VISUAL_FAMILIES.WEATHER || visual === PI_PROOF_VISUAL_FAMILIES.CLIMATE) {
+    const climateId = climateStationId(result);
+    if (climateId) return `climate:${climateId}`;
+    const swobId = swobStationId(result);
+    if (swobId) return `swob:${swobId}`;
+    const coords = result?.geometry?.coordinates;
+    if (Array.isArray(coords) && coords.length >= 2) {
+      return `geom:${Number(coords[0]).toFixed(4)},${Number(coords[1]).toFixed(4)}`;
+    }
   }
   return null;
 }
@@ -120,10 +180,12 @@ function stationDisplayName(result, stationId) {
 }
 
 function classifyFreshness(visualFamily, ageSeconds, hasLiveMeasurement) {
-  if (!hasLiveMeasurement) return FRESHNESS_CLASS.REGISTRY;
+  if (visualFamily === 'climate') return FRESHNESS_CLASS.STALE;
+  if (!hasLiveMeasurement) {
+    return visualFamily === 'hydrometric' ? FRESHNESS_CLASS.REGISTRY : FRESHNESS_CLASS.STALE;
+  }
   if (!Number.isFinite(ageSeconds) || ageSeconds < 0) return FRESHNESS_CLASS.STALE;
-  const policy = FRESHNESS_POLICY[visualFamily];
-  if (!policy) return FRESHNESS_CLASS.STALE;
+  const policy = FRESHNESS_POLICY[visualFamily] || FRESHNESS_POLICY.weather;
   if (ageSeconds <= policy.currentSeconds) return FRESHNESS_CLASS.CURRENT;
   if (ageSeconds <= policy.recentSeconds) return FRESHNESS_CLASS.RECENT;
   return FRESHNESS_CLASS.STALE;
@@ -225,7 +287,14 @@ function weatherPrimary(groupResults) {
       };
     }
     const props = propsOf(result);
-    const temp = props.air_temp ?? props['air_temp-value'] ?? props.TEMP;
+    const nested = props.currentConditions?.temperature;
+    const nestedValue = nested?.value?.en ?? nested?.value;
+    const temp = props.air_temp
+      ?? props['air_temp-value']
+      ?? props.TEMP
+      ?? props.MEAN_TEMPERATURE
+      ?? props.MEAN_TEMP
+      ?? nestedValue;
     if (temp != null && Number.isFinite(Number(temp))) {
       return {
         result,
@@ -262,15 +331,193 @@ function windHover(result) {
   };
 }
 
+function sourceFamilyOf(result) {
+  return result?.category || result?.nativeCollectionId || null;
+}
+
+function channelLabel(family) {
+  if (family === 'weather') return 'SWOB WEATHER';
+  if (family === 'weather-current') return 'CURRENT WEATHER';
+  if (family === 'climate-hourly') return 'CLIMATE HOURLY';
+  if (family === 'climate') return 'CLIMATE DAILY';
+  if (family === 'air-quality') return 'AIR QUALITY';
+  if (family === 'hydrometric-measurement' || family === 'hydrometric') return 'HYDROMETRIC';
+  return String(family || '').replace(/-/g, ' ').toUpperCase();
+}
+
+function aqhiPrimary(groupResults) {
+  const ranked = [...groupResults].sort((a, b) => (
+    (observationTimestampMs(b) || 0) - (observationTimestampMs(a) || 0)
+  ));
+  for (const result of ranked) {
+    const obs = result.observation;
+    if (obs?.value != null && Number.isFinite(Number(obs.value))) {
+      return {
+        result,
+        property: obs.property || 'aqhi',
+        label: 'AQHI',
+        value: Number(obs.value),
+        unit: obs.unit || 'AQHI',
+        observedAt: obs.observedAt
+      };
+    }
+    const aqhi = propsOf(result).aqhi ?? propsOf(result).AQHI;
+    if (aqhi != null && Number.isFinite(Number(aqhi))) {
+      return {
+        result,
+        property: 'aqhi',
+        label: 'AQHI',
+        value: Number(aqhi),
+        unit: 'AQHI',
+        observedAt: result.observation?.observedAt || result.temporal?.observation_datetime
+      };
+    }
+  }
+  return null;
+}
+
+function pickPrimary(groupResults, visualFamily) {
+  if (visualFamily === 'hydrometric') return hydroPrimary(groupResults);
+  if (visualFamily === 'air-quality') return aqhiPrimary(groupResults);
+  const weatherFirst = groupResults.filter((r) => sourceFamilyOf(r) === 'weather' || sourceFamilyOf(r) === 'weather-current');
+  const hourly = groupResults.filter((r) => sourceFamilyOf(r) === 'climate-hourly');
+  const daily = groupResults.filter((r) => sourceFamilyOf(r) === 'climate');
+  return weatherPrimary(weatherFirst.length ? weatherFirst : (hourly.length ? hourly : daily));
+}
+
+function buildChannels(groupResults) {
+  const byFamily = new Map();
+  for (const result of groupResults) {
+    const family = sourceFamilyOf(result);
+    if (!family) continue;
+    const mapped = family === 'hydrometric-measurement' ? 'hydrometric' : family;
+    if (mapped === 'hydrometric' && family === 'hydrometric') {
+      if (!byFamily.has('hydrometric')) byFamily.set('hydrometric', []);
+      byFamily.get('hydrometric').push(result);
+      continue;
+    }
+    if (!byFamily.has(mapped)) byFamily.set(mapped, []);
+    byFamily.get(mapped).push(result);
+  }
+  const channels = [];
+  const order = ['weather', 'weather-current', 'climate-hourly', 'climate', 'air-quality', 'hydrometric'];
+  for (const family of order) {
+    const rows = byFamily.get(family);
+    if (!rows?.length) continue;
+    let primary = null;
+    if (family === 'hydrometric') primary = hydroPrimary(rows);
+    else if (family === 'air-quality') primary = aqhiPrimary(rows);
+    else primary = weatherPrimary(rows);
+    channels.push({
+      family,
+      label: channelLabel(family),
+      available: true,
+      value: primary?.value ?? null,
+      unit: primary?.unit ?? null,
+      observedAt: primary?.observedAt ?? null
+    });
+  }
+  return channels;
+}
+
+function mergeNearbyAtmosphereGroups(groups) {
+  const entries = [...groups.entries()].map(([assetKey, results]) => {
+    const coords = results.map(pointCoords).find(Boolean);
+    const visual = visualFamilyForSource(sourceFamilyOf(results[0]));
+    return { assetKey, results, coords, visual };
+  });
+  const atmosphere = entries.filter((row) => row.visual === 'weather' || row.visual === 'climate');
+  const kept = entries.filter((row) => row.visual !== 'weather' && row.visual !== 'climate');
+  const used = new Set();
+  for (let i = 0; i < atmosphere.length; i += 1) {
+    if (used.has(i) || !atmosphere[i].coords) continue;
+    const merged = [...atmosphere[i].results];
+    used.add(i);
+    for (let j = i + 1; j < atmosphere.length; j += 1) {
+      if (used.has(j) || !atmosphere[j].coords) continue;
+      const dist = haversineMeters(
+        atmosphere[i].coords.longitude,
+        atmosphere[i].coords.latitude,
+        atmosphere[j].coords.longitude,
+        atmosphere[j].coords.latitude
+      );
+      if (dist <= ATMOSPHERE_MERGE_METERS) {
+        merged.push(...atmosphere[j].results);
+        used.add(j);
+      }
+    }
+    kept.push({
+      assetKey: atmosphere[i].assetKey,
+      results: merged
+    });
+  }
+  for (let i = 0; i < atmosphere.length; i += 1) {
+    if (!used.has(i)) kept.push(atmosphere[i]);
+  }
+  const out = new Map();
+  for (const row of kept) out.set(row.assetKey, row.results);
+  return out;
+}
+
+function mergeCoincidentVisualFamily(groups, visualFamily, maxMeters) {
+  const entries = [...groups.entries()].map(([assetKey, results]) => {
+    const coords = results.map(pointCoords).find(Boolean);
+    const visual = visualFamilyForSource(sourceFamilyOf(results[0]));
+    return { assetKey, results, coords, visual };
+  });
+  const subset = entries.filter((row) => row.visual === visualFamily);
+  const kept = entries.filter((row) => row.visual !== visualFamily);
+  const used = new Set();
+  for (let i = 0; i < subset.length; i += 1) {
+    if (used.has(i) || !subset[i].coords) continue;
+    const merged = [...subset[i].results];
+    used.add(i);
+    for (let j = i + 1; j < subset.length; j += 1) {
+      if (used.has(j) || !subset[j].coords) continue;
+      const dist = haversineMeters(
+        subset[i].coords.longitude,
+        subset[i].coords.latitude,
+        subset[j].coords.longitude,
+        subset[j].coords.latitude
+      );
+      if (dist <= maxMeters) {
+        merged.push(...subset[j].results);
+        used.add(j);
+      }
+    }
+    kept.push({ assetKey: subset[i].assetKey, results: merged });
+  }
+  for (let i = 0; i < subset.length; i += 1) {
+    if (!used.has(i)) kept.push(subset[i]);
+  }
+  const out = new Map();
+  for (const row of kept) out.set(row.assetKey, row.results);
+  return out;
+}
+
+function resolveVisualFamily(groupResults) {
+  const sources = new Set(groupResults.map(sourceFamilyOf));
+  if (sources.has('hydrometric') || sources.has('hydrometric-measurement')) return 'hydrometric';
+  if (sources.has('air-quality')) return 'air-quality';
+  if (sources.has('weather')) return 'weather';
+  if (sources.has('weather-current')) return 'weather-current';
+  if (sources.has('climate') || sources.has('climate-hourly')) return 'climate';
+  return visualFamilyForSource(sourceFamilyOf(groupResults[0]));
+}
+
+function resolveStationId(groupResults, visualFamily) {
+  if (visualFamily === 'hydrometric') return hydrometricStationId(groupResults[0]);
+  if (visualFamily === 'air-quality') return aqhiStationId(groupResults[0]);
+  if (visualFamily === 'weather-current') return citypageStationId(groupResults[0]);
+  return climateStationId(groupResults[0]) || swobStationId(groupResults[0]) || citypageStationId(groupResults[0]);
+}
+
 /**
- * Collapse hydrometric registry+measurement and SWOB weather into one station record each.
- * @param {object[]} results
- * @param {{ retrievedAt?: string, nowMs?: number }} [options]
+ * Collapse observations from all current PI families into one map object per physical station.
  */
 export function buildProofStationRecords(results = [], options = {}) {
   const nowMs = Number.isFinite(options.nowMs) ? options.nowMs : Date.now();
   const retrievedAt = options.retrievedAt || new Date(nowMs).toISOString();
-  /** @type {Map<string, object[]>} */
   const groups = new Map();
 
   for (const result of results) {
@@ -282,31 +529,28 @@ export function buildProofStationRecords(results = [], options = {}) {
     groups.get(assetKey).push(result);
   }
 
+  const mergedAtmosphere = mergeNearbyAtmosphereGroups(groups);
+  const merged = mergeCoincidentVisualFamily(mergedAtmosphere, 'weather-current', ATMOSPHERE_MERGE_METERS);
   const records = [];
-  for (const [assetKey, groupResults] of groups) {
-    const visualFamily = visualFamilyForSource(groupResults[0].category);
+  for (const [assetKey, groupResults] of merged) {
+    const visualFamily = resolveVisualFamily(groupResults);
     const coords = groupResults.map(pointCoords).find(Boolean);
     if (!coords) continue;
 
-    const stationId = visualFamily === 'hydrometric'
-      ? hydrometricStationId(groupResults[0])
-      : swobStationId(groupResults[0]);
+    const stationId = resolveStationId(groupResults, visualFamily);
     const named = groupResults.find((r) => stationDisplayName(r, stationId));
-    const primary = visualFamily === 'hydrometric'
-      ? hydroPrimary(groupResults)
-      : weatherPrimary(groupResults);
-
+    const primary = pickPrimary(groupResults, visualFamily);
     const liveResult = primary?.result
-      || groupResults.find((r) => r.category === 'hydrometric-measurement' || r.category === 'weather')
+      || groupResults.find((r) => ['hydrometric-measurement', 'weather', 'weather-current', 'air-quality'].includes(r.category))
       || groupResults[0];
     const observedMs = parseTime(primary?.observedAt) || observationTimestampMs(liveResult);
-    const hasLiveMeasurement = primary?.value != null;
-    const ageSeconds = hasLiveMeasurement && Number.isFinite(observedMs)
+    const hasLiveMeasurement = primary?.value != null && visualFamily !== 'climate';
+    const ageSeconds = primary?.value != null && Number.isFinite(observedMs)
       ? Math.max(0, (nowMs - observedMs) / 1000)
       : null;
-    const freshnessClass = !hasLiveMeasurement
-      ? (visualFamily === 'hydrometric' ? FRESHNESS_CLASS.REGISTRY : FRESHNESS_CLASS.STALE)
-      : classifyFreshness(visualFamily, ageSeconds, true);
+    const freshnessClass = visualFamily === 'hydrometric' && !hasLiveMeasurement
+      ? FRESHNESS_CLASS.REGISTRY
+      : classifyFreshness(visualFamily === 'weather-current' ? 'weather-current' : visualFamily, ageSeconds, hasLiveMeasurement);
 
     const trendSeries = visualFamily === 'hydrometric'
       ? groupResults
@@ -319,19 +563,20 @@ export function buildProofStationRecords(results = [], options = {}) {
         .filter(Boolean)
       : [];
     const trend = computeDeterministicTrend(trendSeries);
-
     const representativeId = getObservationId(liveResult);
     const observationIds = groupResults.map(getObservationId);
     const provenance = liveResult.provenance || {};
+    const channels = buildChannels(groupResults);
 
     records.push({
       assetKey,
       stationId,
-      stationName: stationDisplayName(named || liveResult, stationId),
+      stationName: [...new Set(groupResults.map((result) => stationDisplayName(result, stationId)).filter(Boolean))].join(' / ')
+        || stationDisplayName(named || liveResult, stationId),
       family: visualFamily,
       subtype: visualFamily === 'hydrometric'
         ? (hasLiveMeasurement ? 'hydrometric-measurement' : 'hydrometric-registry')
-        : 'swob',
+        : visualFamily,
       longitude: coords.longitude,
       latitude: coords.latitude,
       primaryValue: primary?.value ?? null,
@@ -366,7 +611,8 @@ export function buildProofStationRecords(results = [], options = {}) {
       lifRecordKey: representativeId,
       observationId: representativeId,
       observationIds,
-      sourceFamilies: [...new Set(groupResults.map((r) => r.category).filter(Boolean))]
+      sourceFamilies: [...new Set(groupResults.map((r) => r.category).filter(Boolean))],
+      channels
     });
   }
 
@@ -385,53 +631,73 @@ export function formatAgeLabel(ageSeconds) {
   return `${Math.round(ageSeconds / 86400)} d ago`;
 }
 
+function familyHoverTitle(record) {
+  if (record.family === 'hydrometric') return 'HYDROMETRIC STATION';
+  if (record.family === 'air-quality') return 'AIR QUALITY STATION';
+  if (record.family === 'weather-current') return 'CURRENT WEATHER';
+  if (record.family === 'climate') return 'CLIMATE STATION';
+  if ((record.channels || []).some((ch) => ch.family === 'climate' || ch.family === 'climate-hourly')) {
+    return 'WEATHER / CLIMATE STATION';
+  }
+  return 'WEATHER STATION';
+}
+
+function formatChannelValue(channel) {
+  if (channel.value != null && channel.unit) {
+    const value = Number.isInteger(channel.value)
+      ? String(channel.value)
+      : Number(channel.value).toFixed(Math.abs(channel.value) >= 10 ? 1 : 2);
+    return `${channel.label} ${value} ${channel.unit}`;
+  }
+  return `${channel.label} AVAILABLE`;
+}
+
 export function formatProofHoverModel(record) {
   if (!record) return null;
   const evidenceDriven = record.acquisitionRole === 'SUPPORTING_OBSERVATION';
   const lines = [];
-  const title = record.stationId || record.stationName || 'Station';
-  const familyLabel = record.family === 'hydrometric'
-    ? (evidenceDriven ? 'HYDROMETRIC OBSERVATION' : 'HYDROMETRIC')
-    : (evidenceDriven ? 'WEATHER OBSERVATION' : 'WEATHER');
-  if (record.primaryValue != null && record.primaryUnit) {
+  const title = record.stationName || record.stationId || 'Station';
+  const familyLabel = familyHoverTitle(record);
+  const channels = Array.isArray(record.channels) && record.channels.length
+    ? record.channels
+    : null;
+  if (channels) {
+    for (const channel of channels) lines.push(formatChannelValue(channel));
+  } else if (record.primaryValue != null && record.primaryUnit) {
     const value = Number.isInteger(record.primaryValue)
       ? String(record.primaryValue)
       : Number(record.primaryValue).toFixed(Math.abs(record.primaryValue) >= 10 ? 1 : 2);
-    if (evidenceDriven) {
-      lines.push(`${value} ${record.primaryUnit}`);
-    } else if (record.primaryLabel) {
-      lines.push(`${record.primaryLabel} ${value} ${record.primaryUnit}`);
-    }
+    lines.push(record.primaryLabel ? `${record.primaryLabel} ${value} ${record.primaryUnit}` : `${value} ${record.primaryUnit}`);
   }
-  if (!evidenceDriven) {
-    const age = formatAgeLabel(record.ageSeconds);
-    if (age) lines.push(`UPDATED ${age}`);
-  }
-  if (record.family === 'weather' && record.wind && !evidenceDriven) {
+  if (record.family === 'weather' && record.wind) {
     const bits = [];
     if (record.wind.directionDeg != null) bits.push(`${Math.round(record.wind.directionDeg)}°`);
     if (record.wind.speed != null) bits.push(`${record.wind.speed} ${record.wind.unit || 'km/h'}`);
     if (bits.length) lines.push(`WIND ${bits.join(' · ')}`);
   }
-  if (record.trend && record.trendUnit && !evidenceDriven) {
-    const sign = record.trend.perHour > 0 ? '+' : '';
-    const window = record.trend.windowHours >= 1
-      ? `${record.trend.windowHours.toFixed(record.trend.windowHours >= 10 ? 0 : 1)} h`
-      : `${Math.round(record.trend.windowHours * 60)} min`;
-    lines.push(`TREND ${sign}${record.trend.perHour.toFixed(2)} ${record.trendUnit} / ${window}`);
+  const age = formatAgeLabel(record.ageSeconds);
+  if (age && (record.family === 'hydrometric' || record.family === 'weather' || record.family === 'weather-current' || record.family === 'air-quality')) {
+    lines.push(`UPDATED ${age}`);
   }
-  if (evidenceDriven) {
-    const originDistance = formatAoiDistanceLabel(record.queryOriginDistanceMeters ?? record.distanceMeters);
-    if (originDistance) lines.push(`${originDistance} FROM QUERY ORIGIN`);
-    lines.push('SUPPORTING OBSERVATION');
-    const source = /msc/i.test(String(record.provider || '')) ? 'MSC' : (record.provider || null);
-    if (source) lines.push(`SOURCE · ${source}`);
-  } else if (record.aoiClassification === AOI_CLASS.INSIDE_AOI) {
+  const originDistance = formatAoiDistanceLabel(record.queryOriginDistanceMeters ?? record.distanceMeters);
+  if (evidenceDriven && originDistance) {
+    lines.push('DISTANCE FROM QUERY ORIGIN');
+    lines.push(originDistance);
+  }
+  if (record.aoiClassification === AOI_CLASS.INSIDE_AOI) {
     lines.push('INSIDE ACQUISITION AREA');
   } else if (record.aoiClassification === AOI_CLASS.SUPPORTING_EXTERNAL) {
     const distance = formatAoiDistanceLabel(record.aoiBoundaryDistanceMeters);
     if (distance) lines.push(`${distance} OUTSIDE AOI`);
     lines.push('SUPPORTING OBSERVATION');
+  } else if (evidenceDriven) {
+    lines.push('ROLE');
+    lines.push('SUPPORTING OBSERVATION');
+    const source = /msc/i.test(String(record.provider || '')) ? 'MSC' : (record.provider || null);
+    if (source) {
+      lines.push('SOURCE');
+      lines.push(source);
+    }
   }
   return {
     title,
