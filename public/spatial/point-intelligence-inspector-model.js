@@ -7,7 +7,7 @@ import { deriveCoverageState } from './point-intelligence-lif-model.js';
 import { formatClickDistance, formatObservationTimestamp, formatClimateObservationDate } from './point-intelligence-presentation.js';
 import { formatTemporalClassificationLabel } from './point-intelligence-status.js';
 import { sanitizeEvidenceRecord, sanitizeReceiptModel } from './point-intelligence-inspector-safe.js';
-import { AOI_CLASS, formatAoiDistanceLabel } from './point-intelligence-aoi-geometry.js';
+import { AOI_CLASS, EVIDENCE_ROLE, formatAoiDistanceLabel } from './point-intelligence-aoi-geometry.js';
 
 function formatCoords(geometry) {
   if (geometry?.type === 'Point' && Array.isArray(geometry.coordinates)) {
@@ -115,6 +115,18 @@ function formatResultStatus(familyEntry, queryState) {
 }
 
 function buildAoiRelationship(result) {
+  if (result?.acquisitionRole === EVIDENCE_ROLE) {
+    const distance = formatAoiDistanceLabel(result.queryOriginDistanceMeters ?? result.clickDistanceMeters);
+    return {
+      classification: EVIDENCE_ROLE,
+      kind: 'EVIDENCE',
+      label: 'SUPPORTING OBSERVATION',
+      distanceLabel: distance ? `${distance} from query origin` : null,
+      coverage: false,
+      influence: false,
+      interpolation: false
+    };
+  }
   if (!result?.aoiClassification) return null;
   if (result.aoiClassification === AOI_CLASS.INSIDE_AOI) {
     return {

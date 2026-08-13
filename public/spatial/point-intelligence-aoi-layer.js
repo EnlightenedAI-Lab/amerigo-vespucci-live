@@ -9,6 +9,9 @@ import {
 } from './spatial-arcgis-runtime.js';
 import {
   CONNECTOR_MEANING,
+  FOOTPRINT_MEANING,
+  ACQUISITION_CARTOGRAPHIC_BUFFER_METERS,
+  buildEvidenceAcquisitionFootprint,
   circlePolygon,
   formatAoiDistanceLabel,
   toGeoJsonPolygon
@@ -165,12 +168,109 @@ export async function renderAcquisitionMesh(polygon) {
     symbol,
     attributes: {
       role: 'pi-aoi-mesh',
-      meaning: 'ACQUISITION_ZONE',
-      analytical: 0
+      meaning: FOOTPRINT_MEANING,
+      analytical: 0,
+      coverage: 0,
+      influence: 0,
+      interpolation: 0,
+      impact: 0,
+      searchRadius: 0,
+      drapeReady: 1,
+      hasZ: 0
     }
   }));
   currentAoiPolygon = polygon.type ? polygon : toGeoJsonPolygon(rings);
+  reorderAcquisitionLayers();
   return true;
+}
+
+function reorderAcquisitionLayers() {
+  const view = getMapView();
+  const map = view?.map;
+  if (!map) return;
+  const aoi = map.findLayerById(POINT_INTEL_AOI_LAYER_ID);
+  const footprint = map.findLayerById(POINT_INTEL_FOOTPRINT_LAYER_ID);
+  const click = map.findLayerById('iqai-point-intel-click');
+  const stations = map.findLayerById('iqai-point-intel-stations');
+  const selection = map.findLayerById('iqai-point-intel-selection');
+  const last = map.layers.length - 1;
+  if (footprint) map.reorder(footprint, Math.max(0, last - 6));
+  if (aoi) map.reorder(aoi, Math.max(0, last - 5));
+  if (click) map.reorder(click, last - 2);
+  if (stations) map.reorder(stations, last - 1);
+  if (selection) map.reorder(selection, last);
+}
+
+function arcPolygonToGeoJson(geometry) {
+  if (!geometry?.rings?.length) return null;
+  const rings = geometry.rings.map((ring) => ring.map((pt) => [pt[0], pt[1]]));
+  return toGeoJsonPolygon(rings);
+}
+
+export async function renderEvidenceDrivenFootprint({
+  origin,
+  evidence = [],
+  fallbackPolygon = null,
+  method = null,
+  meaning = FOOTPRINT_MEANING,
+  bufferMeters = ACQUISITION_CARTOGRAPHIC_BUFFER_METERS
+} = {}) {
+  let polygon = fallbackPolygon;
+  let resolvedMethod = method;
+  try {
+    const engine = await importArc('@arcgis/core/geometry/geometryEngine.js');
+    const Point = await importArc('@arcgis/core/geometry/Point.js');
+    const Polyline = await importArc('@arcgis/core/geometry/Polyline.js');
+    const Multipoint = await importArc('@arcgis/core/geometry/Multipoint.js');
+    const engineApi = engine?.geodesicBuffer ? engine : (engine?.default || engine);
+    const points = [origin, ...evidence].filter((pt) => (
+      Number.isFinite(pt?.longitude) && Number.isFinite(pt?.latitude)
+    ));
+    const sr = { wkid: 4326 };
+    let geometry = null;
+    if (points.length === 1) {
+      geometry = new Point({ longitude: points[0].longitude, latitude: points[0].latitude, spatialReference: sr });
+      resolvedMethod = 'GEODESIC_BUFFER_POINT';
+    } else if (points.length === 2) {
+      geometry = new Polyline({
+        paths: [[[points[0].longitude, points[0].latitude], [points[1].longitude, points[1].latitude]]],
+        spatialReference: sr
+      });
+      resolvedMethod = 'GEODESIC_BUFFER_CORRIDOR';
+    } else if (points.length > 2) {
+      const hullSource = new Multipoint({
+        points: points.map((pt) => [pt.longitude, pt.latitude]),
+        spatialReference: sr
+      });
+      geometry = engineApi.convexHull(hullSource);
+      resolvedMethod = 'GEODESIC_BUFFER_CONVEX_HULL';
+    }
+    if (geometry) {
+      const buffered = engineApi.geodesicBuffer(geometry, bufferMeters, 'meters');
+      let candidate = Array.isArray(buffered) ? buffered[0] : buffered;
+      if (candidate?.spatialReference?.isWebMercator || candidate?.spatialReference?.wkid === 3857) {
+        const webMercatorUtils = await importArc('@arcgis/core/geometry/support/webMercatorUtils.js');
+        candidate = webMercatorUtils.webMercatorToGeographic(candidate);
+      }
+      const converted = arcPolygonToGeoJson(candidate);
+      const firstLon = converted?.coordinates?.[0]?.[0]?.[0];
+      if (converted && Math.abs(Number(firstLon)) <= 180) polygon = converted;
+    }
+  } catch {
+    if (!polygon) {
+      const built = buildEvidenceAcquisitionFootprint({ origin, evidence, bufferMeters });
+      polygon = built.polygon;
+      resolvedMethod = built.method;
+    }
+  }
+  if (!polygon) return false;
+  const ok = await renderAcquisitionMesh(polygon);
+  const graphic = aoiLayer?.graphics?.getItemAt?.(0) || aoiLayer?.graphics?.items?.[0];
+  if (graphic?.attributes) {
+    graphic.attributes.method = resolvedMethod;
+    graphic.attributes.meaning = meaning;
+  }
+  return ok;
 }
 
 export async function clearAcquisitionMesh() {

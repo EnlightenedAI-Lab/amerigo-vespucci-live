@@ -885,7 +885,11 @@ function renderLocationIntelligenceFocus(response, point, presentation) {
         <div class="lif-anchor">
           ${location.label ? `<div class="lif-anchor__coords">${escapeHtml(location.label)}</div>` : ''}
           <div class="lif-anchor__context">${escapeHtml(
-            response?.acquisition?.mode === 'AREA' ? 'Area acquisition' : `${radiusLabel} radius`
+            response?.acquisition?.mode === 'AUTO'
+              ? 'Evidence acquisition'
+              : response?.acquisition?.mode === 'AREA'
+                ? 'Area acquisition'
+                : `${radiusLabel} radius`
           )}</div>
           <div class="slc-action-host" data-slc-action-host></div>
         </div>
@@ -1010,6 +1014,20 @@ function escapeHtml(value) {
 export function renderAcquisitionSummaryHtml(summary) {
   if (!summary || !Number.isFinite(summary.stationCount)) return '';
   const freshness = summary.freshness || {};
+  if (summary.kind === 'EVIDENCE') {
+    return `
+    <div class="pi-acquisition-summary" aria-label="Evidence acquisition">
+      <div class="pi-acquisition-summary__title">EVIDENCE ACQUISITION</div>
+      ${summary.originLabel ? `<div class="pi-acquisition-summary__line">ORIGIN ${escapeHtml(summary.originLabel)}</div>` : ''}
+      ${summary.footprintLabel ? `<div class="pi-acquisition-summary__line">FOOTPRINT ${escapeHtml(summary.footprintLabel)} km²</div>` : ''}
+      ${summary.farthestEvidenceLabel ? `<div class="pi-acquisition-summary__line">FARTHEST EVIDENCE ${escapeHtml(summary.farthestEvidenceLabel)}</div>` : ''}
+      <dl class="pi-acquisition-summary__grid pi-acquisition-summary__grid--evidence">
+        <div><dt>STATIONS</dt><dd>${summary.stationCount ?? 0}</dd></div>
+        <div><dt>CURRENT</dt><dd>${freshness.CURRENT ?? 0}</dd></div>
+        <div><dt>RECENT</dt><dd>${freshness.RECENT ?? 0}</dd></div>
+      </dl>
+    </div>`;
+  }
   return `
     <div class="pi-acquisition-summary" aria-label="Sensor acquisition">
       <div class="pi-acquisition-summary__title">SENSOR ACQUISITION</div>

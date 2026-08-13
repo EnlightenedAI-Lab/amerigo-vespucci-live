@@ -2,6 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   AOI_CLASS,
+  CONNECTOR_MEANING,
+  EVIDENCE_ROLE,
+  FOOTPRINT_MEANING,
+  buildEvidenceAcquisitionFootprint,
   classifyPointAgainstAoi,
   coveringRadiusMeters,
   formatAoiDistanceLabel,
@@ -10,8 +14,11 @@ import {
   polygonEnvelope,
   queryPlanFromAoi,
   selectConstellationStations,
+  selectEvidenceUsedStations,
   stampResultsWithAoi,
-  summarizeAoiConstellation
+  stampResultsWithEvidence,
+  summarizeAoiConstellation,
+  summarizeEvidenceAcquisition
 } from '../public/spatial/point-intelligence-aoi-geometry.js';
 import {
   buildProofStationRecords,
@@ -20,7 +27,6 @@ import {
 import { buildSafeEvidenceInspectorModel } from '../public/spatial/point-intelligence-inspector-model.js';
 import { renderEvidenceInspectorHtml } from '../public/spatial/point-intelligence-inspector-presentation.js';
 import { renderAcquisitionSummaryHtml } from '../public/spatial/point-intelligence-presentation.js';
-import { CONNECTOR_MEANING } from '../public/spatial/point-intelligence-aoi-geometry.js';
 
 const DOWNTOWN = {
   type: 'Polygon',
@@ -265,4 +271,142 @@ test('acquisition summary stays compact', () => {
 test('formatAoiDistanceLabel prefers kilometres outside the AOI', () => {
   assert.equal(formatAoiDistanceLabel(8700), '8.7 km');
   assert.equal(formatAoiDistanceLabel(0), null);
+});
+
+const ORIGIN = { longitude: -73.5673, latitude: 45.5017 };
+const EAST_4KM = { longitude: -73.516, latitude: 45.5017 };
+const SOUTH_26 = { longitude: -73.5673, latitude: 45.4783 };
+const WEST_12 = { longitude: -73.5827, latitude: 45.5017 };
+
+test('one evidence location builds a buffered corridor that includes origin and station', () => {
+  const footprint = buildEvidenceAcquisitionFootprint({
+    origin: ORIGIN,
+    evidence: [EAST_4KM]
+  });
+  assert.equal(footprint.method, 'BUFFERED_GEODESIC_CORRIDOR');
+  assert.equal(footprint.meaning, FOOTPRINT_MEANING);
+  assert.equal(pointInPolygon(ORIGIN.longitude, ORIGIN.latitude, footprint.polygon), true);
+  assert.equal(pointInPolygon(EAST_4KM.longitude, EAST_4KM.latitude, footprint.polygon), true);
+  const env = polygonEnvelope(footprint.polygon);
+  assert.ok(env.maxLon - ORIGIN.longitude > ORIGIN.longitude - env.minLon);
+});
+
+test('farthest evidence expands the acquisition footprint', () => {
+  const nearOnly = buildEvidenceAcquisitionFootprint({
+    origin: ORIGIN,
+    evidence: [WEST_12]
+  });
+  const withFar = buildEvidenceAcquisitionFootprint({
+    origin: ORIGIN,
+    evidence: [WEST_12, EAST_4KM, SOUTH_26]
+  });
+  const nearEnv = polygonEnvelope(nearOnly.polygon);
+  const farEnv = polygonEnvelope(withFar.polygon);
+  assert.ok(farEnv.maxLon > nearEnv.maxLon + 0.01);
+  assert.equal(pointInPolygon(EAST_4KM.longitude, EAST_4KM.latitude, withFar.polygon), true);
+  assert.notEqual(withFar.method, 'PROVIDER_SEARCH_RADIUS');
+});
+
+test('evidence-driven footprint is cartographic geography, not coverage or search radius', () => {
+  const footprint = buildEvidenceAcquisitionFootprint({
+    origin: ORIGIN,
+    evidence: [WEST_12, EAST_4KM, SOUTH_26]
+  });
+  assert.equal(footprint.meaning, FOOTPRINT_MEANING);
+  assert.notEqual(footprint.meaning, 'coverage');
+  assert.notEqual(footprint.meaning, 'influence');
+  assert.notEqual(footprint.meaning, 'interpolation');
+  assert.notEqual(footprint.meaning, 'impact');
+  assert.notEqual(footprint.method, 'PROVIDER_SEARCH_RADIUS');
+});
+
+test('AUTO evidence prefers live observations over nearer registry stations', () => {
+  const registry = {
+    resultId: 'hydro-02OA046',
+    category: 'hydrometric',
+    resultKind: 'STATION_REGISTRY',
+    providerName: 'MSC GeoMet',
+    nativeCollectionId: 'hydrometric-stations',
+    nativeRecordId: '02OA046',
+    clickDistanceMeters: 1284,
+    geometry: { type: 'Point', coordinates: [-73.55139, 45.50472] },
+    properties: { STATION_NUMBER: '02OA046', STATION_NAME: '02OA046' }
+  };
+  const records = selectEvidenceUsedStations(buildProofStationRecords([
+    registry,
+    hydro('02OA016', -73.62316, 45.41501, 10578),
+    weather('WTA', -73.579185, 45.504926, 993)
+  ]));
+  const hydroRows = records.filter((row) => row.family === 'hydrometric');
+  assert.equal(hydroRows.some((row) => row.stationId === '02OA016'), true);
+  assert.equal(hydroRows.some((row) => row.stationId === '02OA046'), false);
+});
+
+test('AUTO evidence keeps true coordinates and does not use SUPPORTING_EXTERNAL', () => {
+  const records = selectEvidenceUsedStations(buildProofStationRecords([
+    hydro('02OA016', EAST_4KM.longitude, EAST_4KM.latitude, 4000),
+    weather('WTA', WEST_12.longitude, WEST_12.latitude, 1200)
+  ]));
+  const hydroRow = records.find((row) => row.stationId === '02OA016');
+  assert.equal(hydroRow.longitude, EAST_4KM.longitude);
+  assert.equal(hydroRow.latitude, EAST_4KM.latitude);
+  assert.equal(hydroRow.acquisitionRole, EVIDENCE_ROLE);
+  assert.equal(hydroRow.aoiClassification, null);
+  assert.equal(hydroRow.queryOriginDistanceMeters, 4000);
+  assert.notEqual(hydroRow.acquisitionRole, 'LOCAL');
+  assert.notEqual(hydroRow.acquisitionRole, AOI_CLASS.SUPPORTING_EXTERNAL);
+});
+
+test('evidence hover shows query-origin distance, not outside-AOI language', () => {
+  const [station] = selectEvidenceUsedStations(buildProofStationRecords([
+    weather('WTA', WEST_12.longitude, WEST_12.latitude, 4000)
+  ]));
+  const hover = formatProofHoverModel(station);
+  assert.equal(hover.familyLabel, 'WEATHER OBSERVATION');
+  assert.match(hover.lines.join('\n'), /4\.0 km FROM QUERY ORIGIN/);
+  assert.match(hover.lines.join('\n'), /SUPPORTING OBSERVATION/);
+  assert.match(hover.lines.join('\n'), /SOURCE · MSC/);
+  assert.doesNotMatch(hover.lines.join('\n'), /OUTSIDE AOI/);
+  assert.doesNotMatch(hover.lines.join('\n'), /INSIDE ACQUISITION AREA/);
+});
+
+test('evidence inspector uses query origin distance instead of supporting external', () => {
+  const raw = weather('WTA', WEST_12.longitude, WEST_12.latitude, 4000);
+  const [station] = selectEvidenceUsedStations(buildProofStationRecords([raw]));
+  const [stamped] = stampResultsWithEvidence([raw], [station]);
+  const model = buildSafeEvidenceInspectorModel({ results: [stamped] }, 'swob-WTA');
+  assert.equal(model.aoiRelationship.classification, EVIDENCE_ROLE);
+  assert.match(model.aoiRelationship.label, /SUPPORTING OBSERVATION/);
+  assert.match(model.aoiRelationship.distanceLabel, /from query origin/);
+  assert.doesNotMatch(model.aoiRelationship.label, /EXTERNAL/);
+  const html = renderEvidenceInspectorHtml(model);
+  assert.match(html, /Acquisition relationship/);
+  assert.match(html, /Query origin distance/);
+  assert.doesNotMatch(html, /SUPPORTING EXTERNAL/);
+});
+
+test('evidence acquisition summary stays compact and does not fabricate values', () => {
+  const stations = selectEvidenceUsedStations(buildProofStationRecords([
+    hydro('02OA016', EAST_4KM.longitude, EAST_4KM.latitude, 4000),
+    weather('WTA', WEST_12.longitude, WEST_12.latitude, 1200)
+  ]));
+  const footprint = buildEvidenceAcquisitionFootprint({
+    origin: ORIGIN,
+    evidence: stations
+  });
+  const summary = summarizeEvidenceAcquisition({
+    origin: ORIGIN,
+    stations,
+    polygon: footprint.polygon
+  });
+  const html = renderAcquisitionSummaryHtml(summary);
+  assert.match(html, /EVIDENCE ACQUISITION/);
+  assert.match(html, /ORIGIN/);
+  assert.match(html, /FOOTPRINT/);
+  assert.match(html, /FARTHEST EVIDENCE/);
+  assert.match(html, /4\.0 km/);
+  assert.doesNotMatch(html, /Downtown Montréal/);
+  assert.doesNotMatch(html, /dashboard/i);
+  assert.equal(summary.stationCount, 2);
+  assert.ok(summary.footprintKm2 > 0);
 });

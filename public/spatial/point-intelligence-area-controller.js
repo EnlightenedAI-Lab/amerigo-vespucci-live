@@ -182,23 +182,38 @@ export async function acquirePolygon(polygon) {
   return response;
 }
 
-export async function fitViewToAcquisition(polygon, response) {
+export async function fitViewToAcquisition(polygon, response, origin = null) {
   const view = getMapView();
   if (!view) return;
   const Polygon = await importArc('@arcgis/core/geometry/Polygon.js');
   const rings = polygon?.coordinates || polygon?.rings;
-  if (!rings?.length) return;
-  const aoi = new Polygon({ rings, spatialReference: { wkid: 4326 } });
-  const extent = aoi.extent?.clone?.();
-  if (!extent) return;
-  const padDeg = 0.02;
-  for (const station of response?.acquisition?.stations || []) {
-    if (!Number.isFinite(station.longitude) || !Number.isFinite(station.latitude)) continue;
-    if (station.longitude < extent.xmin) extent.xmin = station.longitude;
-    if (station.latitude < extent.ymin) extent.ymin = station.latitude;
-    if (station.longitude > extent.xmax) extent.xmax = station.longitude;
-    if (station.latitude > extent.ymax) extent.ymax = station.latitude;
+  let extent = null;
+  if (rings?.length) {
+    const aoi = new Polygon({ rings, spatialReference: { wkid: 4326 } });
+    extent = aoi.extent?.clone?.() || null;
   }
+  const seed = origin || response?.acquisition?.origin;
+  if (!extent && seed && Number.isFinite(seed.longitude) && Number.isFinite(seed.latitude)) {
+    extent = {
+      xmin: seed.longitude,
+      ymin: seed.latitude,
+      xmax: seed.longitude,
+      ymax: seed.latitude
+    };
+  }
+  if (!extent) return;
+  const grow = (longitude, latitude) => {
+    if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) return;
+    if (longitude < extent.xmin) extent.xmin = longitude;
+    if (latitude < extent.ymin) extent.ymin = latitude;
+    if (longitude > extent.xmax) extent.xmax = longitude;
+    if (latitude > extent.ymax) extent.ymax = latitude;
+  };
+  if (seed) grow(seed.longitude, seed.latitude);
+  for (const station of response?.acquisition?.stations || []) {
+    grow(station.longitude, station.latitude);
+  }
+  const padDeg = 0.02;
   extent.xmin -= padDeg;
   extent.ymin -= padDeg;
   extent.xmax += padDeg;

@@ -237,8 +237,10 @@ export async function replacePointIntelligencePresentation(point, results = [], 
   }
   if (!options.skipClickMarker && point) {
     await renderPointIntelligenceClickMarker(point);
-    const radius = Number.isFinite(options.radiusMeters) ? options.radiusMeters : DEFAULT_RADIUS_METERS;
-    await renderQuickPointFootprint(point, radius);
+    if (!options.skipSearchFootprint) {
+      const radius = Number.isFinite(options.radiusMeters) ? options.radiusMeters : DEFAULT_RADIUS_METERS;
+      await renderQuickPointFootprint(point, radius);
+    }
   }
   return renderPointIntelligenceMapPresentation(results, focusState, options);
 }

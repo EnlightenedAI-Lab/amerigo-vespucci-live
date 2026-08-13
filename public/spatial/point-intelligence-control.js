@@ -1,5 +1,5 @@
 /**
- * Compact Point Intelligence analyst control — Point | Area acquisition.
+ * Compact Point Intelligence analyst control — Point | Auto area | Draw area.
  */
 import {
   POINT_INTELLIGENCE_UI_ENABLED,
@@ -50,7 +50,8 @@ export class PointIntelligenceControl {
         </div>
         <div class="pi-control__modes" role="group" aria-label="Acquisition mode">
           <button type="button" class="pi-control__mode" data-pi-acq="POINT">Point</button>
-          <button type="button" class="pi-control__mode" data-pi-acq="AREA">Area</button>
+          <button type="button" class="pi-control__mode" data-pi-acq="AUTO">Auto area</button>
+          <button type="button" class="pi-control__mode" data-pi-acq="AREA">Draw area</button>
         </div>
         <div class="pi-control__area" id="spatial-pi-area" hidden>
           <div class="pi-control__tools" role="group" aria-label="Draw tool">
@@ -60,8 +61,10 @@ export class PointIntelligenceControl {
           <div class="pi-control__actions">
             <button type="button" class="pi-control__action" data-pi-area="draw">Draw</button>
             <button type="button" class="pi-control__action" data-pi-area="redraw">Redraw</button>
-            <button type="button" class="pi-control__action" data-pi-area="clear">Clear</button>
           </div>
+        </div>
+        <div class="pi-control__actions" id="spatial-pi-clear-row">
+          <button type="button" class="pi-control__action" data-pi-area="clear">Clear</button>
         </div>
         <div class="pi-control__families pi-control__families--readonly" id="spatial-pi-families">
           <p class="pi-control__legend">Verified information families</p>
@@ -115,8 +118,10 @@ export class PointIntelligenceControl {
       return;
     }
     this.hintEl.textContent = acquisitionMode === 'AREA'
-      ? 'Area — draw a polygon or rectangle, then acquire stations at true coordinates.'
-      : 'Point — click the map to query verified families at that location.';
+      ? 'Draw area — optional analyst polygon. Primary path is Auto area.'
+      : acquisitionMode === 'POINT'
+        ? 'Point — click the map to query verified families at that location.'
+        : 'Auto area — click the map. IQAI maps evidence at true coordinates and draws the acquisition footprint.';
   }
 
   sync(state) {

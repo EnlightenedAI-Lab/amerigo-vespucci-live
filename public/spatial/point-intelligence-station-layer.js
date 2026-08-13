@@ -63,7 +63,9 @@ const STATION_FIELDS = Object.freeze([
   { name: 'sourceFamily', type: 'string' },
   { name: 'role', type: 'string' },
   { name: 'aoiClassification', type: 'string' },
-  { name: 'aoiBoundaryDistanceMeters', type: 'double', nullable: true }
+  { name: 'aoiBoundaryDistanceMeters', type: 'double', nullable: true },
+  { name: 'acquisitionRole', type: 'string' },
+  { name: 'queryOriginDistanceMeters', type: 'double', nullable: true }
 ]);
 
 function formatPrimaryDisplay(record) {
@@ -100,7 +102,9 @@ function attributesFromRecord(record) {
       : (record.family === 'hydrometric' ? 'hydrometric-measurement' : 'weather'),
     role: 'pi-station',
     aoiClassification: record.aoiClassification || '',
-    aoiBoundaryDistanceMeters: record.aoiBoundaryDistanceMeters
+    aoiBoundaryDistanceMeters: record.aoiBoundaryDistanceMeters,
+    acquisitionRole: record.acquisitionRole || '',
+    queryOriginDistanceMeters: record.queryOriginDistanceMeters
   };
 }
 
@@ -138,7 +142,7 @@ function showHover(record, event) {
   }
   hoverEl.innerHTML = `
     <div class="pi-station-hover__id">${escapeHtml(model.title)}</div>
-    <div class="pi-station-hover__family">${escapeHtml(model.familyLabel)} · ${escapeHtml(model.freshnessClass)}</div>
+    <div class="pi-station-hover__family">${escapeHtml(model.familyLabel)}${model.freshnessClass ? ` · ${escapeHtml(model.freshnessClass)}` : ''}</div>
     ${model.lines.map((line) => `<div class="pi-station-hover__line">${escapeHtml(line)}</div>`).join('')}
   `;
   hoverEl.hidden = false;

@@ -38,10 +38,15 @@ import {
 import { buildProofStationRecords, isProofSourceFamily } from './point-intelligence-station-model.js';
 import { getObservationId } from './point-intelligence-map-presentation.js';
 import {
+  FOOTPRINT_MEANING,
+  buildEvidenceAcquisitionFootprint,
   queryPlanFromAoi,
   selectConstellationStations,
+  selectEvidenceUsedStations,
   stampResultsWithAoi,
-  summarizeAoiConstellation
+  stampResultsWithEvidence,
+  summarizeAoiConstellation,
+  summarizeEvidenceAcquisition
 } from './point-intelligence-aoi-geometry.js';
 
 let queryGeneration = 0;
@@ -52,7 +57,7 @@ let modeEnabled = false;
 let lastResponse = null;
 let lastClickedPoint = null;
 let queryPhase = 'IDLE';
-let acquisitionMode = 'POINT';
+let acquisitionMode = 'AUTO';
 
 /** @type {Set<(state: object) => void>} */
 const listeners = new Set();
@@ -96,7 +101,7 @@ export function setPointIntelligenceModeEnabled(enabled) {
     lastResponse = null;
     lastClickedPoint = null;
     queryPhase = 'IDLE';
-    acquisitionMode = 'POINT';
+    acquisitionMode = 'AUTO';
     void clearPointIntelligenceLayers();
     void import('./point-intelligence-area-controller.js')
       .then((mod) => mod.cancelAreaSketch())
@@ -115,23 +120,29 @@ export function getPointIntelligenceAcquisitionMode() {
 }
 
 export function setPointIntelligenceAcquisitionMode(mode) {
-  const next = mode === 'AREA' ? 'AREA' : 'POINT';
+  const next = mode === 'AREA' ? 'AREA' : mode === 'POINT' ? 'POINT' : 'AUTO';
   if (next === acquisitionMode) {
     emit();
     return acquisitionMode;
   }
   acquisitionMode = next;
-  if (next === 'POINT') {
-    void import('./point-intelligence-area-controller.js')
-      .then((mod) => mod.cancelAreaSketch())
-      .catch(() => {});
-    void import('./point-intelligence-aoi-layer.js')
-      .then((mod) => mod.clearAcquisitionMesh())
-      .catch(() => {});
-  } else {
+  if (next === 'AREA') {
     void import('./point-intelligence-aoi-layer.js')
       .then((mod) => mod.clearQuickPointFootprint())
       .catch(() => {});
+  } else {
+    void import('./point-intelligence-area-controller.js')
+      .then((mod) => mod.cancelAreaSketch())
+      .catch(() => {});
+    if (next === 'POINT') {
+      void import('./point-intelligence-aoi-layer.js')
+        .then((mod) => mod.clearAcquisitionMesh())
+        .catch(() => {});
+    } else {
+      void import('./point-intelligence-aoi-layer.js')
+        .then((mod) => mod.clearQuickPointFootprint())
+        .catch(() => {});
+    }
   }
   emit();
   return acquisitionMode;
@@ -245,6 +256,7 @@ export async function runPointIntelligenceQuery(input, options = {}) {
   activeQueryGeneration = generation;
   requestCount += 1;
   queryPhase = 'QUERYING';
+  const started = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
 
   const point = {
     longitude: Number(input.longitude),
@@ -268,7 +280,10 @@ export async function runPointIntelligenceQuery(input, options = {}) {
 
   if (!options.skipPresentation) {
     try {
-      await replacePointIntelligencePresentation(point, []);
+      await replacePointIntelligencePresentation(point, [], null, {
+        skipSearchFootprint: acquisitionMode === 'AUTO' || acquisitionMode === 'AREA',
+        skipClickMarker: acquisitionMode === 'AREA'
+      });
     } catch (error) {
       console.warn('[IQAI PI] map presentation skipped:', error?.message || error);
     }
@@ -336,6 +351,13 @@ export async function runPointIntelligenceQuery(input, options = {}) {
   lastResponse = response;
   queryPhase = 'READY';
   if (!options.skipPresentation) {
+    if (acquisitionMode === 'AUTO' && !options.skipAutoFootprint) {
+      lastResponse = attachEvidenceAcquisition(lastResponse, point, started);
+      await applyPresentation(point, lastResponse);
+      await renderAutoFootprint(lastResponse, point);
+      emit();
+      return lastResponse;
+    }
     if (lastResponse && !lastResponse.acquisition) {
       lastResponse = { ...lastResponse, acquisition: { mode: 'POINT' } };
     }
@@ -343,6 +365,86 @@ export async function runPointIntelligenceQuery(input, options = {}) {
     emit();
   }
   return lastResponse;
+}
+
+function stampFamilies(response, stations, stampFn) {
+  const classifiedFamilies = {};
+  for (const [key, entry] of Object.entries(response.families || {})) {
+    if (!entry?.results) {
+      classifiedFamilies[key] = entry;
+      continue;
+    }
+    classifiedFamilies[key] = {
+      ...entry,
+      results: stampFn(entry.results, stations)
+    };
+  }
+  return classifiedFamilies;
+}
+
+function attachEvidenceAcquisition(response, point, started) {
+  const queryMs = Math.round(
+    ((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now()) - started
+  );
+  const proofRecords = buildProofStationRecords(response.results || [], {
+    retrievedAt: response.retrievedAt
+  });
+  const stations = selectEvidenceUsedStations(proofRecords);
+  const footprint = buildEvidenceAcquisitionFootprint({
+    origin: point,
+    evidence: stations.map((row) => ({ longitude: row.longitude, latitude: row.latitude }))
+  });
+  const stamped = stampResultsWithEvidence(response.results || [], stations);
+  const summary = summarizeEvidenceAcquisition({
+    origin: point,
+    stations,
+    polygon: footprint.polygon
+  });
+  return {
+    ...response,
+    families: stampFamilies(response, stations, stampResultsWithEvidence),
+    results: stamped,
+    acquisition: {
+      mode: 'AUTO',
+      polygon: footprint.polygon,
+      method: footprint.method,
+      meaning: FOOTPRINT_MEANING,
+      bufferMeters: footprint.bufferMeters,
+      origin: point,
+      summary,
+      stations,
+      performance: {
+        queryMs,
+        stationCount: stations.length,
+        farthestEvidenceMeters: summary.farthestEvidenceMeters
+      }
+    }
+  };
+}
+
+async function renderAutoFootprint(response, point) {
+  const polygon = response?.acquisition?.polygon;
+  try {
+    const aoi = await import('./point-intelligence-aoi-layer.js');
+    if (polygon) {
+      await aoi.renderEvidenceDrivenFootprint({
+        origin: point,
+        evidence: (response.acquisition.stations || []).map((row) => ({
+          longitude: row.longitude,
+          latitude: row.latitude
+        })),
+        fallbackPolygon: polygon,
+        method: response.acquisition.method,
+        meaning: response.acquisition.meaning
+      });
+    } else {
+      await aoi.clearAcquisitionMesh();
+    }
+    const area = await import('./point-intelligence-area-controller.js');
+    await area.fitViewToAcquisition(polygon || { coordinates: [] }, response, point);
+  } catch (error) {
+    console.warn('[IQAI PI] evidence footprint skipped:', error?.message || error);
+  }
 }
 
 function retainSelectedProofResults(response, selectedStations) {

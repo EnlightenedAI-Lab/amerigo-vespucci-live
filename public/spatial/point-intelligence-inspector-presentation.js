@@ -127,9 +127,9 @@ export function renderEvidenceInspectorHtml(model) {
       </header>
       ${renderActions(actions)}
       ${renderSection('Identity', identity)}
-      ${renderSection('AOI relationship', [
-        renderField('Relationship', model.aoiRelationship?.label),
-        renderField('Distance', model.aoiRelationship?.distanceLabel)
+      ${renderSection(model.aoiRelationship?.kind === 'EVIDENCE' ? 'Acquisition relationship' : 'AOI relationship', [
+        renderField(model.aoiRelationship?.kind === 'EVIDENCE' ? 'Role' : 'Relationship', model.aoiRelationship?.label),
+        renderField(model.aoiRelationship?.kind === 'EVIDENCE' ? 'Query origin distance' : 'Distance', model.aoiRelationship?.distanceLabel)
       ].join(''))}
       ${renderSection('Spatial', spatial)}
       ${renderSection('Temporal', temporal)}

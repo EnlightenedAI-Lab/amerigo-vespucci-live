@@ -2174,6 +2174,10 @@
   margin: 0.35rem 0 0;
 }
 
+.pi-acquisition-summary__grid--evidence {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .pi-acquisition-summary__grid dt {
   margin: 0;
   font-size: 0.58rem;

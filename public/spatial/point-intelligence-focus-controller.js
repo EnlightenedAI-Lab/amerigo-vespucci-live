@@ -75,8 +75,9 @@ export async function setPointIntelligenceBundleContext(point, response) {
     mode: 'REPRESENTATIVE',
     queryGeneration: generation
   }, {
-    preserveAoi: response?.acquisition?.mode === 'AREA',
+    preserveAoi: response?.acquisition?.mode === 'AREA' || response?.acquisition?.mode === 'AUTO',
     skipClickMarker: response?.acquisition?.mode === 'AREA',
+    skipSearchFootprint: response?.acquisition?.mode === 'AREA' || response?.acquisition?.mode === 'AUTO',
     stationRecords: response?.acquisition?.stations,
     radiusMeters: response?.request?.radiusMeters
   });

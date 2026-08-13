@@ -1,6 +1,6 @@
 ﻿#!/usr/bin/env node
 /**
- * Visual QA for Point Intelligence Area Acquisition.
+ * Visual QA for Point Intelligence evidence-driven acquisition footprint.
  * Live Spatial product at http://localhost:3000/spatial/.
  */
 import { chromium } from 'playwright';
@@ -21,17 +21,7 @@ const AUTH_READY_MARKER = resolve(AUTH_PROFILE_DIR, '.auth-ready.json');
 const SPATIAL_PORT = Number(process.env.SPATIAL_PORT || 3000);
 const BASE = process.env.SPATIAL_URL || `http://localhost:${SPATIAL_PORT}`;
 const HEADED = process.env.HEADED === '1';
-
-const DOWNTOWN_AOI = {
-  type: 'Polygon',
-  coordinates: [[
-    [-73.608, 45.493],
-    [-73.568, 45.493],
-    [-73.568, 45.522],
-    [-73.608, 45.522],
-    [-73.608, 45.493]
-  ]]
-};
+const ORIGIN = { longitude: -73.5673, latitude: 45.5017 };
 
 function loadEnvFile(path) {
   if (!existsSync(path)) return;
@@ -89,19 +79,6 @@ async function shot(page, name) {
     await host.screenshot({ path: map }).catch(() => {});
   }
   return { full, map };
-}
-
-async function mapScreen(page, longitude, latitude) {
-  return page.evaluate(async ({ longitude, latitude }) => {
-    const runtime = await import('/spatial/spatial-arcgis-runtime.js');
-    const Point = await runtime.importArc('@arcgis/core/geometry/Point.js');
-    const view = runtime.getMapView();
-    const host = document.querySelector('#spatial-map-host');
-    const rect = host.getBoundingClientRect();
-    const screen = view.toScreen(new Point({ longitude, latitude }));
-    if (!screen) return null;
-    return { x: rect.left + screen.x, y: rect.top + screen.y };
-  }, { longitude, latitude });
 }
 
 async function main() {
@@ -175,7 +152,7 @@ async function main() {
   report.pageErrors = pageErrors.slice(0, 12);
 
   if (!report.mapReady) {
-    report.error = 'Map not operational â€” cannot complete visual QA';
+    report.error = 'Map not operational — cannot complete visual QA';
     report.screenshots.boot = await shot(page, '00-boot');
     writeFileSync(resolve(ARTIFACT_DIR, 'latest.json'), `${JSON.stringify(report, null, 2)}\n`);
     console.log(JSON.stringify(report, null, 2));
@@ -183,186 +160,114 @@ async function main() {
     process.exit(1);
   }
 
-  await page.evaluate(async () => {
+  await page.evaluate(async (origin) => {
     const runtime = await import('/spatial/spatial-arcgis-runtime.js');
     const view = runtime.getMapView();
-    await view.goTo({ center: [-73.5673, 45.5017], scale: 80000 }, { duration: 200 });
-  });
+    await view.goTo({ center: [origin.longitude, origin.latitude], scale: 60000 }, { duration: 200 });
+  }, ORIGIN);
 
-  const pointMode = await page.evaluate(async () => {
+  const controls = await page.evaluate(async () => {
     const service = await import('/spatial/point-intelligence-service.js');
     service.setPointIntelligenceModeEnabled(true);
-    service.setPointIntelligenceAcquisitionMode('POINT');
-    const started = performance.now();
-    const response = await service.runPointIntelligenceQuery({
-      longitude: -73.5673,
-      latitude: 45.5017
-    }, { force: true });
-    const aoi = await import('/spatial/point-intelligence-aoi-layer.js');
+    service.setPointIntelligenceAcquisitionMode('AUTO');
     return {
       enabled: service.isPointIntelligenceModeEnabled(),
       mode: service.getPointIntelligenceAcquisitionMode(),
-      hasPointButton: Boolean(document.querySelector('[data-pi-acq="POINT"]')),
-      hasAreaButton: Boolean(document.querySelector('[data-pi-acq="AREA"]')),
-      hasDraw: Boolean(document.querySelector('[data-pi-area="draw"]')),
-      hasClear: Boolean(document.querySelector('[data-pi-area="clear"]')),
-      ms: Math.round(performance.now() - started),
-      bundleState: response?.bundleState || response?.queryState || null,
-      resultCount: response?.results?.length || 0,
-      acquisitionMode: response?.acquisition?.mode || null,
-      footprint: aoi.getAcquisitionLayerState().footprintGraphics
+      hasPoint: Boolean(document.querySelector('[data-pi-acq="POINT"]')),
+      hasAuto: Boolean(document.querySelector('[data-pi-acq="AUTO"]')),
+      hasDraw: Boolean(document.querySelector('[data-pi-acq="AREA"]')),
+      drawToolsVisible: !document.querySelector('#spatial-pi-area')?.hidden
     };
   });
-  report.controls = {
-    enabled: pointMode.enabled,
-    mode: pointMode.mode,
-    hasPointButton: pointMode.hasPointButton,
-    hasAreaButton: pointMode.hasAreaButton,
-    hasDraw: pointMode.hasDraw,
-    hasClear: pointMode.hasClear
-  };
-  report.quickPoint = {
-    ms: pointMode.ms,
-    bundleState: pointMode.bundleState,
-    resultCount: pointMode.resultCount,
-    acquisitionMode: pointMode.acquisitionMode,
-    footprint: pointMode.footprint
-  };
-  report.screenshots.pointMode = await shot(page, 'A-point-mode');
+  report.controls = controls;
 
-  const areaSwitch = await page.evaluate(async () => {
+  await page.evaluate(async (origin) => {
     const service = await import('/spatial/point-intelligence-service.js');
-    const area = await import('/spatial/point-intelligence-area-controller.js');
-    await area.clearAcquisition();
-    service.setPointIntelligenceAcquisitionMode('AREA');
-    return {
-      mode: service.getPointIntelligenceAcquisitionMode(),
-      areaToolsVisible: !document.querySelector('#spatial-pi-area')?.hidden,
-      hasPolygon: Boolean(document.querySelector('[data-pi-draw="polygon"]')),
-      hasRectangle: Boolean(document.querySelector('[data-pi-draw="rectangle"]'))
-    };
-  });
-  report.areaSwitch = areaSwitch;
-  report.screenshots.areaMode = await shot(page, 'B-switch-to-area');
+    window.__PI_AUTO_QUERY = service.runPointIntelligenceQuery(origin, { force: true });
+  }, ORIGIN);
 
-  await page.evaluate(async () => {
+  await page.waitForFunction(async () => {
     const runtime = await import('/spatial/spatial-arcgis-runtime.js');
     const view = runtime.getMapView();
-    await view.goTo({ center: [-73.588, 45.507], scale: 45000 }, { duration: 200 });
-  });
-  const drawState = await page.evaluate(async () => {
-    const runtime = await import('/spatial/spatial-arcgis-runtime.js');
-    const area = await import('/spatial/point-intelligence-area-controller.js');
-    runtime.getMapView()?.container?.focus?.();
-    const ok = await area.startDraw('polygon');
-    return { ok, active: area.isPointIntelligenceAreaSketchActive() };
-  });
-  report.drawState = drawState;
-  await page.waitForTimeout(400);
-  const mapBox = await page.locator('#spatial-map-host').boundingBox();
-  if (mapBox) {
-    const clicks = [
-      [0.32, 0.38],
-      [0.62, 0.38],
-      [0.62, 0.68],
-      [0.32, 0.68]
-    ];
-    for (const [fx, fy] of clicks) {
-      await page.mouse.click(mapBox.x + mapBox.width * fx, mapBox.y + mapBox.height * fy);
-      await page.waitForTimeout(220);
-    }
-  }
-  report.screenshots.drawing = await shot(page, 'C-polygon-drawing');
+    const layer = view?.map?.findLayerById('iqai-point-intel-click');
+    return (layer?.graphics?.length || 0) > 0;
+  }, { timeout: 20000 });
 
-  await page.evaluate(async () => {
-    const area = await import('/spatial/point-intelligence-area-controller.js');
-    await area.cancelAreaSketch();
-  });
+  report.screenshots.originImmediate = await shot(page, 'A-click-origin');
+  report.screenshots.orangeMarker = await shot(page, 'B-orange-acquisition-origin');
 
-  const acquired = await page.evaluate(async (polygon) => {
-    const area = await import('/spatial/point-intelligence-area-controller.js');
+  const acquired = await page.evaluate(async () => {
+    const response = await window.__PI_AUTO_QUERY;
     const stations = await import('/spatial/point-intelligence-station-layer.js');
     const aoi = await import('/spatial/point-intelligence-aoi-layer.js');
-    const started = performance.now();
-    const response = await area.acquirePolygon(polygon);
     const records = stations.getCurrentStationRecords();
-    const layers = aoi.getAcquisitionLayerState();
     return {
-      ms: Math.round(performance.now() - started),
       bundleState: response?.bundleState || response?.queryState || null,
       acquisition: {
         mode: response?.acquisition?.mode || null,
+        method: response?.acquisition?.method || null,
+        meaning: response?.acquisition?.meaning || null,
         summary: response?.acquisition?.summary || null,
         performance: response?.acquisition?.performance || null,
-        plan: response?.acquisition?.plan || null
+        origin: response?.acquisition?.origin || null
       },
-      layers,
+      layers: aoi.getAcquisitionLayerState(),
       stationCount: records.length,
       stations: records.map((row) => ({
         assetKey: row.assetKey,
         family: row.family,
         stationId: row.stationId,
         freshnessClass: row.freshnessClass,
+        acquisitionRole: row.acquisitionRole || null,
         aoiClassification: row.aoiClassification,
-        aoiBoundaryDistanceMeters: row.aoiBoundaryDistanceMeters,
+        queryOriginDistanceMeters: row.queryOriginDistanceMeters ?? row.distanceMeters,
         longitude: row.longitude,
         latitude: row.latitude,
         observationId: row.observationId,
         primaryLabel: row.primaryLabel,
-        primaryValue: row.primaryValue,
-        clickDistanceMeters: row.distanceMeters
+        primaryValue: row.primaryValue
       }))
     };
-  }, DOWNTOWN_AOI);
+  });
   report.acquired = acquired;
   await page.waitForTimeout(500);
-  await page.evaluate(() => {
-    document.querySelector('.pi-acquisition-summary')?.scrollIntoView({ block: 'center' });
-    document.querySelector('#spatial-point-intelligence-results')?.scrollIntoView({ block: 'nearest' });
-  });
-  report.screenshots.mesh = await shot(page, 'D-citron-technical-mesh');
+  report.screenshots.sensors = await shot(page, 'C-returned-sensor-coordinates');
+  report.screenshots.mesh = await shot(page, 'D-automatic-acquisition-fishnet');
 
   const stations = acquired.stations || [];
-  const hydroInside = stations.find((row) => row.family === 'hydrometric' && row.aoiClassification === 'INSIDE_AOI');
-  const swobInside = stations.find((row) => row.family === 'weather' && row.aoiClassification === 'INSIDE_AOI');
-  const external = stations.find((row) => row.aoiClassification === 'SUPPORTING_EXTERNAL');
-  const hydroAny = stations.find((row) => row.family === 'hydrometric');
-  const swobAny = stations.find((row) => row.family === 'weather');
+  const farthest = [...stations].sort((a, b) => (
+    (b.queryOriginDistanceMeters || 0) - (a.queryOriginDistanceMeters || 0)
+  ))[0] || null;
+  const hydro = stations.find((row) => row.family === 'hydrometric');
+  const swob = stations.find((row) => row.family === 'weather');
 
-  if (hydroInside) {
-    await page.evaluate(async (target) => {
+  if (farthest) {
+    await page.evaluate(async ({ origin, farthest: target }) => {
       const runtime = await import('/spatial/spatial-arcgis-runtime.js');
       const view = runtime.getMapView();
-      await view.goTo({ center: [target.longitude, target.latitude], scale: 22000 }, { duration: 200 });
-    }, hydroInside);
-    report.screenshots.hydroInside = await shot(page, 'E-hydrometric-inside-aoi');
-  }
-  if (swobInside) {
-    await page.evaluate(async (target) => {
-      const runtime = await import('/spatial/spatial-arcgis-runtime.js');
-      const view = runtime.getMapView();
-      await view.goTo({ center: [target.longitude, target.latitude], scale: 22000 }, { duration: 200 });
-    }, swobInside);
-    report.screenshots.swobInside = await shot(page, 'F-swob-inside-aoi');
-  }
-  if (external) {
-    await page.evaluate(async (target) => {
-      const runtime = await import('/spatial/spatial-arcgis-runtime.js');
-      const view = runtime.getMapView();
-      await view.goTo({ center: [target.longitude, target.latitude], scale: 28000 }, { duration: 200 });
-    }, external);
-    report.screenshots.external = await shot(page, 'G-supporting-external-sensor');
+      await view.goTo({
+        target: {
+          xmin: Math.min(origin.longitude, target.longitude) - 0.03,
+          ymin: Math.min(origin.latitude, target.latitude) - 0.03,
+          xmax: Math.max(origin.longitude, target.longitude) + 0.03,
+          ymax: Math.max(origin.latitude, target.latitude) + 0.03,
+          spatialReference: { wkid: 4326 }
+        },
+        padding: { top: 72, right: 72, bottom: 72, left: 72 }
+      }, { duration: 240 });
+    }, { origin: ORIGIN, farthest });
+    await page.waitForTimeout(280);
+    report.screenshots.farthest = await shot(page, 'E-farthest-sensor-expands-footprint');
   }
 
-  await page.evaluate(async () => {
-    const runtime = await import('/spatial/spatial-arcgis-runtime.js');
-    const view = runtime.getMapView();
-    await view.goTo({ center: [-73.588, 45.507], scale: 90000 }, { duration: 240 });
+  report.manualDrawingRequired = false;
+  report.sketchActive = await page.evaluate(async () => {
+    const area = await import('/spatial/point-intelligence-area-controller.js');
+    return area.isPointIntelligenceAreaSketchActive();
   });
-  await page.waitForTimeout(300);
-  report.screenshots.regional = await shot(page, 'H-regional-sensor-constellation');
+  report.screenshots.noManualTriangle = await shot(page, 'F-no-manual-triangle');
 
-  async function hoverStation(station, scale = 4000) {
+  async function hoverStation(station, scale = 5000) {
     if (!station) return null;
     await page.evaluate(async ({ station: target, scale: nextScale }) => {
       const runtime = await import('/spatial/spatial-arcgis-runtime.js');
@@ -378,53 +283,20 @@ async function main() {
     });
   }
 
-  const inside = swobInside || hydroInside;
-  if (inside) {
-    report.hoverInside = await hoverStation(inside);
-    report.screenshots.hoverInside = await shot(page, 'I-hover-inside');
-  }
-  if (external) {
-    report.hoverExternal = await hoverStation(external);
-    report.screenshots.hoverExternal = await shot(page, 'J-hover-external');
+  const hoverTarget = farthest || swob || hydro;
+  report.hover = await hoverStation(hoverTarget);
+  report.screenshots.hover = await shot(page, 'G-hover-query-origin-distance');
+
+  if (hoverTarget?.observationId) {
     await page.evaluate(async (observationId) => {
       const focus = await import('/spatial/point-intelligence-focus-controller.js');
-      await focus.focusEvidenceFromMap({
-        observationId,
-        family: 'hydrometric-measurement'
-      });
-    }, external.observationId);
-    await page.waitForTimeout(350);
-    report.connector = await page.evaluate(async () => {
-      const aoi = await import('/spatial/point-intelligence-aoi-layer.js');
+      await focus.focusEvidenceFromMap({ observationId });
+    }, hoverTarget.observationId);
+    await page.waitForTimeout(300);
+    report.inspector = await page.evaluate(() => {
       const inspector = document.querySelector('#lif-inspector-host');
-      return {
-        layers: aoi.getAcquisitionLayerState(),
-        inspectorText: inspector && !inspector.hidden ? inspector.textContent.slice(0, 1600) : null
-      };
+      return inspector && !inspector.hidden ? inspector.textContent.slice(0, 1400) : null;
     });
-    report.screenshots.selectedExternal = await shot(page, 'K-selected-external-connector');
-    report.screenshots.lifAoi = await shot(page, 'N-lif-aoi-relationship');
-  }
-
-  if (hydroAny) {
-    await page.evaluate(async (target) => {
-      const stationsMod = await import('/spatial/point-intelligence-station-layer.js');
-      stationsMod.clearStationSelection();
-      const runtime = await import('/spatial/spatial-arcgis-runtime.js');
-      const view = runtime.getMapView();
-      await view.goTo({ center: [target.longitude, target.latitude], scale: 3500 }, { duration: 200 });
-    }, hydroAny);
-    report.screenshots.closeHydro = await shot(page, 'L-close-scale-cim-hydro');
-  }
-  if (swobAny) {
-    await page.evaluate(async (target) => {
-      const stationsMod = await import('/spatial/point-intelligence-station-layer.js');
-      stationsMod.clearStationSelection();
-      const runtime = await import('/spatial/spatial-arcgis-runtime.js');
-      const view = runtime.getMapView();
-      await view.goTo({ center: [target.longitude, target.latitude], scale: 3500 }, { duration: 200 });
-    }, swobAny);
-    report.screenshots.closeSwob = await shot(page, 'M-close-scale-cim-swob');
   }
 
   const cleared = await page.evaluate(async () => {
@@ -440,13 +312,39 @@ async function main() {
       map: layer.getPointIntelligenceLayerState()
     };
   });
-  await page.evaluate(async () => {
+  await page.evaluate(async (origin) => {
     const runtime = await import('/spatial/spatial-arcgis-runtime.js');
     const view = runtime.getMapView();
-    await view.goTo({ center: [-73.5673, 45.5017], scale: 80000 }, { duration: 200 });
-  });
+    await view.goTo({ center: [origin.longitude, origin.latitude], scale: 60000 }, { duration: 200 });
+  }, ORIGIN);
   report.cleared = cleared;
-  report.screenshots.clear = await shot(page, 'O-clear');
+  report.screenshots.clear = await shot(page, 'H-clear');
+
+  const pointRegression = await page.evaluate(async (origin) => {
+    const service = await import('/spatial/point-intelligence-service.js');
+    const aoi = await import('/spatial/point-intelligence-aoi-layer.js');
+    service.setPointIntelligenceAcquisitionMode('POINT');
+    const response = await service.runPointIntelligenceQuery(origin, { force: true });
+    return {
+      mode: service.getPointIntelligenceAcquisitionMode(),
+      resultCount: response?.results?.length || 0,
+      acquisitionMode: response?.acquisition?.mode || null,
+      footprint: aoi.getAcquisitionLayerState().footprintGraphics
+    };
+  }, ORIGIN);
+  report.quickPoint = pointRegression;
+
+  const drawRegression = await page.evaluate(async () => {
+    const service = await import('/spatial/point-intelligence-service.js');
+    service.setPointIntelligenceAcquisitionMode('AREA');
+    return {
+      mode: service.getPointIntelligenceAcquisitionMode(),
+      drawToolsVisible: !document.querySelector('#spatial-pi-area')?.hidden,
+      hasPolygon: Boolean(document.querySelector('[data-pi-draw="polygon"]')),
+      hasRectangle: Boolean(document.querySelector('[data-pi-draw="rectangle"]'))
+    };
+  });
+  report.manualArea = drawRegression;
 
   const off = await page.evaluate(async () => {
     const service = await import('/spatial/point-intelligence-service.js');

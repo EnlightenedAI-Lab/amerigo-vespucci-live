@@ -11,6 +11,12 @@ export const AOI_CLASS = Object.freeze({
 /** Connector is distance-to-boundary only. Not dependency, flow, coverage, or a network edge. */
 export const CONNECTOR_MEANING = 'SPATIAL_DISTANCE_TO_ACQUISITION_AREA';
 
+/** Visible fishnet is cartographic acquisition geography — not coverage, influence, interpolation, or search radius. */
+export const FOOTPRINT_MEANING = 'CARTOGRAPHIC_ACQUISITION_GEOGRAPHY';
+export const EVIDENCE_ROLE = 'SUPPORTING_OBSERVATION';
+export const ACQUISITION_CARTOGRAPHIC_BUFFER_METERS = 550;
+export const EVIDENCE_PER_FAMILY_LIMIT = 6;
+
 export const AOI_PROOF_FAMILIES = Object.freeze(['hydrometric', 'weather']);
 
 /** Extra retrieval beyond AOI envelope so a family with no inside station can still find a supporting source. */
@@ -334,4 +340,322 @@ export function toGeoJsonPolygon(rings) {
     return [...ring, first];
   });
   return { type: 'Polygon', coordinates: closed };
+}
+
+export function normalizeLonLatPoint(point) {
+  if (!point) return null;
+  const longitude = Number(point.longitude ?? point.lon ?? point[0]);
+  const latitude = Number(point.latitude ?? point.lat ?? point[1]);
+  if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) return null;
+  return { longitude, latitude };
+}
+
+export function uniqueLonLatPoints(points = [], decimals = 6) {
+  const seen = new Set();
+  const out = [];
+  for (const point of points) {
+    const normalized = normalizeLonLatPoint(point);
+    if (!normalized) continue;
+    const key = `${normalized.longitude.toFixed(decimals)},${normalized.latitude.toFixed(decimals)}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(normalized);
+  }
+  return out;
+}
+
+export function toLocalMeters(origin, point) {
+  const lat0 = (origin.latitude * Math.PI) / 180;
+  return {
+    x: (point.longitude - origin.longitude) * Math.cos(lat0) * 111320,
+    y: (point.latitude - origin.latitude) * 111320
+  };
+}
+
+export function fromLocalMeters(origin, x, y) {
+  const lat0 = (origin.latitude * Math.PI) / 180;
+  return {
+    longitude: origin.longitude + x / (111320 * Math.max(Math.cos(lat0), 0.1)),
+    latitude: origin.latitude + y / 111320
+  };
+}
+
+function localCross(o, a, b) {
+  return (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+}
+
+function convexHullLocal(points) {
+  const sorted = [...points].sort((a, b) => a.x - b.x || a.y - b.y);
+  if (sorted.length <= 1) return sorted;
+  if (sorted.length === 2) return sorted;
+  const lower = [];
+  for (const point of sorted) {
+    while (lower.length >= 2 && localCross(lower[lower.length - 2], lower[lower.length - 1], point) <= 0) {
+      lower.pop();
+    }
+    lower.push(point);
+  }
+  const upper = [];
+  for (let i = sorted.length - 1; i >= 0; i -= 1) {
+    const point = sorted[i];
+    while (upper.length >= 2 && localCross(upper[upper.length - 2], upper[upper.length - 1], point) <= 0) {
+      upper.pop();
+    }
+    upper.push(point);
+  }
+  lower.pop();
+  upper.pop();
+  return lower.concat(upper);
+}
+
+function localArea(points) {
+  let area = 0;
+  for (let i = 0; i < points.length; i += 1) {
+    const a = points[i];
+    const b = points[(i + 1) % points.length];
+    area += a.x * b.y - b.x * a.y;
+  }
+  return area / 2;
+}
+
+function normalizeVec(x, y) {
+  const len = Math.hypot(x, y);
+  if (len < 1e-9) return { x: 0, y: 0 };
+  return { x: x / len, y: y / len };
+}
+
+function offsetConvexLocal(points, meters) {
+  if (!points.length || !Number.isFinite(meters) || meters <= 0) return points;
+  const ring = localArea(points) < 0 ? [...points].reverse() : points;
+  const out = [];
+  const n = ring.length;
+  for (let i = 0; i < n; i += 1) {
+    const prev = ring[(i + n - 1) % n];
+    const curr = ring[i];
+    const next = ring[(i + 1) % n];
+    const e1 = normalizeVec(curr.x - prev.x, curr.y - prev.y);
+    const e2 = normalizeVec(next.x - curr.x, next.y - curr.y);
+    const n1 = { x: e1.y, y: -e1.x };
+    const n2 = { x: e2.y, y: -e2.x };
+    const bis = normalizeVec(n1.x + n2.x, n1.y + n2.y);
+    const denom = Math.max(0.2, bis.x * n1.x + bis.y * n1.y);
+    const scale = meters / denom;
+    out.push({ x: curr.x + bis.x * scale, y: curr.y + bis.y * scale });
+  }
+  return out;
+}
+
+export function capsulePolygon(a, b, bufferMeters, steps = 20) {
+  const origin = a;
+  const pa = toLocalMeters(origin, a);
+  const pb = toLocalMeters(origin, b);
+  const dx = pb.x - pa.x;
+  const dy = pb.y - pa.y;
+  const length = Math.hypot(dx, dy);
+  if (length < 2) {
+    return circlePolygon(a.longitude, a.latitude, bufferMeters);
+  }
+  const ux = dx / length;
+  const uy = dy / length;
+  const nx = -uy;
+  const ny = ux;
+  const ringLocal = [];
+  for (let i = 0; i <= steps; i += 1) {
+    const theta = (Math.PI / 2) + ((i / steps) * Math.PI);
+    ringLocal.push({
+      x: pa.x + Math.cos(theta) * ux * bufferMeters + Math.sin(theta) * nx * bufferMeters,
+      y: pa.y + Math.cos(theta) * uy * bufferMeters + Math.sin(theta) * ny * bufferMeters
+    });
+  }
+  for (let i = 0; i <= steps; i += 1) {
+    const theta = (-Math.PI / 2) + ((i / steps) * Math.PI);
+    ringLocal.push({
+      x: pb.x + Math.cos(theta) * ux * bufferMeters + Math.sin(theta) * nx * bufferMeters,
+      y: pb.y + Math.cos(theta) * uy * bufferMeters + Math.sin(theta) * ny * bufferMeters
+    });
+  }
+  const ring = ringLocal.map((pt) => {
+    const geo = fromLocalMeters(origin, pt.x, pt.y);
+    return [geo.longitude, geo.latitude];
+  });
+  return toGeoJsonPolygon([ring]);
+}
+
+export function polygonAreaKm2(polygon) {
+  const ring = polygonRings(polygon)[0];
+  if (!ring || ring.length < 4) return 0;
+  const origin = { longitude: ring[0][0], latitude: ring[0][1] };
+  const local = [];
+  for (const coord of ring) {
+    local.push(toLocalMeters(origin, { longitude: coord[0], latitude: coord[1] }));
+  }
+  if (local.length > 1) {
+    const first = local[0];
+    const last = local[local.length - 1];
+    if (first.x === last.x && first.y === last.y) local.pop();
+  }
+  return Math.abs(localArea(local)) / 1e6;
+}
+
+export function formatFootprintKm2(km2) {
+  if (!Number.isFinite(km2) || km2 <= 0) return null;
+  if (km2 >= 10) return km2.toFixed(1);
+  if (km2 >= 1) return km2.toFixed(1);
+  return km2.toFixed(2);
+}
+
+export function formatOriginCoordinates(origin) {
+  const point = normalizeLonLatPoint(origin);
+  if (!point) return null;
+  return `${point.latitude.toFixed(4)}, ${point.longitude.toFixed(4)}`;
+}
+
+/**
+ * Cartographic acquisition geography around the query origin and used evidence.
+ * Not coverage, influence, interpolation, impact, or the provider search radius.
+ */
+export function buildEvidenceAcquisitionFootprint({ origin, evidence = [], bufferMeters } = {}) {
+  const start = normalizeLonLatPoint(origin);
+  const stations = uniqueLonLatPoints(evidence);
+  const buffer = Number.isFinite(bufferMeters) ? bufferMeters : ACQUISITION_CARTOGRAPHIC_BUFFER_METERS;
+  if (!start) {
+    return { polygon: null, method: 'NONE', meaning: FOOTPRINT_MEANING, bufferMeters: buffer };
+  }
+  if (!stations.length) {
+    return { polygon: null, method: 'NONE', meaning: FOOTPRINT_MEANING, bufferMeters: buffer };
+  }
+
+  const members = uniqueLonLatPoints([start, ...stations]);
+  if (members.length === 1) {
+    return {
+      polygon: circlePolygon(start.longitude, start.latitude, buffer),
+      method: 'BUFFERED_ORIGIN',
+      meaning: FOOTPRINT_MEANING,
+      bufferMeters: buffer,
+      originIncluded: true,
+      evidenceCount: stations.length
+    };
+  }
+  if (stations.length === 1) {
+    return {
+      polygon: capsulePolygon(start, stations[0], buffer),
+      method: 'BUFFERED_GEODESIC_CORRIDOR',
+      meaning: FOOTPRINT_MEANING,
+      bufferMeters: buffer,
+      originIncluded: true,
+      evidenceCount: stations.length
+    };
+  }
+
+  const localOrigin = start;
+  const localPoints = members.map((point) => toLocalMeters(localOrigin, point));
+  let hull = convexHullLocal(localPoints);
+  if (hull.length < 3) {
+    const farthest = stations.reduce((best, point) => {
+      const dist = haversineMeters(start.longitude, start.latitude, point.longitude, point.latitude);
+      return !best || dist > best.dist ? { point, dist } : best;
+    }, null);
+    const polygon = capsulePolygon(start, farthest?.point || stations[0], buffer);
+    return {
+      polygon,
+      method: 'BUFFERED_GEODESIC_CORRIDOR',
+      meaning: FOOTPRINT_MEANING,
+      bufferMeters: buffer,
+      originIncluded: true,
+      evidenceCount: stations.length
+    };
+  }
+  if (localArea(hull) < 0) hull = hull.reverse();
+  const buffered = offsetConvexLocal(hull, buffer);
+  const ring = buffered.map((pt) => {
+    const geo = fromLocalMeters(localOrigin, pt.x, pt.y);
+    return [geo.longitude, geo.latitude];
+  });
+  return {
+    polygon: toGeoJsonPolygon([ring]),
+    method: stations.length === 2 ? 'BUFFERED_MINIMAL_ENVELOPE' : 'BUFFERED_CONVEX_HULL',
+    meaning: FOOTPRINT_MEANING,
+    bufferMeters: buffer,
+    originIncluded: true,
+    evidenceCount: stations.length
+  };
+}
+
+export function selectEvidenceUsedStations(records = [], options = {}) {
+  const limit = Number.isFinite(options.perFamilyLimit) ? options.perFamilyLimit : EVIDENCE_PER_FAMILY_LIMIT;
+  const selected = [];
+  const liveRank = { CURRENT: 0, RECENT: 1, STALE: 2, REGISTRY: 3 };
+  for (const family of AOI_PROOF_FAMILIES) {
+    const rows = records
+      .filter((row) => row.family === family)
+      .sort((a, b) => {
+        const rankA = liveRank[a.freshnessClass] ?? 4;
+        const rankB = liveRank[b.freshnessClass] ?? 4;
+        if (rankA !== rankB) return rankA - rankB;
+        return (a.distanceMeters ?? 1e12) - (b.distanceMeters ?? 1e12);
+      });
+    const live = rows.filter((row) => row.freshnessClass === 'CURRENT' || row.freshnessClass === 'RECENT');
+    const chosen = (live.length ? live : rows.slice(0, 1)).slice(0, limit);
+    selected.push(...chosen.map((row) => ({
+      ...row,
+      acquisitionRole: EVIDENCE_ROLE,
+      queryOriginDistanceMeters: row.distanceMeters ?? null,
+      aoiClassification: null,
+      aoiBoundaryDistanceMeters: null,
+      aoiNearestBoundary: null,
+      rendererKey: `${row.family}-${row.freshnessClass}`
+    })));
+  }
+  selected.sort((a, b) => (a.queryOriginDistanceMeters ?? 1e12) - (b.queryOriginDistanceMeters ?? 1e12));
+  return selected;
+}
+
+export function stampResultsWithEvidence(results = [], stationRecords = []) {
+  const byId = new Map();
+  for (const station of stationRecords) {
+    for (const id of station.observationIds || []) byId.set(id, station);
+    if (station.observationId) byId.set(station.observationId, station);
+  }
+  return results.map((result) => {
+    const id = result?.resultId || result?.nativeRecordId;
+    const station = byId.get(id) || (result?.resultId ? byId.get(result.resultId) : null);
+    if (!station?.acquisitionRole) return result;
+    return {
+      ...result,
+      acquisitionRole: station.acquisitionRole,
+      queryOriginDistanceMeters: station.queryOriginDistanceMeters,
+      clickDistanceMeters: result.clickDistanceMeters,
+      aoiClassification: null
+    };
+  });
+}
+
+export function summarizeEvidenceAcquisition({ origin, stations = [], polygon } = {}) {
+  const freshness = { CURRENT: 0, RECENT: 0, STALE: 0, REGISTRY: 0 };
+  let farthestMeters = 0;
+  let farthestStation = null;
+  for (const row of stations) {
+    if (freshness[row.freshnessClass] != null) freshness[row.freshnessClass] += 1;
+    const distance = row.queryOriginDistanceMeters ?? row.distanceMeters ?? 0;
+    if (distance > farthestMeters) {
+      farthestMeters = distance;
+      farthestStation = row;
+    }
+  }
+  const families = [...new Set(stations.map((row) => row.family).filter(Boolean))];
+  const areaKm2 = polygon ? polygonAreaKm2(polygon) : 0;
+  return {
+    kind: 'EVIDENCE',
+    originLabel: formatOriginCoordinates(origin),
+    footprintKm2: areaKm2,
+    footprintLabel: formatFootprintKm2(areaKm2),
+    farthestEvidenceMeters: farthestMeters || null,
+    farthestEvidenceLabel: formatAoiDistanceLabel(farthestMeters),
+    farthestStationId: farthestStation?.stationId || null,
+    stationCount: stations.length,
+    familyCount: families.length,
+    families,
+    freshness,
+    meaning: FOOTPRINT_MEANING
+  };
 }

@@ -361,6 +361,8 @@ export function buildProofStationRecords(results = [], options = {}) {
       aoiClassification: liveResult.aoiClassification || null,
       aoiBoundaryDistanceMeters: liveResult.aoiBoundaryDistanceMeters ?? null,
       aoiNearestBoundary: liveResult.aoiNearestBoundary || null,
+      acquisitionRole: liveResult.acquisitionRole || null,
+      queryOriginDistanceMeters: liveResult.queryOriginDistanceMeters ?? null,
       lifRecordKey: representativeId,
       observationId: representativeId,
       observationIds,
@@ -385,31 +387,46 @@ export function formatAgeLabel(ageSeconds) {
 
 export function formatProofHoverModel(record) {
   if (!record) return null;
+  const evidenceDriven = record.acquisitionRole === 'SUPPORTING_OBSERVATION';
   const lines = [];
   const title = record.stationId || record.stationName || 'Station';
-  const familyLabel = record.family === 'hydrometric' ? 'HYDROMETRIC' : 'WEATHER';
-  if (record.primaryValue != null && record.primaryUnit && record.primaryLabel) {
+  const familyLabel = record.family === 'hydrometric'
+    ? (evidenceDriven ? 'HYDROMETRIC OBSERVATION' : 'HYDROMETRIC')
+    : (evidenceDriven ? 'WEATHER OBSERVATION' : 'WEATHER');
+  if (record.primaryValue != null && record.primaryUnit) {
     const value = Number.isInteger(record.primaryValue)
       ? String(record.primaryValue)
       : Number(record.primaryValue).toFixed(Math.abs(record.primaryValue) >= 10 ? 1 : 2);
-    lines.push(`${record.primaryLabel} ${value} ${record.primaryUnit}`);
+    if (evidenceDriven) {
+      lines.push(`${value} ${record.primaryUnit}`);
+    } else if (record.primaryLabel) {
+      lines.push(`${record.primaryLabel} ${value} ${record.primaryUnit}`);
+    }
   }
-  const age = formatAgeLabel(record.ageSeconds);
-  if (age) lines.push(`UPDATED ${age}`);
-  if (record.family === 'weather' && record.wind) {
+  if (!evidenceDriven) {
+    const age = formatAgeLabel(record.ageSeconds);
+    if (age) lines.push(`UPDATED ${age}`);
+  }
+  if (record.family === 'weather' && record.wind && !evidenceDriven) {
     const bits = [];
     if (record.wind.directionDeg != null) bits.push(`${Math.round(record.wind.directionDeg)}°`);
     if (record.wind.speed != null) bits.push(`${record.wind.speed} ${record.wind.unit || 'km/h'}`);
     if (bits.length) lines.push(`WIND ${bits.join(' · ')}`);
   }
-  if (record.trend && record.trendUnit) {
+  if (record.trend && record.trendUnit && !evidenceDriven) {
     const sign = record.trend.perHour > 0 ? '+' : '';
     const window = record.trend.windowHours >= 1
       ? `${record.trend.windowHours.toFixed(record.trend.windowHours >= 10 ? 0 : 1)} h`
       : `${Math.round(record.trend.windowHours * 60)} min`;
     lines.push(`TREND ${sign}${record.trend.perHour.toFixed(2)} ${record.trendUnit} / ${window}`);
   }
-  if (record.aoiClassification === AOI_CLASS.INSIDE_AOI) {
+  if (evidenceDriven) {
+    const originDistance = formatAoiDistanceLabel(record.queryOriginDistanceMeters ?? record.distanceMeters);
+    if (originDistance) lines.push(`${originDistance} FROM QUERY ORIGIN`);
+    lines.push('SUPPORTING OBSERVATION');
+    const source = /msc/i.test(String(record.provider || '')) ? 'MSC' : (record.provider || null);
+    if (source) lines.push(`SOURCE · ${source}`);
+  } else if (record.aoiClassification === AOI_CLASS.INSIDE_AOI) {
     lines.push('INSIDE ACQUISITION AREA');
   } else if (record.aoiClassification === AOI_CLASS.SUPPORTING_EXTERNAL) {
     const distance = formatAoiDistanceLabel(record.aoiBoundaryDistanceMeters);
@@ -419,7 +436,8 @@ export function formatProofHoverModel(record) {
   return {
     title,
     familyLabel,
-    freshnessClass: record.freshnessClass,
+    freshnessClass: evidenceDriven ? '' : record.freshnessClass,
+    evidenceDriven,
     lines
   };
 }
