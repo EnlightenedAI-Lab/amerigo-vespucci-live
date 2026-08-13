@@ -59,6 +59,12 @@ export function subscribePointIntelligenceFocusUi(listener) {
   return () => uiListeners.delete(listener);
 }
 
+export async function resetPointIntelligenceMapContext() {
+  lastPoint = null;
+  lastResults = [];
+  lastResponse = null;
+}
+
 export async function setPointIntelligenceBundleContext(point, response) {
   lastPoint = point;
   lastResponse = response;
@@ -68,6 +74,11 @@ export async function setPointIntelligenceBundleContext(point, response) {
   const presentation = await replacePointIntelligencePresentation(point, lastResults, {
     mode: 'REPRESENTATIVE',
     queryGeneration: generation
+  }, {
+    preserveAoi: response?.acquisition?.mode === 'AREA',
+    skipClickMarker: response?.acquisition?.mode === 'AREA',
+    stationRecords: response?.acquisition?.stations,
+    radiusMeters: response?.request?.radiusMeters
   });
   setPointIntelligenceMapPresentation(presentation, generation);
   setPointIntelligenceInspectorBundleContext(response);
@@ -79,7 +90,8 @@ async function refreshMapFromFocus() {
   if (!lastPoint) return;
   const presentation = await renderPointIntelligenceMapPresentation(
     lastResults,
-    getPointIntelligenceFocusState()
+    getPointIntelligenceFocusState(),
+    { stationRecords: lastResponse?.acquisition?.stations }
   );
   setPointIntelligenceMapPresentation(presentation, getActiveQueryGeneration());
   const focus = getPointIntelligenceFocusState();

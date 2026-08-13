@@ -21,6 +21,13 @@ import {
   hitTestPointIntelligenceStation,
   renderPointIntelligenceStationLayer
 } from './point-intelligence-station-layer.js';
+import {
+  clearAcquisitionMesh,
+  clearQuickPointFootprint,
+  hideDistanceConnector,
+  renderQuickPointFootprint
+} from './point-intelligence-aoi-layer.js';
+import { DEFAULT_RADIUS_METERS } from './point-intelligence-config.js';
 
 export const POINT_INTEL_CLICK_LAYER_ID = 'iqai-point-intel-click';
 export const POINT_INTEL_RESULTS_LAYER_ID = 'iqai-point-intel-results';
@@ -92,19 +99,26 @@ function markerSymbol(family, { emphasized = false, deemphasized = false } = {})
   };
 }
 
-export async function clearPointIntelligenceLayers() {
+export async function clearPointIntelligenceQueryPresentation() {
   const view = getMapView();
   const webMap = view?.map;
-  if (!webMap) return;
-
-  for (const layerId of [POINT_INTEL_CLICK_LAYER_ID, POINT_INTEL_RESULTS_LAYER_ID]) {
-    const layer = webMap.findLayerById(layerId);
-    if (layer) layer.removeAll?.();
+  if (webMap) {
+    for (const layerId of [POINT_INTEL_CLICK_LAYER_ID, POINT_INTEL_RESULTS_LAYER_ID]) {
+      const layer = webMap.findLayerById(layerId);
+      if (layer) layer.removeAll?.();
+    }
   }
   await clearPointIntelligenceStationLayer();
+  await clearQuickPointFootprint();
+  await hideDistanceConnector();
   clickLayer = null;
   resultsLayer = null;
   currentPresentation = null;
+}
+
+export async function clearPointIntelligenceLayers() {
+  await clearPointIntelligenceQueryPresentation();
+  await clearAcquisitionMesh();
 }
 
 /**
@@ -135,10 +149,10 @@ export async function renderPointIntelligenceClickMarker(point) {
  * @param {object[]} results
  * @param {object} [focusState]
  */
-export async function renderPointIntelligenceMapPresentation(results = [], focusState = null) {
+export async function renderPointIntelligenceMapPresentation(results = [], focusState = null, options = {}) {
   const resolvedFocus = focusState || getPointIntelligenceFocusState();
   const presentation = buildPointIntelligenceMapPresentation(results, resolvedFocus);
-  const stationRecords = await renderPointIntelligenceStationLayer(results, resolvedFocus);
+  const stationRecords = await renderPointIntelligenceStationLayer(results, resolvedFocus, options);
 
   const [SimpleMarkerSymbol, Graphic, Point, Polyline, Polygon] = await Promise.all([
     importArc('@arcgis/core/symbols/SimpleMarkerSymbol.js'),
@@ -197,10 +211,17 @@ function raisePointIntelligenceStationLayers() {
   const view = getMapView();
   const map = view?.map;
   if (!map) return;
+  const aoi = map.findLayerById('iqai-point-intel-aoi');
+  const footprint = map.findLayerById('iqai-point-intel-footprint');
+  const connector = map.findLayerById('iqai-point-intel-aoi-link');
   const stations = map.findLayerById(POINT_INTEL_STATION_LAYER_ID);
   const selection = map.findLayerById(POINT_INTEL_SELECTION_LAYER_ID);
-  if (stations) map.reorder(stations, map.layers.length - 1);
-  if (selection) map.reorder(selection, map.layers.length - 1);
+  const last = map.layers.length - 1;
+  if (footprint) map.reorder(footprint, Math.max(0, last - 4));
+  if (aoi) map.reorder(aoi, Math.max(0, last - 3));
+  if (stations) map.reorder(stations, last - 1);
+  if (connector) map.reorder(connector, last);
+  if (selection) map.reorder(selection, last);
 }
 
 /**
@@ -208,10 +229,18 @@ function raisePointIntelligenceStationLayers() {
  * @param {object[]} results
  * @param {object} [focusState]
  */
-export async function replacePointIntelligencePresentation(point, results = [], focusState = null) {
-  await clearPointIntelligenceLayers();
-  await renderPointIntelligenceClickMarker(point);
-  return renderPointIntelligenceMapPresentation(results, focusState);
+export async function replacePointIntelligencePresentation(point, results = [], focusState = null, options = {}) {
+  if (options.preserveAoi) {
+    await clearPointIntelligenceQueryPresentation();
+  } else {
+    await clearPointIntelligenceLayers();
+  }
+  if (!options.skipClickMarker && point) {
+    await renderPointIntelligenceClickMarker(point);
+    const radius = Number.isFinite(options.radiusMeters) ? options.radiusMeters : DEFAULT_RADIUS_METERS;
+    await renderQuickPointFootprint(point, radius);
+  }
+  return renderPointIntelligenceMapPresentation(results, focusState, options);
 }
 
 /**

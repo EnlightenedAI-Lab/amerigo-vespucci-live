@@ -14,6 +14,10 @@ import {
   buildProofStationLabelingInfo,
   buildProofStationRenderer
 } from './point-intelligence-station-symbols.js';
+import {
+  hideDistanceConnector,
+  showDistanceConnector
+} from './point-intelligence-aoi-layer.js';
 
 export const POINT_INTEL_STATION_LAYER_ID = 'iqai-point-intel-stations';
 export const POINT_INTEL_SELECTION_LAYER_ID = 'iqai-point-intel-selection';
@@ -57,7 +61,9 @@ const STATION_FIELDS = Object.freeze([
   { name: 'dataset', type: 'string' },
   { name: 'sourceUrl', type: 'string' },
   { name: 'sourceFamily', type: 'string' },
-  { name: 'role', type: 'string' }
+  { name: 'role', type: 'string' },
+  { name: 'aoiClassification', type: 'string' },
+  { name: 'aoiBoundaryDistanceMeters', type: 'double', nullable: true }
 ]);
 
 function formatPrimaryDisplay(record) {
@@ -89,10 +95,12 @@ function attributesFromRecord(record) {
     provider: record.provider || '',
     dataset: record.dataset || '',
     sourceUrl: record.sourceUrl || '',
-    sourceFamily: record.subtype === 'hydrometric-registry'
+      sourceFamily: record.subtype === 'hydrometric-registry'
       ? 'hydrometric'
       : (record.family === 'hydrometric' ? 'hydrometric-measurement' : 'weather'),
-    role: 'pi-station'
+    role: 'pi-station',
+    aoiClassification: record.aoiClassification || '',
+    aoiBoundaryDistanceMeters: record.aoiBoundaryDistanceMeters
   };
 }
 
@@ -117,6 +125,8 @@ function hideHover() {
     hoverEl.hidden = true;
     hoverEl.innerHTML = '';
   }
+  if (selectedAssetKey) return;
+  void hideDistanceConnector();
 }
 
 function showHover(record, event) {
@@ -175,6 +185,11 @@ async function onPointerMove(event) {
   }
   lastHoverKey = key;
   showHover(record, event);
+  if (record.aoiClassification === 'SUPPORTING_EXTERNAL') {
+    void showDistanceConnector(record);
+  } else if (!selectedAssetKey) {
+    void hideDistanceConnector();
+  }
 }
 
 function bindPointerHandlers(view) {
@@ -212,6 +227,10 @@ export async function ensurePointIntelligenceStationLayer() {
   const rendererSpec = buildProofStationRenderer(CIMSymbol);
   const rendererProps = { ...rendererSpec };
   delete rendererProps.type;
+  const visualVariables = rendererProps.visualVariables;
+  delete rendererProps.visualVariables;
+  const renderer = new UniqueValueRenderer(rendererProps);
+  if (visualVariables) renderer.visualVariables = visualVariables;
   stationLayer = new FeatureLayer({
     id: POINT_INTEL_STATION_LAYER_ID,
     title: 'Point Intelligence stations',
@@ -220,7 +239,7 @@ export async function ensurePointIntelligenceStationLayer() {
     fields: STATION_FIELDS,
     geometryType: 'point',
     spatialReference: { wkid: 4326 },
-    renderer: new UniqueValueRenderer(rendererProps),
+    renderer,
     labelingInfo: buildProofStationLabelingInfo().map((info) => new LabelClass(info)),
     labelsVisible: true,
     popupEnabled: false,
@@ -290,13 +309,21 @@ export async function clearPointIntelligenceStationLayer() {
   }
   selectionLayer?.removeAll?.();
   if (!stationLayer) return;
-  try {
-    const ids = await stationLayer.queryObjectIds();
+  const deleteAll = async () => {
+    const ids = await stationLayer.queryObjectIds().catch(() => []);
     if (ids?.length) {
       await stationLayer.applyEdits({
         deleteFeatures: ids.map((objectId) => ({ objectId }))
       });
     }
+    const queried = await stationLayer.queryFeatures({ where: '1=1', returnGeometry: false }).catch(() => null);
+    const leftovers = queried?.features || [];
+    if (leftovers.length) {
+      await stationLayer.applyEdits({ deleteFeatures: leftovers });
+    }
+  };
+  try {
+    await deleteAll();
   } catch {
     // ignore empty-layer query failures
   }
@@ -307,10 +334,12 @@ export async function renderPointIntelligenceStationLayer(results = [], focusSta
   const layer = await ensurePointIntelligenceStationLayer();
   if (!layer) return [];
 
-  const records = buildProofStationRecords(results, {
-    retrievedAt: options.retrievedAt,
-    nowMs: options.nowMs
-  });
+  const records = Array.isArray(options.stationRecords)
+    ? options.stationRecords
+    : buildProofStationRecords(results, {
+      retrievedAt: options.retrievedAt,
+      nowMs: options.nowMs
+    });
   currentStationRecords = records;
 
   const [Graphic, Point] = await Promise.all([
@@ -358,6 +387,11 @@ export async function applyStationSelection(focusState = null) {
 
   selectedAssetKey = selected?.assetKey || null;
   await drawAcquisitionRing(selected || null);
+  if (selected?.aoiClassification === 'SUPPORTING_EXTERNAL') {
+    await showDistanceConnector(selected);
+  } else {
+    await hideDistanceConnector();
+  }
 
   if (!selected && !focusedFamily) {
     layer.featureEffect = null;
@@ -455,4 +489,17 @@ export function getPointIntelligenceStationLayer() {
 
 export function getCurrentStationRecords() {
   return currentStationRecords.slice();
+}
+
+export async function previewPointIntelligenceStationHover(assetKey, event = { x: 18, y: 72 }) {
+  const view = getMapView();
+  await ensureHoverHost(view);
+  const record = currentStationRecords.find((row) => row.assetKey === assetKey);
+  if (!record) return false;
+  lastHoverKey = assetKey;
+  showHover(record, event);
+  if (record.aoiClassification === 'SUPPORTING_EXTERNAL') {
+    await showDistanceConnector(record);
+  }
+  return true;
 }

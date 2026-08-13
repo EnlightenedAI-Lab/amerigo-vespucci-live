@@ -2108,6 +2108,82 @@
   color: var(--iqai-muted);
 }
 
+.pi-control__modes,
+.pi-control__tools,
+.pi-control__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.pi-control__mode,
+.pi-control__tool,
+.pi-control__action {
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.18rem 0.45rem;
+  border: 1px solid var(--iqai-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--iqai-text);
+  cursor: pointer;
+}
+
+.pi-control__mode.is-active,
+.pi-control__tool.is-active {
+  border-color: #c4d648;
+  background: rgba(196, 214, 72, 0.12);
+}
+
+.pi-control__area {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.pi-acquisition-summary {
+  margin-top: 0.4rem;
+  padding: 0.4rem 0.45rem;
+  border: 1px solid var(--iqai-border);
+  border-radius: 4px;
+}
+
+.pi-acquisition-summary__title {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--iqai-muted);
+}
+
+.pi-acquisition-summary__line {
+  font-size: 0.74rem;
+  margin-top: 0.15rem;
+}
+
+.pi-acquisition-summary__grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.25rem;
+  margin: 0.35rem 0 0;
+}
+
+.pi-acquisition-summary__grid dt {
+  margin: 0;
+  font-size: 0.58rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--iqai-muted);
+}
+
+.pi-acquisition-summary__grid dd {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
 .pi-control__families {
   border: none;
   margin: 0;

@@ -7,6 +7,7 @@ import { deriveCoverageState } from './point-intelligence-lif-model.js';
 import { formatClickDistance, formatObservationTimestamp, formatClimateObservationDate } from './point-intelligence-presentation.js';
 import { formatTemporalClassificationLabel } from './point-intelligence-status.js';
 import { sanitizeEvidenceRecord, sanitizeReceiptModel } from './point-intelligence-inspector-safe.js';
+import { AOI_CLASS, formatAoiDistanceLabel } from './point-intelligence-aoi-geometry.js';
 
 function formatCoords(geometry) {
   if (geometry?.type === 'Point' && Array.isArray(geometry.coordinates)) {
@@ -113,6 +114,28 @@ function formatResultStatus(familyEntry, queryState) {
   })[coverage] || coverage;
 }
 
+function buildAoiRelationship(result) {
+  if (!result?.aoiClassification) return null;
+  if (result.aoiClassification === AOI_CLASS.INSIDE_AOI) {
+    return {
+      classification: AOI_CLASS.INSIDE_AOI,
+      label: 'INSIDE ACQUISITION AREA',
+      distanceLabel: null,
+      coverage: false
+    };
+  }
+  if (result.aoiClassification === AOI_CLASS.SUPPORTING_EXTERNAL) {
+    const distance = formatAoiDistanceLabel(result.aoiBoundaryDistanceMeters);
+    return {
+      classification: AOI_CLASS.SUPPORTING_EXTERNAL,
+      label: 'SUPPORTING EXTERNAL OBSERVATION',
+      distanceLabel: distance ? `${distance} from AOI boundary` : null,
+      coverage: false
+    };
+  }
+  return null;
+}
+
 /**
  * @param {object} response
  * @param {string} observationId
@@ -166,6 +189,7 @@ export function buildSafeEvidenceInspectorModel(response, observationId) {
       sourceEndpoint: result.provenance?.source || null
     },
     measurements: extractMeasurements(result),
+    aoiRelationship: buildAoiRelationship(result),
     sourceTrace: [
       result.providerName,
       result.nativeCollectionId,

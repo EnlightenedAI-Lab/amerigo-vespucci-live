@@ -1,17 +1,25 @@
 /**
- * Compact Point Intelligence analyst control — mode toggle for multi-family queries.
+ * Compact Point Intelligence analyst control — Point | Area acquisition.
  */
 import {
   POINT_INTELLIGENCE_UI_ENABLED,
   POINT_INTELLIGENCE_FAMILY_GROUPS
 } from './point-intelligence-config.js';
 import {
+  getPointIntelligenceAcquisitionMode,
   getPointIntelligencePresentation,
   isPointIntelligenceModeEnabled,
+  setPointIntelligenceAcquisitionMode,
   setPointIntelligenceModeEnabled,
   subscribePointIntelligenceState
 } from './point-intelligence-service.js';
 import { formatPointIntelligenceStatus } from './point-intelligence-status.js';
+import {
+  clearAcquisition,
+  redraw,
+  setDrawTool,
+  startDraw
+} from './point-intelligence-area-controller.js';
 
 export class PointIntelligenceControl {
   /** @param {HTMLElement} host */
@@ -37,8 +45,23 @@ export class PointIntelligenceControl {
           <h3 class="pi-control__title">Point Intelligence</h3>
           <label class="pi-control__toggle">
             <input type="checkbox" id="spatial-pi-mode" ${POINT_INTELLIGENCE_UI_ENABLED ? '' : 'disabled'} />
-            <span>Enable map click</span>
+            <span>Enable</span>
           </label>
+        </div>
+        <div class="pi-control__modes" role="group" aria-label="Acquisition mode">
+          <button type="button" class="pi-control__mode" data-pi-acq="POINT">Point</button>
+          <button type="button" class="pi-control__mode" data-pi-acq="AREA">Area</button>
+        </div>
+        <div class="pi-control__area" id="spatial-pi-area" hidden>
+          <div class="pi-control__tools" role="group" aria-label="Draw tool">
+            <button type="button" class="pi-control__tool is-active" data-pi-draw="polygon">Polygon</button>
+            <button type="button" class="pi-control__tool" data-pi-draw="rectangle">Rectangle</button>
+          </div>
+          <div class="pi-control__actions">
+            <button type="button" class="pi-control__action" data-pi-area="draw">Draw</button>
+            <button type="button" class="pi-control__action" data-pi-area="redraw">Redraw</button>
+            <button type="button" class="pi-control__action" data-pi-area="clear">Clear</button>
+          </div>
         </div>
         <div class="pi-control__families pi-control__families--readonly" id="spatial-pi-families">
           <p class="pi-control__legend">Verified information families</p>
@@ -51,6 +74,7 @@ export class PointIntelligenceControl {
     this.modeInput = this.host.querySelector('#spatial-pi-mode');
     this.hintEl = this.host.querySelector('#spatial-pi-hint');
     this.statusEl = this.host.querySelector('#spatial-pi-status');
+    this.areaEl = this.host.querySelector('#spatial-pi-area');
   }
 
   bind() {
@@ -58,25 +82,59 @@ export class PointIntelligenceControl {
       const enabled = Boolean(this.modeInput?.checked);
       setPointIntelligenceModeEnabled(enabled);
       this.onModeChange?.(enabled);
-      this.updateHint(enabled);
+      this.updateHint(enabled, getPointIntelligenceAcquisitionMode());
+    });
+    this.host?.addEventListener('click', (event) => {
+      const acq = event.target?.closest?.('[data-pi-acq]');
+      if (acq) {
+        setPointIntelligenceAcquisitionMode(acq.getAttribute('data-pi-acq'));
+        this.sync();
+        return;
+      }
+      const tool = event.target?.closest?.('[data-pi-draw]');
+      if (tool) {
+        setDrawTool(tool.getAttribute('data-pi-draw'));
+        this.host.querySelectorAll('[data-pi-draw]').forEach((button) => {
+          button.classList.toggle('is-active', button === tool);
+        });
+        return;
+      }
+      const action = event.target?.closest?.('[data-pi-area]');
+      if (!action) return;
+      const name = action.getAttribute('data-pi-area');
+      if (name === 'draw') void startDraw();
+      if (name === 'redraw') void redraw();
+      if (name === 'clear') void clearAcquisition();
     });
   }
 
-  updateHint(enabled) {
+  updateHint(enabled, acquisitionMode = getPointIntelligenceAcquisitionMode()) {
     if (!this.hintEl) return;
-    this.hintEl.textContent = enabled
-      ? 'On — click the map to query all verified information families at that location.'
-      : 'Off — map clicks use normal feature selection.';
+    if (!enabled) {
+      this.hintEl.textContent = 'Off — map clicks use normal feature selection.';
+      return;
+    }
+    this.hintEl.textContent = acquisitionMode === 'AREA'
+      ? 'Area — draw a polygon or rectangle, then acquire stations at true coordinates.'
+      : 'Point — click the map to query verified families at that location.';
   }
 
   sync(state) {
     const enabled = state?.modeEnabled ?? isPointIntelligenceModeEnabled();
+    const acquisitionMode = state?.acquisitionMode ?? getPointIntelligenceAcquisitionMode();
     if (this.modeInput) this.modeInput.checked = enabled;
-    this.updateHint(enabled);
+    if (this.areaEl) this.areaEl.hidden = !enabled || acquisitionMode !== 'AREA';
+    this.host?.querySelectorAll('[data-pi-acq]').forEach((button) => {
+      button.classList.toggle('is-active', button.getAttribute('data-pi-acq') === acquisitionMode);
+      button.disabled = !enabled;
+    });
+    this.updateHint(enabled, acquisitionMode);
     const response = state?.lastResponse;
-    const presentation = response?.queryState === 'QUERYING' || state?.queryPhase === 'QUERYING'
-      ? formatPointIntelligenceStatus('QUERYING')
-      : getPointIntelligencePresentation(response);
+    const presentation = !response
+      ? formatPointIntelligenceStatus('IDLE')
+      : (response?.queryState === 'QUERYING' || state?.queryPhase === 'QUERYING'
+        ? formatPointIntelligenceStatus('QUERYING')
+        : getPointIntelligencePresentation(response));
     if (this.statusEl) {
       if (!presentation.message) {
         this.statusEl.hidden = true;

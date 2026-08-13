@@ -100,29 +100,39 @@ const PALETTE = Object.freeze({
   }
 });
 
-function freshnessStyle(family, freshnessClass) {
+function freshnessStyle(family, freshnessClass, supporting = false) {
   const base = PALETTE[family];
+  let style;
   if (freshnessClass === FRESHNESS_CLASS.CURRENT) {
-    return { ring: base.accent, ringWidth: 1.15, size: 18, chassisAlpha: 230 };
+    style = { ring: base.accent, ringWidth: 1.15, size: 18, chassisAlpha: 230 };
+  } else if (freshnessClass === FRESHNESS_CLASS.RECENT) {
+    style = { ring: [...base.accent.slice(0, 3), 190], ringWidth: 0.85, size: 17, chassisAlpha: 200 };
+  } else if (freshnessClass === FRESHNESS_CLASS.REGISTRY) {
+    style = { ring: [168, 180, 188, 160], ringWidth: 0.7, size: 16, chassisAlpha: 180 };
+  } else {
+    style = { ring: [150, 162, 170, 130], ringWidth: 0.65, size: 16, chassisAlpha: 150 };
   }
-  if (freshnessClass === FRESHNESS_CLASS.RECENT) {
-    return { ring: [...base.accent.slice(0, 3), 190], ringWidth: 0.85, size: 17, chassisAlpha: 200 };
+  if (supporting) {
+    style = {
+      ...style,
+      ring: [196, 214, 72, 180],
+      ringWidth: Math.max(0.7, style.ringWidth - 0.15),
+      size: Math.max(14, style.size - 2),
+      chassisAlpha: Math.max(110, style.chassisAlpha - 60)
+    };
   }
-  if (freshnessClass === FRESHNESS_CLASS.REGISTRY) {
-    return { ring: [168, 180, 188, 160], ringWidth: 0.7, size: 16, chassisAlpha: 180 };
-  }
-  return { ring: [150, 162, 170, 130], ringWidth: 0.65, size: 16, chassisAlpha: 150 };
+  return style;
 }
 
 function withAlpha(color, alpha) {
   return [color[0], color[1], color[2], alpha];
 }
 
-export function buildHydrometricCimSymbol(freshnessClass = FRESHNESS_CLASS.CURRENT) {
-  const style = freshnessStyle('hydro', freshnessClass);
+export function buildHydrometricCimSymbol(freshnessClass = FRESHNESS_CLASS.CURRENT, options = {}) {
+  const style = freshnessStyle('hydro', freshnessClass, options.supporting);
   const chassis = withAlpha(PALETTE.hydro.chassis, style.chassisAlpha);
   const graphics = [
-    lineGraphic(circlePath(8.4), style.ring, style.ringWidth),
+    lineGraphic(circlePath(options.supporting ? 8.8 : 8.4), style.ring, style.ringWidth),
     fillGraphic(
       [[[-2.2, -7.4], [2.2, -7.4], [2.2, 6.6], [-2.2, 6.6], [-2.2, -7.4]]],
       chassis,
@@ -143,11 +153,11 @@ export function buildHydrometricCimSymbol(freshnessClass = FRESHNESS_CLASS.CURRE
   return cimSymbol(graphics, style.size);
 }
 
-export function buildWeatherCimSymbol(freshnessClass = FRESHNESS_CLASS.CURRENT) {
-  const style = freshnessStyle('weather', freshnessClass);
+export function buildWeatherCimSymbol(freshnessClass = FRESHNESS_CLASS.CURRENT, options = {}) {
+  const style = freshnessStyle('weather', freshnessClass, options.supporting);
   const chassis = withAlpha(PALETTE.weather.chassis, style.chassisAlpha);
   const graphics = [
-    lineGraphic(circlePath(8.2), style.ring, style.ringWidth),
+    lineGraphic(circlePath(options.supporting ? 8.6 : 8.2), style.ring, style.ringWidth),
     fillGraphic(
       [[[-3.6, -3.6], [3.6, -3.6], [3.6, 3.6], [-3.6, 3.6], [-3.6, -3.6]]],
       chassis,
@@ -165,24 +175,52 @@ export function buildWeatherCimSymbol(freshnessClass = FRESHNESS_CLASS.CURRENT) 
 
 export function buildProofStationRenderer(CIMSymbolCtor = null) {
   const wrap = (symbol) => (CIMSymbolCtor ? new CIMSymbolCtor({ data: symbol.data }) : symbol);
-  const infos = [
-    ['hydrometric', FRESHNESS_CLASS.CURRENT, buildHydrometricCimSymbol(FRESHNESS_CLASS.CURRENT)],
-    ['hydrometric', FRESHNESS_CLASS.RECENT, buildHydrometricCimSymbol(FRESHNESS_CLASS.RECENT)],
-    ['hydrometric', FRESHNESS_CLASS.STALE, buildHydrometricCimSymbol(FRESHNESS_CLASS.STALE)],
-    ['hydrometric', FRESHNESS_CLASS.REGISTRY, buildHydrometricCimSymbol(FRESHNESS_CLASS.REGISTRY)],
-    ['weather', FRESHNESS_CLASS.CURRENT, buildWeatherCimSymbol(FRESHNESS_CLASS.CURRENT)],
-    ['weather', FRESHNESS_CLASS.RECENT, buildWeatherCimSymbol(FRESHNESS_CLASS.RECENT)],
-    ['weather', FRESHNESS_CLASS.STALE, buildWeatherCimSymbol(FRESHNESS_CLASS.STALE)]
+  const infos = [];
+  const families = [
+    ['hydrometric', buildHydrometricCimSymbol],
+    ['weather', buildWeatherCimSymbol]
   ];
+  const freshnessValues = [
+    FRESHNESS_CLASS.CURRENT,
+    FRESHNESS_CLASS.RECENT,
+    FRESHNESS_CLASS.STALE,
+    FRESHNESS_CLASS.REGISTRY
+  ];
+  for (const [family, builder] of families) {
+    for (const freshness of freshnessValues) {
+      if (family === 'weather' && freshness === FRESHNESS_CLASS.REGISTRY) continue;
+      infos.push({
+        value: `${family}-${freshness}`,
+        label: `${family} ${freshness}`,
+        symbol: wrap(builder(freshness))
+      });
+      infos.push({
+        value: `${family}-${freshness}-inside`,
+        label: `${family} ${freshness} inside`,
+        symbol: wrap(builder(freshness))
+      });
+      infos.push({
+        value: `${family}-${freshness}-external`,
+        label: `${family} ${freshness} supporting`,
+        symbol: wrap(builder(freshness, { supporting: true }))
+      });
+    }
+  }
   return {
     type: 'unique-value',
     field: 'rendererKey',
     defaultSymbol: wrap(buildHydrometricCimSymbol(FRESHNESS_CLASS.STALE)),
-    uniqueValueInfos: infos.map(([family, freshness, symbol]) => ({
-      value: `${family}-${freshness}`,
-      label: `${family} ${freshness}`,
-      symbol: wrap(symbol)
-    }))
+    uniqueValueInfos: infos,
+    visualVariables: [{
+      type: 'size',
+      valueExpression: '$view.scale',
+      stops: [
+        { value: 4000, size: 18 },
+        { value: 18000, size: 15 },
+        { value: 50000, size: 9 },
+        { value: 160000, size: 6 }
+      ]
+    }]
   };
 }
 
@@ -226,6 +264,7 @@ export function renderProofLegendHtml() {
         <span>Recent</span>
         <span>Stale</span>
         <span>Selected</span>
+        <span>Supporting</span>
       </div>
     </div>`;
 }

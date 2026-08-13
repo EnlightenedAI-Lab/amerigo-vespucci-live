@@ -2244,6 +2244,18 @@ export async function wireFeaturePicking(onFeatureSelect, onClearSelection) {
     }
 
     try {
+      const { isPointIntelligenceAreaSketchActive } = await import('./point-intelligence-area-controller.js');
+      if (isPointIntelligenceAreaSketchActive()) {
+        diagnostic.pointIntelligence = true;
+        diagnostic.message = 'POINT_INTELLIGENCE_AREA_SKETCH';
+        logClickDiagnostic(diagnostic);
+        return;
+      }
+    } catch (error) {
+      diagnostic.error = String(error?.message || error);
+    }
+
+    try {
       const { hitTestPointIntelligenceEvidence } = await import('./point-intelligence-layer.js');
       const {
         focusEvidenceFromMap,
@@ -2300,7 +2312,15 @@ export async function wireFeaturePicking(onFeatureSelect, onClearSelection) {
       diagnostic.error = String(error?.message || error);
     }
 
-    if (pointIntelligenceModeEnabled && pointIntelligenceClickHandler) {
+    let acquisitionMode = 'POINT';
+    try {
+      const service = await import('./point-intelligence-service.js');
+      acquisitionMode = service.getPointIntelligenceAcquisitionMode() || 'POINT';
+    } catch {
+      acquisitionMode = 'POINT';
+    }
+
+    if (pointIntelligenceModeEnabled && pointIntelligenceClickHandler && acquisitionMode !== 'AREA') {
       if (Number.isFinite(diagnostic.mapLongitude) && Number.isFinite(diagnostic.mapLatitude)) {
         diagnostic.pointIntelligence = true;
         diagnostic.message = 'POINT_INTELLIGENCE_CLICK';

@@ -3,6 +3,7 @@
  * Presentation model only. Does not alter canonical bundle evidence.
  */
 import { getObservationId } from './point-intelligence-map-presentation.js';
+import { AOI_CLASS, formatAoiDistanceLabel } from './point-intelligence-aoi-geometry.js';
 
 export const PI_PROOF_VISUAL_FAMILIES = Object.freeze({
   HYDROMETRIC: 'hydrometric',
@@ -340,7 +341,11 @@ export function buildProofStationRecords(results = [], options = {}) {
       retrievedTime: liveResult.retrievedAt || retrievedAt,
       ageSeconds,
       freshnessClass,
-      rendererKey: `${visualFamily}-${freshnessClass}`,
+      rendererKey: liveResult.aoiClassification === 'INSIDE_AOI'
+        ? `${visualFamily}-${freshnessClass}-inside`
+        : liveResult.aoiClassification === 'SUPPORTING_EXTERNAL'
+          ? `${visualFamily}-${freshnessClass}-external`
+          : `${visualFamily}-${freshnessClass}`,
       trendValue: trend ? trend.perHour : null,
       trendDelta: trend ? trend.delta : null,
       trendUnit: trend?.unit || null,
@@ -353,6 +358,9 @@ export function buildProofStationRecords(results = [], options = {}) {
       dataset: liveResult.nativeCollectionId || provenance.dataset || null,
       sourceUrl: provenance.source || provenance.sourceUrl || null,
       distanceMeters: liveResult.clickDistanceMeters ?? null,
+      aoiClassification: liveResult.aoiClassification || null,
+      aoiBoundaryDistanceMeters: liveResult.aoiBoundaryDistanceMeters ?? null,
+      aoiNearestBoundary: liveResult.aoiNearestBoundary || null,
       lifRecordKey: representativeId,
       observationId: representativeId,
       observationIds,
@@ -400,6 +408,13 @@ export function formatProofHoverModel(record) {
       ? `${record.trend.windowHours.toFixed(record.trend.windowHours >= 10 ? 0 : 1)} h`
       : `${Math.round(record.trend.windowHours * 60)} min`;
     lines.push(`TREND ${sign}${record.trend.perHour.toFixed(2)} ${record.trendUnit} / ${window}`);
+  }
+  if (record.aoiClassification === AOI_CLASS.INSIDE_AOI) {
+    lines.push('INSIDE ACQUISITION AREA');
+  } else if (record.aoiClassification === AOI_CLASS.SUPPORTING_EXTERNAL) {
+    const distance = formatAoiDistanceLabel(record.aoiBoundaryDistanceMeters);
+    if (distance) lines.push(`${distance} OUTSIDE AOI`);
+    lines.push('SUPPORTING OBSERVATION');
   }
   return {
     title,

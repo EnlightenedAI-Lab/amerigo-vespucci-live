@@ -127,6 +127,10 @@ export function renderEvidenceInspectorHtml(model) {
       </header>
       ${renderActions(actions)}
       ${renderSection('Identity', identity)}
+      ${renderSection('AOI relationship', [
+        renderField('Relationship', model.aoiRelationship?.label),
+        renderField('Distance', model.aoiRelationship?.distanceLabel)
+      ].join(''))}
       ${renderSection('Spatial', spatial)}
       ${renderSection('Temporal', temporal)}
       ${renderSection('Provider / source', provider)}

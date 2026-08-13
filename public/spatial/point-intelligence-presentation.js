@@ -884,7 +884,9 @@ function renderLocationIntelligenceFocus(response, point, presentation) {
         ${formatUxBanner(presentation) ? `<div class="lif-header__ux">${escapeHtml(formatUxBanner(presentation))}</div>` : ''}
         <div class="lif-anchor">
           ${location.label ? `<div class="lif-anchor__coords">${escapeHtml(location.label)}</div>` : ''}
-          <div class="lif-anchor__context">${escapeHtml(radiusLabel)} radius</div>
+          <div class="lif-anchor__context">${escapeHtml(
+            response?.acquisition?.mode === 'AREA' ? 'Area acquisition' : `${radiusLabel} radius`
+          )}</div>
           <div class="slc-action-host" data-slc-action-host></div>
         </div>
         ${timeLensHtml}
@@ -894,6 +896,7 @@ function renderLocationIntelligenceFocus(response, point, presentation) {
         <p class="lif-summary__headline">${escapeHtml(summary.evidenceSummary)}</p>
         ${presentation?.message && presentation.message !== summary.evidenceSummary
           ? `<p class="lif-summary__status">${escapeHtml(presentation.message)}</p>` : ''}
+        ${renderAcquisitionSummaryHtml(response?.acquisition?.summary)}
         ${temporalHtml ? `<div class="lif-temporal-mix" aria-label="Temporal mix">${temporalHtml}</div>` : ''}
         <div class="lif-map-toolbar">
           <div class="lif-map-accounting" data-pi-map-accounting hidden></div>
@@ -1002,4 +1005,21 @@ function escapeHtml(value) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+export function renderAcquisitionSummaryHtml(summary) {
+  if (!summary || !Number.isFinite(summary.stationCount)) return '';
+  const freshness = summary.freshness || {};
+  return `
+    <div class="pi-acquisition-summary" aria-label="Acquisition zone">
+      <div class="pi-acquisition-summary__title">ACQUISITION ZONE</div>
+      <div class="pi-acquisition-summary__line">${summary.stationCount} stations · ${summary.familyCount} observation families</div>
+      <dl class="pi-acquisition-summary__grid">
+        <div><dt>INSIDE</dt><dd>${summary.insideCount ?? 0}</dd></div>
+        <div><dt>SUPPORTING</dt><dd>${summary.supportingCount ?? 0}</dd></div>
+        <div><dt>CURRENT</dt><dd>${freshness.CURRENT ?? 0}</dd></div>
+        <div><dt>RECENT</dt><dd>${freshness.RECENT ?? 0}</dd></div>
+        <div><dt>STALE</dt><dd>${freshness.STALE ?? 0}</dd></div>
+      </dl>
+    </div>`;
 }
