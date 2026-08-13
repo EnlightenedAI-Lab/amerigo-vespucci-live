@@ -214,3 +214,12 @@ test('browser queryPointIntelligenceBundle uses product proxy path', async () =>
     globalThis.fetch = originalFetch;
   }
 });
+
+test('isBundleResponse accepts Agent 5 bundles without bundle:true', () => {
+  assert.equal(isBundleResponse({
+    bundleId: 'iqai.pi.bundle.live',
+    bundleState: 'PARTIAL_RESULTS',
+    families: [{ informationFamily: 'weather', status: 'NO_RESULTS', results: [] }]
+  }), true);
+  assert.equal(isBundleResponse({ queryState: 'ERROR' }), false);
+});

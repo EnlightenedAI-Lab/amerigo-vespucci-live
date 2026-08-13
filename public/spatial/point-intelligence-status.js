@@ -12,17 +12,58 @@ import {
 const STATUS_MESSAGES = Object.freeze({
   IDLE: '',
   QUERYING: 'Querying source intelligence…',
-  SUCCESS: 'Source observations returned.',
+  SUCCESS: 'Point Intelligence ready.',
   NO_RESULTS: 'No matching source observations were returned.',
-  PARTIAL_RESULTS: 'Some source results were returned; the query was only partially completed.',
+  NO_DATA: 'No data available for this location.',
+  PARTIAL_RESULTS: 'Partial data — some information families returned evidence.',
+  PARTIAL_FAILURE: 'Partial data — some information families were unavailable.',
+  PARTIAL_DATA: 'Partial data — some information families returned evidence.',
   INVALID_REQUEST: 'Point Intelligence request could not be submitted.',
   NO_VERIFIED_CAPABILITY: 'No verified Point Intelligence capability is currently available for this request.',
   NO_APPLICABLE_CAPABILITY: 'No verified Point Intelligence capability applies at this location.',
   PROVIDER_UNAVAILABLE: 'The source provider is currently unavailable.',
   QUERY_TIMEOUT: 'The source query timed out.',
   QUERY_SAFETY_BLOCKED: 'The request was blocked by Point Intelligence safety controls.',
+  TEMPORAL_UNSUPPORTED: 'Historical Point Intelligence execution is not yet available for the selected families.',
   ERROR: 'Point Intelligence could not complete the request.'
 });
+
+const INFO_STATES = new Set([
+  'NO_RESULTS',
+  'NO_DATA',
+  'NO_APPLICABLE_CAPABILITY',
+  'NO_VERIFIED_CAPABILITY',
+  'PARTIAL_RESULTS',
+  'PARTIAL_FAILURE',
+  'PARTIAL_DATA'
+]);
+
+const SUCCESS_STATES = new Set(['SUCCESS']);
+
+/**
+ * @param {string} queryState
+ */
+export function operatorStatusForFamilyState(queryState) {
+  switch (String(queryState || '').toUpperCase()) {
+    case 'SUCCESS':
+    case 'PARTIAL_RESULTS':
+      return 'PASS';
+    case 'NO_RESULTS':
+    case 'NO_DATA':
+      return 'NO DATA';
+    case 'NO_APPLICABLE_CAPABILITY':
+    case 'NO_VERIFIED_CAPABILITY':
+      return 'UNAVAILABLE';
+    case 'QUERY_TIMEOUT':
+      return 'TIMEOUT';
+    case 'PROVIDER_UNAVAILABLE':
+      return 'UNAVAILABLE';
+    case 'QUERYING':
+      return 'LOADING';
+    default:
+      return 'ERROR';
+  }
+}
 
 /**
  * @param {string} queryState
@@ -30,15 +71,31 @@ const STATUS_MESSAGES = Object.freeze({
  */
 export function formatPointIntelligenceStatus(queryState, response = {}) {
   const state = String(queryState || 'ERROR').toUpperCase();
+  const familiesWithEvidence = Number(response.familiesWithEvidence || 0);
+  if (familiesWithEvidence > 0 && ['ERROR', 'PARTIAL_FAILURE', 'PROVIDER_UNAVAILABLE', 'QUERY_TIMEOUT'].includes(state)) {
+    return {
+      state: 'PARTIAL_DATA',
+      message: `${familiesWithEvidence} information ${familiesWithEvidence === 1 ? 'family' : 'families'} returned evidence.`,
+      severity: 'info',
+      ux: 'PARTIAL'
+    };
+  }
   const message = response.message || STATUS_MESSAGES[state] || STATUS_MESSAGES.ERROR;
-  const severity = ['SUCCESS', 'PARTIAL_RESULTS'].includes(state)
+  const severity = SUCCESS_STATES.has(state)
     ? 'success'
-    : ['NO_RESULTS', 'NO_APPLICABLE_CAPABILITY', 'NO_VERIFIED_CAPABILITY'].includes(state)
+    : INFO_STATES.has(state)
       ? 'info'
       : state === 'QUERYING'
         ? 'neutral'
         : 'error';
-  return { state, message, severity };
+  const ux = state === 'QUERYING'
+    ? 'LOADING'
+    : SUCCESS_STATES.has(state)
+      ? 'READY'
+      : INFO_STATES.has(state)
+        ? (state === 'NO_RESULTS' || state === 'NO_DATA' ? 'NO_DATA' : 'PARTIAL')
+        : 'FAILURE';
+  return { state, message, severity, ux };
 }
 
 /**

@@ -164,6 +164,12 @@ function buildFamilyRow(entry, relationships, radiusMeters) {
   if (nearest != null) headerMeta.push(formatDistanceMeters(nearest));
   if (newestAge) headerMeta.push(newestAge);
 
+  const operatorStatus = entry.operatorStatus
+    || (coverageState === 'EVIDENCE' ? 'PASS'
+      : coverageState === 'NO_LOCAL_EVIDENCE' ? 'NO DATA'
+        : coverageState === 'PROVIDER_ISSUE' ? 'UNAVAILABLE'
+          : 'UNAVAILABLE');
+
   return {
     informationFamily: entry.informationFamily,
     label: meta.label,
@@ -172,6 +178,7 @@ function buildFamilyRow(entry, relationships, radiusMeters) {
     familyOrder: meta.order,
     coverageState,
     coverageLabel: COVERAGE_LABELS[coverageState],
+    operatorStatus,
     queryState: entry.queryState,
     hasEvidence: Boolean(entry.hasEvidence),
     resultCount,

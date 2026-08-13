@@ -98,6 +98,7 @@ function formatObservationMeasurement(observation) {
     stn_pres: 'Pressure',
     temperature: 'Temperature',
     TEMP: 'Temperature',
+    MEAN_TEMPERATURE: 'Mean temperature',
     aqhi: 'AQHI',
     LEVEL: 'Water level',
     DISCHARGE: 'Discharge'
@@ -276,6 +277,7 @@ function listFamilyRows(response, radiusMeters) {
         informationFamily: key,
         label: meta.label,
         queryState: entry.queryState,
+        operatorStatus: entry.operatorStatus || null,
         hasEvidence: Boolean(entry.hasEvidence),
         results: Array.isArray(entry.results) ? entry.results : [],
         coverageState: deriveCoverageState(entry.queryState, entry.hasEvidence),
@@ -359,8 +361,51 @@ export function buildLocationSynthesisModel(response, point = {}, options = {}) 
   return {
     sections,
     radiusMeters,
-    coordsLabel: formatCoordsLabel(point, response)
+    coordsLabel: formatCoordsLabel(point, response),
+    prose: buildPointIntelligenceProseSummary(rows, { radiusMeters, currentBlocks, contextBlocks })
   };
+}
+
+/**
+ * Deterministic one-paragraph summary from returned families only.
+ */
+export function buildPointIntelligenceProseSummary(rows = [], extras = {}) {
+  const current = extras.currentBlocks || [];
+  const weather = current.find((b) => b.family === 'weather' || b.family === 'weather-current');
+  const air = current.find((b) => b.family === 'air-quality');
+  const hydroMeas = rows.find((r) => r.informationFamily === 'hydrometric-measurement');
+  const hydroReg = rows.find((r) => r.informationFamily === 'hydrometric');
+  const airRow = rows.find((r) => r.informationFamily === 'air-quality');
+  const parts = [];
+
+  if (weather?.measurements?.length) {
+    const distBit = weather.distance ? ` ${weather.distance}` : '';
+    const stationBit = weather.station ? ` The nearest observation station is ${weather.station}${distBit}.` : '';
+    parts.push(`At this location, current conditions include ${String(weather.measurements[0]).toLowerCase()}.${stationBit}`);
+  } else if (extras.contextBlocks?.length) {
+    parts.push('Live weather was not returned; historical or hourly climate context is available.');
+  }
+
+  if (air?.measurements?.length) {
+    parts.push(`Air quality is ${air.measurements[0]}.`);
+  } else if (airRow) {
+    parts.push(airRow.coverageState === 'PROVIDER_ISSUE'
+      ? 'Air quality is unavailable.'
+      : 'No nearby air-quality observation was returned.');
+  }
+
+  if (hydroMeas?.hasEvidence) {
+    parts.push('Hydrometric measurements were returned for a nearby station.');
+  } else if (hydroReg?.hasEvidence) {
+    parts.push('Hydrometric context is station registry metadata only — no water-level observation.');
+  } else if (hydroMeas || hydroReg) {
+    parts.push('Hydrometric context is unavailable.');
+  }
+
+  if (!parts.length) {
+    return 'No Point Intelligence observations were returned for this location.';
+  }
+  return parts.join(' ').replace(/\s+/g, ' ').trim();
 }
 
 function formatCoordsLabel(point, response) {
@@ -508,8 +553,8 @@ function renderSynthesisBlock(block) {
  * @param {ReturnType<typeof buildLocationSynthesisModel>} model
  */
 export function renderLocationSynthesisHtml(model) {
-  if (!model?.sections?.length) return '';
-  const sectionsHtml = model.sections.map((section) => `
+  if (!model?.sections?.length && !model?.prose) return '';
+  const sectionsHtml = (model.sections || []).map((section) => `
     <div class="lif-synthesis__section" data-section="${escapeHtml(section.id)}">
       <h5 class="lif-synthesis__heading">${escapeHtml(section.title)}</h5>
       ${section.blocks.map(renderSynthesisBlock).join('')}
@@ -518,6 +563,7 @@ export function renderLocationSynthesisHtml(model) {
   return `
     <section class="lif-synthesis" aria-label="Selected location synthesis">
       <h4 class="lif-section-title">Selected location</h4>
+      ${model.prose ? `<p class="lif-synthesis__prose">${escapeHtml(model.prose)}</p>` : ''}
       ${sectionsHtml}
     </section>`;
 }

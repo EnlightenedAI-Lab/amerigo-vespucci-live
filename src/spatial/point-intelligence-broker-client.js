@@ -195,17 +195,21 @@ export async function queryPointIntelligenceBundleBroker(request, options = {}) 
         status: 504,
         body: {
           bundleState: 'PARTIAL_FAILURE',
-          error: 'Point Intelligence bundle request timed out'
+          error: 'Point Intelligence bundle request timed out',
+          families: [],
+          queryReceipts: []
         }
       };
     }
     return {
       ok: false,
       status: 503,
-      body: {
-        bundleState: 'PARTIAL_FAILURE',
-        error: error?.message || 'Point Intelligence broker unavailable'
-      }
+        body: {
+          bundleState: 'PARTIAL_FAILURE',
+          error: error?.message || 'Point Intelligence broker unavailable',
+          families: [],
+          queryReceipts: []
+        }
     };
   } finally {
     clearTimeout(timer);

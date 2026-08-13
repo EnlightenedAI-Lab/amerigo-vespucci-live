@@ -16,7 +16,11 @@ export function familyStatusHasEvidence(status) {
  * @param {object} bundle
  */
 export function isBundleResponse(bundle) {
-  return Boolean(bundle?.bundle && bundle?.bundleId);
+  return Boolean(
+    bundle?.bundleId
+    || bundle?.bundle === true
+    || (Array.isArray(bundle?.families) && bundle?.bundleState)
+  );
 }
 
 /**
@@ -45,6 +49,8 @@ export function adaptBundleResponse(bundle, point, queryGroupId) {
     familyMap[family] = {
       informationFamily: family,
       queryState: familyEvidence.status,
+      operatorStatus: familyEvidence.operatorStatus
+        || (hasEvidence ? 'PASS' : (familyEvidence.status === 'NO_RESULTS' ? 'NO DATA' : 'UNAVAILABLE')),
       queryReceiptId: familyEvidence.queryReceiptId || null,
       queryRequestId: familyEvidence.queryRequestId || null,
       resultCount: familyEvidence.resultCount ?? results.length,
@@ -89,7 +95,8 @@ export function adaptBundleResponse(bundle, point, queryGroupId) {
       temporalIntent: { mode: 'LATEST' }
     },
     error: bundle?.error || null,
-    timings: bundle?.timings || null
+    timings: bundle?.timings || null,
+    fallback: bundle?.fallback || null
   };
 }
 

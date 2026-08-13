@@ -194,7 +194,13 @@ export function stationLabelFromNativeRecordId(nativeRecordId, family = '') {
  */
 export function extractStationTitle(result, family) {
   const props = resolveResultProperties(result);
-  const stationName = props.STATION_NAME || props.CITY || props.IDENTIFIER;
+  const stationName = props.STATION_NAME
+    || props.CITY
+    || props.IDENTIFIER
+    || props['stn_nam-value']
+    || props.stn_nam
+    || (typeof props.name === 'object' ? (props.name.en || props.name.fr) : props.name)
+    || props.locationName;
   if (stationName) return String(stationName);
   if (family === 'hydrometric' || family === 'hydrometric-measurement') {
   const stationId = props.STATION_NUMBER || props.STN_ID || props.CLIMATE_IDENTIFIER;
@@ -732,6 +738,17 @@ function renderStationGroupHtml(group, family) {
     </section>`;
 }
 
+function formatUxBanner(presentation) {
+  switch (presentation?.ux) {
+    case 'LOADING': return 'POINT INTELLIGENCE LOADING';
+    case 'READY': return 'POINT INTELLIGENCE READY';
+    case 'PARTIAL': return 'PARTIAL DATA';
+    case 'NO_DATA': return 'NO DATA AVAILABLE';
+    case 'FAILURE': return 'SYSTEM FAILURE';
+    default: return '';
+  }
+}
+
 function renderCoverageIcon(state) {
   switch (state) {
     case 'EVIDENCE': return '◆';
@@ -757,7 +774,7 @@ function renderCoverageStrip(rows) {
     + `data-pi-family="${escapeHtml(row.informationFamily)}" data-coverage="${escapeHtml(row.coverageState)}">`
     + `<span class="lif-coverage-item__icon" aria-hidden="true">${renderCoverageIcon(row.coverageState)}</span>`
     + `<span class="lif-coverage-item__label">${escapeHtml(row.label)}</span>`
-    + `<span class="lif-coverage-item__state">${escapeHtml(row.coverageLabel)}</span>`
+    + `<span class="lif-coverage-item__state">${escapeHtml(row.operatorStatus || row.coverageLabel)}</span>`
     + '</div>'
   )).join('');
 }
@@ -859,6 +876,7 @@ function renderLocationIntelligenceFocus(response, point, presentation) {
     <div class="lif ${severityClass}" data-state="${escapeHtml(state)}">
       <header class="lif-header">
         <h3 class="lif-header__title">Point Intelligence</h3>
+        ${formatUxBanner(presentation) ? `<div class="lif-header__ux">${escapeHtml(formatUxBanner(presentation))}</div>` : ''}
         <div class="lif-anchor">
           ${location.label ? `<div class="lif-anchor__coords">${escapeHtml(location.label)}</div>` : ''}
           <div class="lif-anchor__context">${escapeHtml(radiusLabel)} radius</div>
@@ -917,6 +935,17 @@ export function buildPointIntelligenceSummaryHtml(payload = {}) {
   const { point, response, presentation } = payload;
   if (!response) {
     return '<p class="detail-muted">No Point Intelligence query yet.</p>';
+  }
+
+  if (response.queryState === 'QUERYING' || response.bundleState === 'QUERYING' || presentation?.ux === 'LOADING') {
+    return `
+      <div class="pi-summary" data-state="QUERYING">
+        <header class="pi-summary__header">
+          <h3 class="pi-summary__title">Point Intelligence</h3>
+          <div class="pi-summary__status">POINT INTELLIGENCE LOADING</div>
+        </header>
+        <p class="detail-muted">Querying source intelligence…</p>
+      </div>`;
   }
 
   if (isMultiFamilyPointIntelligenceResponse(response)) {

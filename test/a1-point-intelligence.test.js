@@ -80,3 +80,19 @@ test('broker client maps transport failure to PROVIDER_UNAVAILABLE', async () =>
   );
   assert.equal(result.body.queryState, 'PROVIDER_UNAVAILABLE');
 });
+
+test('partial family evidence is not presented as total request failure', () => {
+  const failed = formatPointIntelligenceStatus('PARTIAL_FAILURE');
+  assert.equal(failed.message, 'Partial data — some information families were unavailable.');
+  assert.equal(failed.severity, 'info');
+  assert.equal(failed.ux, 'PARTIAL');
+
+  const rescued = formatPointIntelligenceStatus('PARTIAL_FAILURE', { familiesWithEvidence: 4 });
+  assert.equal(rescued.state, 'PARTIAL_DATA');
+  assert.equal(rescued.ux, 'PARTIAL');
+  assert.doesNotMatch(rescued.message, /could not complete the request/);
+
+  const querying = formatPointIntelligenceStatus('QUERYING');
+  assert.equal(querying.ux, 'LOADING');
+  assert.equal(querying.severity, 'neutral');
+});

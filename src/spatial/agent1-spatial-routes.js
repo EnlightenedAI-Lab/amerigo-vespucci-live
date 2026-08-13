@@ -8,6 +8,10 @@ import {
   queryPointIntelligenceBroker,
   queryPointIntelligenceBundleBroker
 } from './point-intelligence-broker-client.js';
+import {
+  executeMscPointIntelligenceBundle,
+  shouldUseMscFallback
+} from './point-intelligence-msc-fallback.js';
 import { handleOpenWorldIntelligenceSearch } from './open-world-intelligence-search-handler.js';
 import { handleIntelligenceLayerSearch, handleIntelligenceProviderRegistry } from './intelligence-layer-search-handler.js';
 import {
@@ -128,16 +132,32 @@ export async function handlePointIntelligenceQueryBundle(req, res) {
       });
     }
 
-    const broker = await queryPointIntelligenceBundleBroker(parsed.value);
-    const status = broker.body?.bundleState === 'INVALID_REQUEST' ? 400 : broker.status;
-    return res.status(status).json(broker.body);
-  } catch (error) {
-    return res.status(503).json({
-      bundleState: 'PARTIAL_FAILURE',
-      error: error?.message || 'Point Intelligence broker unavailable',
-      families: [],
-      queryReceipts: []
+    const broker = await queryPointIntelligenceBundleBroker(parsed.value, { timeoutMs: 10000 });
+    if (!shouldUseMscFallback(broker)) {
+      const status = broker.body?.bundleState === 'INVALID_REQUEST' ? 400 : broker.status;
+      return res.status(status).json(broker.body);
+    }
+
+    console.warn('[IQAI PI] broker unavailable or empty — using MSC GeoMet fallback', {
+      brokerOk: broker.ok,
+      brokerStatus: broker.status,
+      bundleState: broker.body?.bundleState || null,
+      error: broker.body?.error || null
     });
+    const fallback = await executeMscPointIntelligenceBundle(parsed.value);
+    return res.status(200).json(fallback);
+  } catch (error) {
+    try {
+      const fallback = await executeMscPointIntelligenceBundle(req.body || {});
+      return res.status(200).json(fallback);
+    } catch (fallbackError) {
+      return res.status(503).json({
+        bundleState: 'PARTIAL_FAILURE',
+        error: fallbackError?.message || error?.message || 'Point Intelligence unavailable',
+        families: [],
+        queryReceipts: []
+      });
+    }
   }
 }
 

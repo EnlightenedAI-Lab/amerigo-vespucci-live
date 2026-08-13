@@ -74,7 +74,7 @@ export class PointIntelligenceControl {
     if (this.modeInput) this.modeInput.checked = enabled;
     this.updateHint(enabled);
     const response = state?.lastResponse;
-    const presentation = response?.queryState === 'QUERYING'
+    const presentation = response?.queryState === 'QUERYING' || state?.queryPhase === 'QUERYING'
       ? formatPointIntelligenceStatus('QUERYING')
       : getPointIntelligencePresentation(response);
     if (this.statusEl) {

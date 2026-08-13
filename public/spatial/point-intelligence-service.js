@@ -43,6 +43,7 @@ let unsupportedTemporalAttempts = 0;
 let modeEnabled = false;
 let lastResponse = null;
 let lastClickedPoint = null;
+let queryPhase = 'IDLE';
 
 /** @type {Set<(state: object) => void>} */
 const listeners = new Set();
@@ -64,6 +65,7 @@ export function getPointIntelligenceState() {
     queryGeneration: activeQueryGeneration,
     requestCount,
     unsupportedTemporalAttempts,
+    queryPhase,
     temporal: getPointIntelligenceTemporalState(),
     lastResponse,
     lastClickedPoint,
@@ -83,6 +85,7 @@ export function setPointIntelligenceModeEnabled(enabled) {
     activeQueryGeneration += 1;
     lastResponse = null;
     lastClickedPoint = null;
+    queryPhase = 'IDLE';
     void clearPointIntelligenceLayers();
   }
   emit();
@@ -173,25 +176,47 @@ export async function runPointIntelligenceQuery(input, options = {}) {
   const gate = canExecutePointIntelligenceTemporalRequest(temporalState);
   if (gate.status !== 'EXECUTABLE') {
     unsupportedTemporalAttempts += 1;
-    return invalidatePointIntelligenceEvidenceForTemporalChange(temporalState);
+    queryPhase = 'READY';
+    const blocked = await invalidatePointIntelligenceEvidenceForTemporalChange(temporalState);
+    lastResponse = {
+      queryState: 'TEMPORAL_UNSUPPORTED',
+      bundleState: 'TEMPORAL_UNSUPPORTED',
+      multiFamily: true,
+      families: {},
+      familiesWithEvidence: 0,
+      results: [],
+      resultCount: 0,
+      message: getUnsupportedTemporalMessage(),
+      ...blocked
+    };
+    emit();
+    return lastResponse;
   }
 
   const generation = ++queryGeneration;
   activeQueryGeneration = generation;
   requestCount += 1;
+  queryPhase = 'QUERYING';
 
   const point = {
     longitude: Number(input.longitude),
     latitude: Number(input.latitude)
   };
   lastClickedPoint = point;
+  lastResponse = {
+    queryState: 'QUERYING',
+    bundleState: 'QUERYING',
+    multiFamily: true,
+    families: {},
+    familiesWithEvidence: 0,
+    results: [],
+    resultCount: 0,
+    request: {
+      geometry: { type: 'Point', coordinates: [point.longitude, point.latitude] }
+    }
+  };
 
   emit();
-
-  const querying = { queryState: 'QUERYING' };
-  listeners.forEach((listener) => {
-    try { listener({ ...getPointIntelligenceState(), pending: querying }); } catch { /* ignore */ }
-  });
 
   try {
     await replacePointIntelligencePresentation(point, []);
@@ -204,39 +229,53 @@ export async function runPointIntelligenceQuery(input, options = {}) {
   const temporalPayload = buildPointIntelligenceTemporalIntentPayload(temporalState);
 
   let response;
-  if (isSingleFamilyRequest(input, options)) {
-    response = await queryPointIntelligence({
-      geometry,
-      radiusMeters,
-      informationFamily: input.informationFamily
-    }, options);
-    response = {
-      ...response,
-      request: {
+  try {
+    if (isSingleFamilyRequest(input, options)) {
+      response = await queryPointIntelligence({
         geometry,
-        informationFamily: input.informationFamily,
+        radiusMeters,
+        informationFamily: input.informationFamily
+      }, options);
+      response = {
+        ...response,
+        request: {
+          geometry,
+          informationFamily: input.informationFamily,
+          radiusMeters,
+          temporalIntent: temporalPayload.ok ? temporalPayload.temporalIntent : undefined
+        }
+      };
+    } else {
+      const bundle = await queryPointIntelligenceBundle({
+        geometry,
         radiusMeters,
         temporalIntent: temporalPayload.ok ? temporalPayload.temporalIntent : undefined
+      }, options);
+      if (generation !== queryGeneration || temporalGenerationAtStart !== getActiveTemporalGeneration()) {
+        return { stale: true, queryState: 'STALE' };
       }
-    };
-  } else {
-    const bundle = await queryPointIntelligenceBundle({
-      geometry,
-      radiusMeters,
-      temporalIntent: temporalPayload.ok ? temporalPayload.temporalIntent : undefined
-    }, options);
-    if (generation !== queryGeneration || temporalGenerationAtStart !== getActiveTemporalGeneration()) {
-      return { stale: true, queryState: 'STALE' };
+      response = adaptBundleResponse(bundle, point, generation);
+      response = {
+        ...response,
+        request: {
+          ...response.request,
+          geometry: { type: 'Point', coordinates: [point.longitude, point.latitude] },
+          radiusMeters,
+          temporalIntent: temporalPayload.ok ? temporalPayload.temporalIntent : response.request?.temporalIntent
+        }
+      };
     }
-    response = adaptBundleResponse(bundle, point, generation);
+  } catch (error) {
     response = {
-      ...response,
-      request: {
-        ...response.request,
-        geometry: { type: 'Point', coordinates: [point.longitude, point.latitude] },
-        radiusMeters,
-        temporalIntent: temporalPayload.ok ? temporalPayload.temporalIntent : response.request?.temporalIntent
-      }
+      queryState: 'ERROR',
+      bundleState: 'ERROR',
+      multiFamily: true,
+      families: {},
+      familiesWithEvidence: 0,
+      results: [],
+      resultCount: 0,
+      error: error?.message || 'Point Intelligence request failed',
+      request: { geometry, radiusMeters }
     };
   }
 
@@ -245,6 +284,7 @@ export async function runPointIntelligenceQuery(input, options = {}) {
   }
 
   lastResponse = response;
+  queryPhase = 'READY';
   await applyPresentation(point, response);
   emit();
   return response;
@@ -254,6 +294,9 @@ export function getPointIntelligencePresentation(response = lastResponse) {
   if (!response) {
     return formatPointIntelligenceStatus('IDLE');
   }
+  if (response.queryState === 'QUERYING' || response.bundleState === 'QUERYING') {
+    return formatPointIntelligenceStatus('QUERYING');
+  }
   if (isBundleResponse(response) || isMultiFamilyPointIntelligenceResponse(response)) {
     const count = response.familiesWithEvidence || 0;
     const total = response.familiesQueried
@@ -261,12 +304,16 @@ export function getPointIntelligencePresentation(response = lastResponse) {
       || Object.keys(response.families || {}).length;
     if (count > 0) {
       const bundleState = response.bundleState || response.queryState;
-      const severity = ['SUCCESS', 'PARTIAL_RESULTS'].includes(bundleState) ? 'success' : 'info';
-      return {
-        state: bundleState,
-        message: `${count} of ${total} information families returned local evidence.`,
-        severity
-      };
+      return formatPointIntelligenceStatus(
+        ['SUCCESS', 'PARTIAL_RESULTS', 'PARTIAL_FAILURE'].includes(bundleState)
+          ? (count === total ? 'SUCCESS' : 'PARTIAL_RESULTS')
+          : bundleState,
+        {
+          ...response,
+          familiesWithEvidence: count,
+          message: `${count} of ${total} information families returned local evidence.`
+        }
+      );
     }
   }
   return formatPointIntelligenceStatus(response.bundleState || response.queryState, response);
