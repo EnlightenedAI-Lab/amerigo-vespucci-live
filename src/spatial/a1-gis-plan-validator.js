@@ -287,7 +287,11 @@ export function validateGISPlan(candidatePlan, registry = GIS_CAPABILITY_REGISTR
   }
 
   const rawOperation = candidatePlan.operation ?? candidatePlan.action;
-  const operationId = resolveOperationId(rawOperation);
+  let operationId = resolveOperationId(rawOperation);
+  if (operationId === 'SHOW' && candidatePlan.radius != null) {
+    operationId = 'WITHIN';
+    diagnostics.push('promoted SHOW/MAP with radius to WITHIN');
+  }
   if (!operationId) {
     const blocked = NON_AI_ADDRESSABLE_OPERATIONS.includes(String(rawOperation || '').trim().toUpperCase());
     pushError(

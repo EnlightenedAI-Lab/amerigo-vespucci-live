@@ -133,6 +133,18 @@ describe('spatial capability router', () => {
     assert.equal(plan.available, true);
   });
 
+  it('routes semantic GIS radius prompts to deterministic GIS, not perimeter analysis', () => {
+    const toilets = planSpatialCapability('map toilets 500 meters from 997 de la commune');
+    const toiletsWithin = planSpatialCapability('map toilets within 500 meters of 997 de la commune');
+    const bathrooms = planSpatialCapability('Show bathrooms within 5 km of 997 de la Commune');
+    assert.equal(toilets.capability, SPATIAL_CAPABILITY.DETERMINISTIC_GIS);
+    assert.equal(toilets.available, true);
+    assert.equal(toiletsWithin.capability, SPATIAL_CAPABILITY.DETERMINISTIC_GIS);
+    assert.equal(toiletsWithin.available, true);
+    assert.equal(bathrooms.capability, SPATIAL_CAPABILITY.DETERMINISTIC_GIS);
+    assert.equal(bathrooms.available, true);
+  });
+
   it('routes selected-event evidence questions to point intelligence', () => {
     const plan = planSpatialCapability('Why is this event on the map?');
     assert.equal(plan.capability, SPATIAL_CAPABILITY.POINT_INTELLIGENCE);

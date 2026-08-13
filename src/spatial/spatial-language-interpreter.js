@@ -26,8 +26,15 @@ import {
 function hasCompoundConnectors(text) {
   const pack = loadLanguagePack();
   const connectors = pack.filler?.connectors || [];
-  const normalized = normalizePrompt(text).toLowerCase();
-  return connectors.some((connector) => normalized.includes(connector.trim().toLowerCase()));
+  const normalized = ` ${normalizePrompt(text).toLowerCase()} `;
+  return connectors.some((connector) => {
+    const token = String(connector || '').toLowerCase();
+    if (!token.trim()) return false;
+    const delimited = token.startsWith(' ') || token.endsWith(' ')
+      ? token
+      : ` ${token.trim()} `;
+    return normalized.includes(delimited);
+  });
 }
 
 /**

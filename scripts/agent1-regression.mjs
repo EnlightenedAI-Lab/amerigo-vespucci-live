@@ -33,6 +33,7 @@ export const AGENT1_REGRESSION_FILES = [
   'test/a1-intelligence-layer-temporal-gate.test.js',
   'test/a1-universal-ai-operating-layer.test.js',
   'test/a1-ai-map-capability-routing.test.js',
+  'test/a1-ai-map-deterministic-handoff.test.js',
   'test/a1-place-poi-search.test.js',
   'test/a1-operator-acceptance-closeout.test.js',
   'test/a1-governed-intelligence-closeout.test.js',

@@ -150,7 +150,40 @@ export function normalizeMeterRadiusPhrases(text) {
     (_, meters, location) => `within ${parseFloat(meters) / 1000} km of ${location.trim()}`
   );
 
+  result = result.replace(
+    /\b(show|map|display|find|locate)\s+(.+?)\s+(\d+(?:\.\d+)?)\s*(?:m|metres?|meters?)\s+(?:from|of|around|near)\s+(.+)$/i,
+    (_, verb, dataset, meters, location) => {
+      const km = parseFloat(meters) / 1000;
+      return `${verb} ${dataset.trim()} within ${km} km of ${location.trim()}`;
+    }
+  );
+
+  result = result.replace(
+    /^(.+?)\s+(\d+(?:\.\d+)?)\s*(?:m|metres?|meters?)\s+(?:from|of)\s+(.+)$/i,
+    (_, dataset, meters, location) => {
+      const km = parseFloat(meters) / 1000;
+      return `${dataset.trim()} within ${km} km of ${location.trim()}`;
+    }
+  );
+
   return result.replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Default an uncounted nearest/closest request to limit 1.
+ * @param {string} text
+ */
+export function normalizeNearestWithoutCount(text) {
+  return String(text || '')
+    .replace(
+      /^(?:(show|map|display|find|locate)\s+)?(?:the\s+)?(?:nearest|closest)\s+(.+?)\s+(?:to|of|near)\s+(.+)$/i,
+      (_, verb, dataset, location) => {
+        const prefix = verb ? `${verb} ` : '';
+        return `${prefix}1 nearest ${dataset.trim()} to ${location.trim()}`;
+      }
+    )
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 /**
@@ -273,6 +306,7 @@ export function normalizeSpatialUtterance(prompt) {
   normalized = removeGrammaticalNoiseBeforeSpatial(normalized);
   normalized = reorderSpatialClauses(normalized);
   normalized = normalizeMeterRadiusPhrases(normalized);
+  normalized = normalizeNearestWithoutCount(normalized);
   normalized = normalizeBroadAmenityDiscovery(normalized);
   normalized = protectFrenchRadiusPhrase(normalized);
   normalized = normalizeNumerals(normalized);

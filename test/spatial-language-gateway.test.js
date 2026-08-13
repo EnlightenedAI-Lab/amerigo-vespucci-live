@@ -84,3 +84,28 @@ test('gateway acceptance: vague deictic without context fails closed', async () 
   assert.equal(result.supported, false);
   assert.equal(result.clarification, true);
 });
+
+test('gateway acceptance: toilets 500 meters from address becomes WITHIN', async () => {
+  const vocab = await loadVocabularyContextForPlanning();
+  const result = await interpretSpatialLanguageAsync(
+    'map toilets 500 meters from 997 de la commune',
+    { vocabularyContext: vocab }
+  );
+  assert.equal(result.supported, true);
+  assert.equal(result.commands[0].action, 'WITHIN');
+  assert.equal(result.commands[0].radiusMeters, 500);
+  assert.equal(result.commands[0].semanticValue || result.commands[0].semanticCategory?.semanticValue, 'toilets');
+  assert.match(result.commands[0].resolvedLocation || result.sharedLocation, /997 de la commune/i);
+});
+
+test('gateway acceptance: uncounted nearest hospital defaults to limit 1', async () => {
+  const vocab = await loadVocabularyContextForPlanning();
+  const result = await interpretSpatialLanguageAsync(
+    'nearest hospital to 997 de la commune',
+    { vocabularyContext: vocab }
+  );
+  assert.equal(result.supported, true);
+  assert.equal(result.commands[0].action, 'NEAREST');
+  assert.equal(result.commands[0].limit, 1);
+  assert.equal(result.commands[0].datasetIds[0], 'HOSPITALS');
+});

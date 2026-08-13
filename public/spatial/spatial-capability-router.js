@@ -9,6 +9,7 @@ import {
 import { isProgressiveVerticalSliceQuery } from './orchestrator/progressive-slice-intent.js';
 import { isCrossAgentSpatialQuery } from './orchestrator/cross-agent-slice-intent.js';
 import { isPlacePoiV1Enabled } from './place-poi-config.js';
+import { hasExplicitSpatialIntent } from './spatial-intent-signals.js';
 
 export const SPATIAL_CAPABILITY = Object.freeze({
   DETERMINISTIC_GIS: 'DETERMINISTIC_GIS',
@@ -55,7 +56,6 @@ const ROUTING_PATTERNS = [
 ];
 
 const PERIMETER_PATTERNS = [
-  /\bwithin\s+\d+\s*(m|meters|metres|km)\b/i,
   /\bperimeter\b/i,
   /\bbuffer\b/i,
   /\beverything within\b/i
@@ -99,6 +99,27 @@ const DETERMINISTIC_DATASET_PATTERNS = [
  */
 export function isDeterministicMapControl(text = '') {
   return DETERMINISTIC_CONTROL_PATTERNS.some((pattern) => pattern.test(String(text).trim()));
+}
+
+/**
+ * GIS map/show/within/nearest intents that the deterministic engine already owns.
+ * Must win over generic perimeter/buffer classification.
+ * @param {string} text
+ */
+export function isDeterministicGisQuery(text = '') {
+  const raw = String(text || '').trim();
+  if (!raw) return false;
+  if (isDeterministicMapControl(raw)) return true;
+  if (/^(?:map|show|display|find|locate|count|how many)\b/i.test(raw) && hasExplicitSpatialIntent(raw)) {
+    return true;
+  }
+  if (/^(?:map|show|display|find)\s+.+\bwithin\s+\d+/i.test(raw)) return true;
+  if (/\b(?:nearest|closest)\b.+\b(?:to|of|near)\b/i.test(raw)) return true;
+  if (DETERMINISTIC_DATASET_PATTERNS.some((pattern) => pattern.test(raw))
+    && /\b(within|nearest|closest)\b/i.test(raw)) {
+    return true;
+  }
+  return false;
 }
 
 /**
@@ -229,8 +250,7 @@ export function planSpatialCapability(userRequest, context = {}) {
     }
   }
 
-  if (/^(map|show|display)\s+.+\bwithin\s+\d+\s*(km|m|meters|metres)\b/i.test(text)
-    && DETERMINISTIC_DATASET_PATTERNS.some((pattern) => pattern.test(text))) {
+  if (isDeterministicGisQuery(text)) {
     return {
       capability: SPATIAL_CAPABILITY.DETERMINISTIC_GIS,
       confidence: 0.9,

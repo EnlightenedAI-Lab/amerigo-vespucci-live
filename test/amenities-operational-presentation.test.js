@@ -31,6 +31,13 @@ test('meter radius family normalizes to km within', () => {
   assert.match(normalized, /show charging stations within 3 km of 997 de la commune/i);
 });
 
+test('bare meter-from phrasing normalizes to canonical within km', () => {
+  const normalized = normalizeMeterRadiusPhrases(
+    'map toilets 500 meters from 997 de la commune'
+  );
+  assert.match(normalized, /map toilets within 0\.5 km of 997 de la commune/i);
+});
+
 test('charging station 3000m query resolves to semantic category', async () => {
   const gateway = normalizeSpatialUtterance('show charging stations less than 3000m around 997 de la commune');
   const vocab = await loadVocabularyContextForPlanning();

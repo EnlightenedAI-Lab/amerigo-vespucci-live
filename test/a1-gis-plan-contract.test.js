@@ -291,6 +291,25 @@ test('adapter: normalized plans produce deterministic prompts; never calls ArcGI
   }
 });
 
+test('validator promotes MAP/SHOW with radius to WITHIN and adapter emits km prompt', () => {
+  const validated = validateGISPlan({
+    schemaVersion: '1.0.0',
+    operation: 'MAP',
+    dataset: 'fire_stations',
+    location: { type: 'address', text: LOCATION },
+    radius: { value: 500, unit: 'm' }
+  });
+  assert.equal(validated.valid, true);
+  assert.equal(validated.normalizedPlan.operation, 'WITHIN');
+  assert.equal(validated.normalizedPlan.radius.meters, 500);
+  const adapted = adaptValidatedPlanToExecution(validated.normalizedPlan);
+  assert.equal(adapted.prompt, `map fire stations within 0.5 km of ${LOCATION}`);
+  const structuredPlan = planCompoundPrompt(adapted.prompt);
+  assert.equal(structuredPlan.supported, true);
+  assert.equal(structuredPlan.commands[0].action, 'WITHIN');
+  assert.equal(structuredPlan.commands[0].radiusMeters, 500);
+});
+
 test('transaction: invalid plan never invokes deterministic GIS execution', async () => {
   clearPlanAuditTrail();
   let invoked = false;

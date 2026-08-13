@@ -11,9 +11,9 @@ import { DATASET_REGISTRY } from './a1-gis-capability-registry.js';
 function formatRadiusForPrompt(radius) {
   if (!radius) return '';
   const meters = radius.meters ?? (radius.unit === 'm' ? radius.value : radius.value * 1000);
-  if (meters < 1000) return `${Math.round(meters)}m`;
-  const km = radius.value ?? meters / 1000;
-  return Number.isInteger(km) ? `${km}km` : `${km}km`;
+  const km = meters / 1000;
+  const kmText = Number.isInteger(km) ? String(km) : String(Number(km.toFixed(3)));
+  return `${kmText} km`;
 }
 
 /**
@@ -107,15 +107,11 @@ export function adaptValidatedPlanToExecution(normalizedPlan) {
   }
 
   if (operation === 'COUNT') {
-    const radiusKm = normalizedPlan.radius?.value;
-    const radiusLabel = Number.isInteger(radiusKm)
-      ? `${radiusKm} km`
-      : `${normalizedPlan.radius?.meters ?? radiusKm * 1000} m`;
     return {
       type: 'prompt',
       operation,
       dataset: datasetKey,
-      prompt: `how many ${plural} within ${radiusLabel} of ${locationText}`
+      prompt: `how many ${plural} within ${radiusText} of ${locationText}`
     };
   }
 
