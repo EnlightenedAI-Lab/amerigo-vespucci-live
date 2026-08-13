@@ -10,6 +10,7 @@ import {
 import {
   CONNECTOR_MEANING,
   circlePolygon,
+  formatAoiDistanceLabel,
   toGeoJsonPolygon
 } from './point-intelligence-aoi-geometry.js';
 
@@ -210,10 +211,12 @@ export async function showDistanceConnector(record) {
   if (!record?.aoiNearestBoundary || record.aoiClassification !== 'SUPPORTING_EXTERNAL') return false;
   const layers = await ensureAcquisitionLayers();
   if (!layers.connectorLayer) return false;
-  const [Graphic, Polyline, SimpleLineSymbol] = await Promise.all([
+  const [Graphic, Polyline, Point, SimpleLineSymbol, TextSymbol] = await Promise.all([
     importArc('@arcgis/core/Graphic.js'),
     importArc('@arcgis/core/geometry/Polyline.js'),
-    importArc('@arcgis/core/symbols/SimpleLineSymbol.js')
+    importArc('@arcgis/core/geometry/Point.js'),
+    importArc('@arcgis/core/symbols/SimpleLineSymbol.js'),
+    importArc('@arcgis/core/symbols/TextSymbol.js')
   ]);
   layers.connectorLayer.add(new Graphic({
     geometry: new Polyline({
@@ -232,6 +235,31 @@ export async function showDistanceConnector(record) {
       coverage: 0
     }
   }));
+  const distance = formatAoiDistanceLabel(record.aoiBoundaryDistanceMeters);
+  if (distance) {
+    const along = 0.18;
+    layers.connectorLayer.add(new Graphic({
+      geometry: new Point({
+        longitude: record.longitude + (record.aoiNearestBoundary.longitude - record.longitude) * along,
+        latitude: record.latitude + (record.aoiNearestBoundary.latitude - record.latitude) * along
+      }),
+      symbol: new TextSymbol({
+        text: `${distance} OUTSIDE AOI`,
+        color: [214, 222, 150, 0.95],
+        haloColor: [18, 24, 16, 0.88],
+        haloSize: 1.1,
+        font: { family: 'Arial', size: 8, weight: 'normal' },
+        horizontalAlignment: 'center',
+        verticalAlignment: 'middle'
+      }),
+      attributes: {
+        role: 'pi-aoi-distance-label',
+        meaning: CONNECTOR_MEANING,
+        dependency: 0,
+        flow: 0
+      }
+    }));
+  }
   return true;
 }
 

@@ -72,15 +72,33 @@ function vectorMarker(markerGraphics, size) {
   };
 }
 
-function cimSymbol(markerGraphics, size) {
+function cimSymbol(markerGraphics, size, scale = null) {
+  const data = {
+    type: 'CIMSymbolReference',
+    symbol: {
+      type: 'CIMPointSymbol',
+      symbolLayers: [vectorMarker(markerGraphics, size)]
+    }
+  };
+  if (scale) {
+    data.minScale = scale.minScale ?? 0;
+    data.maxScale = scale.maxScale ?? 0;
+  }
+  return { type: 'cim', data };
+}
+
+/** Local engineered CIM: visible when scale <= this (zoomed in). */
+export const PI_LOCAL_INSTRUMENT_MIN_SCALE = 18000;
+/** Regional firefly: visible from local cutoff out to this. */
+export const PI_REGIONAL_FIREFLY_MIN_SCALE = 400000;
+
+function withScale(symbol, minScale, maxScale) {
   return {
     type: 'cim',
     data: {
-      type: 'CIMSymbolReference',
-      symbol: {
-        type: 'CIMPointSymbol',
-        symbolLayers: [vectorMarker(markerGraphics, size)]
-      }
+      ...symbol.data,
+      minScale,
+      maxScale
     }
   };
 }
@@ -118,7 +136,7 @@ function freshnessStyle(family, freshnessClass, supporting = false) {
       ring: [196, 214, 72, 180],
       ringWidth: Math.max(0.7, style.ringWidth - 0.15),
       size: Math.max(14, style.size - 2),
-      chassisAlpha: Math.max(110, style.chassisAlpha - 60)
+      chassisAlpha: Math.max(175, style.chassisAlpha - 35)
     };
   }
   return style;
@@ -173,6 +191,26 @@ export function buildWeatherCimSymbol(freshnessClass = FRESHNESS_CLASS.CURRENT, 
   return cimSymbol(graphics, style.size);
 }
 
+/**
+ * Regional constellation node: small luminous disc + tight halo.
+ * Not a coverage blob, not a pulse, not map-wide bloom.
+ */
+export function buildRegionalFireflyCimSymbol(family = 'hydrometric', freshnessClass = FRESHNESS_CLASS.CURRENT, options = {}) {
+  const key = family === 'weather' ? 'weather' : 'hydro';
+  const style = freshnessStyle(key, freshnessClass, options.supporting);
+  const core = options.supporting
+    ? [210, 224, 110, 230]
+    : [...PALETTE[key].accent.slice(0, 3), freshnessClass === FRESHNESS_CLASS.CURRENT ? 240 : 190];
+  const halo = options.supporting
+    ? [196, 214, 72, 70]
+    : [...PALETTE[key].accent.slice(0, 3), 55];
+  const graphics = [
+    fillGraphic(circlePath(6.2), halo, null),
+    fillGraphic(circlePath(2.35), core, [244, 248, 250, 200], 0.35)
+  ];
+  return cimSymbol(graphics, 8);
+}
+
 export function buildProofStationRenderer(CIMSymbolCtor = null) {
   const wrap = (symbol) => (CIMSymbolCtor ? new CIMSymbolCtor({ data: symbol.data }) : symbol);
   const infos = [];
@@ -189,38 +227,40 @@ export function buildProofStationRenderer(CIMSymbolCtor = null) {
   for (const [family, builder] of families) {
     for (const freshness of freshnessValues) {
       if (family === 'weather' && freshness === FRESHNESS_CLASS.REGISTRY) continue;
-      infos.push({
-        value: `${family}-${freshness}`,
-        label: `${family} ${freshness}`,
-        symbol: wrap(builder(freshness))
-      });
-      infos.push({
-        value: `${family}-${freshness}-inside`,
-        label: `${family} ${freshness} inside`,
-        symbol: wrap(builder(freshness))
-      });
-      infos.push({
-        value: `${family}-${freshness}-external`,
-        label: `${family} ${freshness} supporting`,
-        symbol: wrap(builder(freshness, { supporting: true }))
-      });
+      const rows = [
+        { value: `${family}-${freshness}`, supporting: false },
+        { value: `${family}-${freshness}-inside`, supporting: false },
+        { value: `${family}-${freshness}-external`, supporting: true }
+      ];
+      for (const row of rows) {
+        const local = withScale(
+          builder(freshness, { supporting: row.supporting }),
+          PI_LOCAL_INSTRUMENT_MIN_SCALE,
+          0
+        );
+        const regional = withScale(
+          buildRegionalFireflyCimSymbol(family, freshness, { supporting: row.supporting }),
+          PI_REGIONAL_FIREFLY_MIN_SCALE,
+          PI_LOCAL_INSTRUMENT_MIN_SCALE
+        );
+        infos.push({
+          value: row.value,
+          label: row.supporting ? `${family} ${freshness} supporting` : `${family} ${freshness}`,
+          symbol: wrap(regional),
+          alternateSymbols: [wrap(local)]
+        });
+      }
     }
   }
   return {
     type: 'unique-value',
     field: 'rendererKey',
-    defaultSymbol: wrap(buildHydrometricCimSymbol(FRESHNESS_CLASS.STALE)),
-    uniqueValueInfos: infos,
-    visualVariables: [{
-      type: 'size',
-      valueExpression: '$view.scale',
-      stops: [
-        { value: 4000, size: 18 },
-        { value: 18000, size: 15 },
-        { value: 50000, size: 9 },
-        { value: 160000, size: 6 }
-      ]
-    }]
+    defaultSymbol: wrap(withScale(
+      buildHydrometricCimSymbol(FRESHNESS_CLASS.STALE),
+      PI_LOCAL_INSTRUMENT_MIN_SCALE,
+      0
+    )),
+    uniqueValueInfos: infos
   };
 }
 

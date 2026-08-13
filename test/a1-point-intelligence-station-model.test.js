@@ -9,8 +9,10 @@ import {
   proofStationAssetKey
 } from '../public/spatial/point-intelligence-station-model.js';
 import {
+  PI_LOCAL_INSTRUMENT_MIN_SCALE,
   buildHydrometricCimSymbol,
   buildProofStationRenderer,
+  buildRegionalFireflyCimSymbol,
   buildWeatherCimSymbol
 } from '../public/spatial/point-intelligence-station-symbols.js';
 
@@ -216,6 +218,14 @@ test('CIM symbols are static multilayer point references', () => {
   const renderer = buildProofStationRenderer();
   assert.equal(renderer.type, 'unique-value');
   assert.equal(renderer.field, 'rendererKey');
+  assert.equal(renderer.visualVariables, undefined);
   assert.ok(renderer.uniqueValueInfos.some((info) => info.value === 'hydrometric-CURRENT'));
   assert.ok(renderer.uniqueValueInfos.some((info) => info.value === 'weather-STALE'));
+  const fireflyInfo = renderer.uniqueValueInfos.find((info) => info.value === 'hydrometric-CURRENT-inside');
+  assert.equal(fireflyInfo.symbol.data.maxScale, PI_LOCAL_INSTRUMENT_MIN_SCALE);
+  assert.equal(fireflyInfo.alternateSymbols.length, 1);
+  assert.equal(fireflyInfo.alternateSymbols[0].data.minScale, PI_LOCAL_INSTRUMENT_MIN_SCALE);
+  const fireflySymbol = buildRegionalFireflyCimSymbol('hydrometric', FRESHNESS_CLASS.CURRENT);
+  assert.equal(fireflySymbol.data.symbol.animations, undefined);
+  assert.equal(fireflySymbol.data.symbol.type, 'CIMPointSymbol');
 });

@@ -217,20 +217,25 @@ export async function ensurePointIntelligenceStationLayer() {
     return stationLayer;
   }
 
-  const [FeatureLayer, CIMSymbol, UniqueValueRenderer, LabelClass] = await Promise.all([
+  const [FeatureLayer, CIMSymbol, UniqueValueRenderer, UniqueValueInfo, LabelClass] = await Promise.all([
     importArc('@arcgis/core/layers/FeatureLayer.js'),
     importArc('@arcgis/core/symbols/CIMSymbol.js'),
     importArc('@arcgis/core/renderers/UniqueValueRenderer.js'),
+    importArc('@arcgis/core/renderers/support/UniqueValueInfo.js'),
     importArc('@arcgis/core/layers/support/LabelClass.js')
   ]);
 
   const rendererSpec = buildProofStationRenderer(CIMSymbol);
-  const rendererProps = { ...rendererSpec };
-  delete rendererProps.type;
-  const visualVariables = rendererProps.visualVariables;
-  delete rendererProps.visualVariables;
-  const renderer = new UniqueValueRenderer(rendererProps);
-  if (visualVariables) renderer.visualVariables = visualVariables;
+  const renderer = new UniqueValueRenderer({
+    field: rendererSpec.field,
+    defaultSymbol: rendererSpec.defaultSymbol,
+    uniqueValueInfos: rendererSpec.uniqueValueInfos.map((info) => new UniqueValueInfo({
+      value: info.value,
+      label: info.label,
+      symbol: info.symbol,
+      alternateSymbols: info.alternateSymbols || []
+    }))
+  });
   stationLayer = new FeatureLayer({
     id: POINT_INTEL_STATION_LAYER_ID,
     title: 'Point Intelligence stations',

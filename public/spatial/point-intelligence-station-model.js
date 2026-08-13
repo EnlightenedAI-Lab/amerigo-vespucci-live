@@ -387,7 +387,7 @@ export function formatProofHoverModel(record) {
   if (!record) return null;
   const lines = [];
   const title = record.stationId || record.stationName || 'Station';
-  const familyLabel = record.family === 'hydrometric' ? 'HYDROMETRIC' : 'SWOB WEATHER';
+  const familyLabel = record.family === 'hydrometric' ? 'HYDROMETRIC' : 'WEATHER';
   if (record.primaryValue != null && record.primaryUnit && record.primaryLabel) {
     const value = Number.isInteger(record.primaryValue)
       ? String(record.primaryValue)

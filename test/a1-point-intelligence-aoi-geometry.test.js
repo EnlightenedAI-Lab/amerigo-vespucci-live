@@ -176,8 +176,10 @@ test('hover copy distinguishes inside acquisition from supporting observation', 
   );
   const inside = formatProofHoverModel(records.find((row) => row.stationId === 'WTA'));
   const external = formatProofHoverModel(records.find((row) => row.stationId === '02OA016'));
+  assert.equal(inside.familyLabel, 'WEATHER');
   assert.match(inside.lines.join('\n'), /INSIDE ACQUISITION AREA/);
   assert.doesNotMatch(inside.lines.join('\n'), /SUPPORTING/);
+  assert.equal(external.familyLabel, 'HYDROMETRIC');
   assert.match(external.lines.join('\n'), /OUTSIDE AOI/);
   assert.match(external.lines.join('\n'), /SUPPORTING OBSERVATION/);
   assert.doesNotMatch(external.lines.join('\n'), /local observation/i);
@@ -251,7 +253,8 @@ test('acquisition summary stays compact', () => {
   );
   const summary = summarizeAoiConstellation(records);
   const html = renderAcquisitionSummaryHtml(summary);
-  assert.match(html, /ACQUISITION ZONE/);
+  assert.match(html, /SENSOR ACQUISITION/);
+  assert.match(html, /sensor families/);
   assert.match(html, /INSIDE/);
   assert.match(html, /SUPPORTING/);
   assert.doesNotMatch(html, /dashboard/i);

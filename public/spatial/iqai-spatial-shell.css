@@ -2143,6 +2143,10 @@
   gap: 0.35rem;
 }
 
+.pi-control__area[hidden] {
+  display: none;
+}
+
 .pi-acquisition-summary {
   margin-top: 0.4rem;
   padding: 0.4rem 0.45rem;

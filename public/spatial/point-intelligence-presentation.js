@@ -1011,9 +1011,9 @@ export function renderAcquisitionSummaryHtml(summary) {
   if (!summary || !Number.isFinite(summary.stationCount)) return '';
   const freshness = summary.freshness || {};
   return `
-    <div class="pi-acquisition-summary" aria-label="Acquisition zone">
-      <div class="pi-acquisition-summary__title">ACQUISITION ZONE</div>
-      <div class="pi-acquisition-summary__line">${summary.stationCount} stations · ${summary.familyCount} observation families</div>
+    <div class="pi-acquisition-summary" aria-label="Sensor acquisition">
+      <div class="pi-acquisition-summary__title">SENSOR ACQUISITION</div>
+      <div class="pi-acquisition-summary__line">${summary.stationCount} stations · ${summary.familyCount} sensor families</div>
       <dl class="pi-acquisition-summary__grid">
         <div><dt>INSIDE</dt><dd>${summary.insideCount ?? 0}</dd></div>
         <div><dt>SUPPORTING</dt><dd>${summary.supportingCount ?? 0}</dd></div>
