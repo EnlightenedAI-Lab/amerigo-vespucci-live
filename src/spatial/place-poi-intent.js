@@ -1,18 +1,29 @@
 /**
- * PLACE_POI_SEARCH V1 — bounded natural-language intent parser.
+ * Dynamic place search — bounded natural-language intent parser.
  */
 
 export const POI_LOCATION_ALIASES = Object.freeze({
   'old montréal': 'Old Montréal, Montréal, QC',
   'old montreal': 'Old Montréal, Montréal, QC',
   'vieux-montréal': 'Old Montréal, Montréal, QC',
-  'vieux-montreal': 'Old Montréal, Montréal, QC'
+  'vieux-montreal': 'Old Montréal, Montréal, QC',
+  'montreal airport': 'Montréal–Trudeau International Airport, Montréal, QC',
+  'montréal airport': 'Montréal–Trudeau International Airport, Montréal, QC',
+  'yul': 'Montréal–Trudeau International Airport, Montréal, QC',
+  'trudeau airport': 'Montréal–Trudeau International Airport, Montréal, QC',
+  'bell centre': 'Bell Centre, Montréal, QC',
+  'bell center': 'Bell Centre, Montréal, QC',
+  'centre bell': 'Bell Centre, Montréal, QC',
+  'place ville marie': 'Place Ville Marie, Montréal, QC',
+  'mcgill university': 'McGill University, Montréal, QC',
+  'mcgill': 'McGill University, Montréal, QC'
 });
 
 export const DEFAULT_NEAR_RADIUS_METERS = 1500;
 export const DEFAULT_NEAREST_SEARCH_RADIUS_METERS = 5000;
+export const DYNAMIC_PLACE_ROUTE = 'DYNAMIC_PLACE_SEARCH';
 
-const POI_VERB = /^(?:map|show|find|display)\b/i;
+const AUTHORITATIVE_GIS_SUBJECT = /\b(fire stations?|police stations?|hospitals?|schools?|toilets?|bathrooms?|washrooms?|restrooms?|public toilets?|\bwc\b|casernes?|pompiers?|postes? de (?:police|quartier)|pdq)\b/i;
 
 const COUNT_WORDS = Object.freeze({
   one: 1,
@@ -33,6 +44,10 @@ function parseCountToken(token = '') {
   return COUNT_WORDS[trimmed] ?? null;
 }
 
+export function isAuthoritativeGisSubject(text = '') {
+  return AUTHORITATIVE_GIS_SUBJECT.test(String(text || ''));
+}
+
 /**
  * @param {string} placeText
  */
@@ -41,23 +56,35 @@ export function resolvePoiSpec(placeText = '') {
   const lower = text.toLowerCase();
 
   if (/\bstarbucks\b/i.test(lower)) {
-    return { kind: 'brand', label: 'Starbucks', namePattern: 'Starbucks', category: 'coffee_shop' };
+    return { kind: 'brand', label: 'Starbucks', namePattern: 'Starbucks', searchText: 'Starbucks', category: 'coffee_shop' };
+  }
+  if (/\bcostco\b/i.test(lower)) {
+    return { kind: 'brand', label: 'Costco', namePattern: 'Costco', searchText: 'Costco', category: 'warehouse_club' };
   }
   if (/\b(coffee shops?|cafés?|cafes?)\b/i.test(lower)) {
-    return { kind: 'category', label: 'Coffee shops', amenity: 'cafe', category: 'cafe' };
+    return { kind: 'category', label: 'Coffee shops', amenity: 'cafe', searchText: 'coffee shop', category: 'cafe' };
   }
   if (/\bpharmacies?\b/i.test(lower)) {
-    return { kind: 'category', label: 'Pharmacies', amenity: 'pharmacy', category: 'pharmacy' };
+    return { kind: 'category', label: 'Pharmacies', amenity: 'pharmacy', searchText: 'pharmacy', category: 'pharmacy' };
   }
   if (/\brestaurants?\b/i.test(lower)) {
-    return { kind: 'category', label: 'Restaurants', amenity: 'restaurant', category: 'restaurant' };
+    return { kind: 'category', label: 'Restaurants', amenity: 'restaurant', searchText: 'restaurant', category: 'restaurant' };
   }
   if (/\bgas stations?\b/i.test(lower)) {
-    return { kind: 'category', label: 'Gas stations', amenity: 'fuel', category: 'fuel' };
+    return { kind: 'category', label: 'Gas stations', amenity: 'fuel', searchText: 'gas station', category: 'fuel' };
+  }
+  if (/\bhotels?\b/i.test(lower)) {
+    return { kind: 'category', label: 'Hotels', amenity: 'hotel', searchText: 'hotel', category: 'hotel' };
+  }
+  if (/\b(grocery stores?|groceries|supermarkets?)\b/i.test(lower)) {
+    return { kind: 'category', label: 'Grocery stores', amenity: 'supermarket', searchText: 'grocery', category: 'grocery' };
+  }
+  if (/\bhardware stores?\b/i.test(lower)) {
+    return { kind: 'category', label: 'Hardware stores', searchText: 'hardware store', namePattern: 'hardware', category: 'hardware' };
   }
 
   const cleaned = text.replace(/^(?:the|all)\s+/i, '').trim();
-  return { kind: 'brand', label: cleaned, namePattern: cleaned, category: 'place' };
+  return { kind: 'brand', label: cleaned, namePattern: cleaned, searchText: cleaned, category: 'place' };
 }
 
 function parseDistanceMeters(value, unit) {
@@ -68,12 +95,44 @@ function parseDistanceMeters(value, unit) {
   return Math.round(amount);
 }
 
+export function formatDynamicPlaceLayerTitle(label, radiusMeters, mode = 'WITHIN') {
+  const safeLabel = String(label || 'Places').trim();
+  if (mode === 'NEAREST') return `AI MAP · ${safeLabel} · nearest`;
+  const meters = Number(radiusMeters);
+  if (!Number.isFinite(meters) || meters <= 0) return `AI MAP · ${safeLabel}`;
+  if (meters >= 1000 && meters % 1000 === 0) return `AI MAP · ${safeLabel} · ${meters / 1000} km`;
+  if (meters >= 1000) return `AI MAP · ${safeLabel} · ${Number((meters / 1000).toFixed(1))} km`;
+  return `AI MAP · ${safeLabel} · ${Math.round(meters)} m`;
+}
+
+export function normalizePlacePrompt(prompt = '') {
+  let result = String(prompt || '').trim().replace(/[.?!]+$/g, '').trim();
+  result = result.replace(
+    /\b(show|map|display|find|locate)\s+(.+?)\s+(\d+(?:\.\d+)?)\s*(?:m|metres?|meters?)\s+(?:from|of|around|near)\s+(.+)$/i,
+    (_, verb, dataset, meters, location) => {
+      const km = parseFloat(meters) / 1000;
+      return `${verb} ${dataset.trim()} within ${km} km of ${location.trim()}`;
+    }
+  );
+  result = result.replace(
+    /\bwithin\s+(\d+(?:\.\d+)?)\s*(?:m|metres?|meters?)\s+(?:of|from)\s+/gi,
+    (_, meters) => `within ${parseFloat(meters) / 1000} km of `
+  );
+  return result.replace(/\s+/g, ' ').trim();
+}
+
+function resolveLocationText(locationText) {
+  const trimmed = String(locationText || '').trim();
+  const alias = POI_LOCATION_ALIASES[trimmed.toLowerCase()];
+  return alias || trimmed;
+}
+
 /**
  * @param {string} prompt
  */
 export function parsePlacePoiIntent(prompt = '') {
-  const raw = String(prompt).trim().replace(/[.?!]+$/g, '').trim();
-  if (!raw || !POI_VERB.test(raw)) return null;
+  const raw = normalizePlacePrompt(prompt);
+  if (!raw) return null;
 
   let limit = null;
   let mode = 'NEAR';
@@ -82,14 +141,25 @@ export function parsePlacePoiIntent(prompt = '') {
   let locationText = null;
   let usesHere = false;
 
-  const nearestWithin = raw.match(
-    /^(?:map|show|find|display)\s+(?:the\s+)?(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+(?:nearest|closest)\s+(.+?)\s+(?:to|near)\s+(.+)$/i
+  const nearestCounted = raw.match(
+    /^(?:(?:map|show|find|display)\s+)?(?:the\s+)?(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+(?:nearest|closest)\s+(.+?)\s+(?:to|near|of)\s+(.+)$/i
   );
-  if (nearestWithin) {
-    limit = parseCountToken(nearestWithin[1]);
-    placeText = nearestWithin[2].trim();
-    locationText = nearestWithin[3].trim();
+  if (nearestCounted) {
+    limit = parseCountToken(nearestCounted[1]);
+    placeText = nearestCounted[2].trim();
+    locationText = nearestCounted[3].trim();
     mode = 'NEAREST';
+    radiusMeters = DEFAULT_NEAREST_SEARCH_RADIUS_METERS;
+  }
+
+  const nearestBare = raw.match(
+    /^(?:(?:map|show|find|display)\s+)?(?:the\s+)?(?:nearest|closest)\s+(.+?)\s+(?:to|near|of)\s+(.+)$/i
+  );
+  if (!placeText && nearestBare) {
+    placeText = nearestBare[1].trim();
+    locationText = nearestBare[2].trim();
+    mode = 'NEAREST';
+    limit = 1;
     radiusMeters = DEFAULT_NEAREST_SEARCH_RADIUS_METERS;
   }
 
@@ -117,21 +187,21 @@ export function parsePlacePoiIntent(prompt = '') {
   }
 
   if (!placeText || !locationText) return null;
+  if (isAuthoritativeGisSubject(placeText) || isAuthoritativeGisSubject(raw)) return null;
 
   if (/^here$/i.test(locationText) || /^this location$/i.test(locationText)) {
     usesHere = true;
   } else {
-    const alias = POI_LOCATION_ALIASES[locationText.toLowerCase()];
-    if (alias) locationText = alias;
+    locationText = resolveLocationText(locationText);
   }
 
   const poi = resolvePoiSpec(placeText);
-  const layerTitle = mode === 'NEAREST' && limit
-    ? `${limit} nearest ${poi.label} near ${locationText}`
-    : `${poi.label} near ${locationText}`;
+  const layerTitle = formatDynamicPlaceLayerTitle(poi.label, radiusMeters, mode);
 
   return {
-    sourceText: raw,
+    sourceText: String(prompt || '').trim(),
+    normalizedText: raw,
+    route: DYNAMIC_PLACE_ROUTE,
     poi,
     placeText,
     locationText,

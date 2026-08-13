@@ -17,12 +17,15 @@ export const SPATIAL_CAPABILITY = Object.freeze({
   CROSS_AGENT_SPATIAL: 'CROSS_AGENT_SPATIAL',
   ARCGIS_DATA_DISCOVERY: 'ARCGIS_DATA_DISCOVERY',
   PLACE_POI_SEARCH: 'PLACE_POI_SEARCH',
+  DYNAMIC_PLACE_SEARCH: 'PLACE_POI_SEARCH',
   POINT_INTELLIGENCE: 'POINT_INTELLIGENCE',
   ROUTING: 'ROUTING',
   PERIMETER_ANALYSIS: 'PERIMETER_ANALYSIS',
   STREET_LEVEL_CONTEXT: 'STREET_LEVEL_CONTEXT',
   GENERAL_SPATIAL_ANALYSIS: 'GENERAL_SPATIAL_ANALYSIS'
 });
+
+export const DYNAMIC_PLACE_ROUTE = 'DYNAMIC_PLACE_SEARCH';
 
 const DETERMINISTIC_CONTROL_PATTERNS = [
   /^clear\s+map$/i,
@@ -33,18 +36,38 @@ const DETERMINISTIC_CONTROL_PATTERNS = [
 
 const PLACE_POI_ENTITY_PATTERNS = [
   /\bstarbucks\b/i,
+  /\bcostco\b/i,
   /\bcoffee shops?\b/i,
+  /\bcafés?\b/i,
+  /\bcafes?\b/i,
   /\brestaurants?\b/i,
-  /\bpharmacies\b/i,
+  /\bpharmacies?\b/i,
   /\bgas stations?\b/i,
+  /\bhotels?\b/i,
+  /\b(grocery stores?|groceries|supermarkets?)\b/i,
+  /\bhardware stores?\b/i,
   /\bshow all\b/i,
   /\bfind all\b/i,
   /\blist all\b/i
 ];
 
 const PLACE_POI_LOCATION_PATTERNS = [
-  /^(?:map|show|find)\b.+\b(near|around)\b/i,
+  /^(?:map|show|find|display)\b.+\b(near|around|within|from)\b/i,
+  /^(?:the\s+)?(?:nearest|closest)\b.+\b(?:to|near|of)\b/i,
   /\b(near|around)\s+\d+/i
+];
+
+const AUTHORITATIVE_GIS_PATTERNS = [
+  /\bfire stations?\b/i,
+  /\bpolice stations?\b/i,
+  /\bhospitals?\b/i,
+  /\bschools?\b/i,
+  /\b(toilets?|bathrooms?|washrooms?|restrooms?|public toilets?)\b/i,
+  /\bwc\b/i,
+  /\bcasernes?\b/i,
+  /\bpompiers?\b/i,
+  /\bpostes? de (?:police|quartier)\b/i,
+  /\bpdq\b/i
 ];
 
 const ROUTING_PATTERNS = [
@@ -90,9 +113,7 @@ const POINT_INTEL_PATTERNS = [
   /\bwhy\b.+\bevent\b/i
 ];
 
-const DETERMINISTIC_DATASET_PATTERNS = [
-  /\b(fire stations?|police stations?|schools?|hospitals?|stations?)\b/i
-];
+const DETERMINISTIC_DATASET_PATTERNS = AUTHORITATIVE_GIS_PATTERNS;
 
 /**
  * @param {string} text
@@ -123,6 +144,17 @@ export function isDeterministicGisQuery(text = '') {
 }
 
 /**
+ * Registered / authoritative GIS subjects must not go through generic place search.
+ * Intentionally excludes "gas station" (commercial POI, not the fire/police station datasets).
+ * @param {string} text
+ */
+export function isAuthoritativeGisObjective(text = '') {
+  const raw = String(text || '').trim();
+  if (!raw) return false;
+  return AUTHORITATIVE_GIS_PATTERNS.some((pattern) => pattern.test(raw));
+}
+
+/**
  * @param {string} text
  */
 export function isPlacePoiObjective(text = '') {
@@ -130,17 +162,21 @@ export function isPlacePoiObjective(text = '') {
   if (!raw) return false;
   if (hasIntelligenceResearchSemantics(raw)) return false;
   if (isArcgisDataDiscoveryObjective(raw)) return false;
-  if (DETERMINISTIC_DATASET_PATTERNS.some((pattern) => pattern.test(raw))
-    && /\b(within|nearest)\b/i.test(raw)) {
-    return false;
-  }
+  if (isAuthoritativeGisObjective(raw)) return false;
   if (PLACE_POI_ENTITY_PATTERNS.some((pattern) => pattern.test(raw))) return true;
   if (PLACE_POI_LOCATION_PATTERNS.some((pattern) => pattern.test(raw))
     && !/\b(layer|arcgis|living atlas|authoritative)\b/i.test(raw)) {
     return true;
   }
+  if ((/^(?:map|show|find|display)\b/i.test(raw) || /^(?:the\s+)?(?:nearest|closest)\b/i.test(raw))
+    && hasExplicitSpatialIntent(raw)
+    && !/\b(layer|arcgis|living atlas|authoritative)\b/i.test(raw)) {
+    return true;
+  }
   return false;
 }
+
+export const isDynamicPlaceSearchObjective = isPlacePoiObjective;
 
 /**
  * @param {string} text
@@ -180,22 +216,6 @@ export function planSpatialCapability(userRequest, context = {}) {
       executionAuthority: 'MAP_COMMAND',
       available: true,
       clarificationNeeded: null
-    };
-  }
-
-  if (isPlacePoiObjective(text)) {
-    const enabled = isPlacePoiV1Enabled();
-    return {
-      capability: SPATIAL_CAPABILITY.PLACE_POI_SEARCH,
-      confidence: 0.9,
-      parsedIntent: { sourceText: text },
-      requiredInputs: ['placeQuery', 'geography'],
-      executionAuthority: enabled ? 'PLACE_POI_SERVICE' : null,
-      available: enabled,
-      clarificationNeeded: enabled ? null : 'CAPABILITY_NOT_YET_AVAILABLE',
-      message: enabled
-        ? null
-        : 'Place / POI search is recognized but not yet available in IQAI Spatial V1.'
     };
   }
 
@@ -248,6 +268,35 @@ export function planSpatialCapability(userRequest, context = {}) {
         clarificationNeeded: null
       };
     }
+  }
+
+  if (isAuthoritativeGisObjective(text) && (isDeterministicGisQuery(text) || hasExplicitSpatialIntent(text))) {
+    return {
+      capability: SPATIAL_CAPABILITY.DETERMINISTIC_GIS,
+      confidence: 0.94,
+      parsedIntent: { sourceText: text, route: 'REGISTERED_GIS' },
+      requiredInputs: ['prompt'],
+      executionAuthority: 'MAP_COMMAND',
+      available: true,
+      clarificationNeeded: null
+    };
+  }
+
+  if (isPlacePoiObjective(text)) {
+    const enabled = isPlacePoiV1Enabled();
+    return {
+      capability: SPATIAL_CAPABILITY.PLACE_POI_SEARCH,
+      confidence: 0.9,
+      parsedIntent: { sourceText: text, route: DYNAMIC_PLACE_ROUTE },
+      requiredInputs: ['placeQuery', 'geography'],
+      executionAuthority: enabled ? 'PLACE_POI_SERVICE' : null,
+      available: enabled,
+      clarificationNeeded: enabled ? null : 'CAPABILITY_NOT_YET_AVAILABLE',
+      route: DYNAMIC_PLACE_ROUTE,
+      message: enabled
+        ? null
+        : 'Place / POI search is recognized but not yet available in IQAI Spatial V1.'
+    };
   }
 
   if (isDeterministicGisQuery(text)) {

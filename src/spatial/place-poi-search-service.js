@@ -1,99 +1,83 @@
 /**
- * PLACE_POI_SEARCH V1 — Esri-first deterministic place search.
+ * DYNAMIC_PLACE_SEARCH — governed AI MAP place / POI execution.
  * Geocoding: ArcGIS World GeocodeServer
- * POI records: Esri-hosted OSM_NA_Amenities FeatureServer (approved external source)
+ * Places: ArcGIS Places near-point, with approved OSM_NA_Amenities fallback
  */
 import { randomUUID } from 'node:crypto';
 import { geocodeMontrealMapLocation } from './public-safety-geocode.js';
-import { getApprovedExternalSource, SOURCE_IDS } from './approved-external-source-registry.js';
-import { haversineDistanceMeters } from './public-safety-geometry.js';
-import { selectNearest, attachDistanceLabels, formatRadiusKm } from './spatial-operations.js';
-import { validateGeographicCoordinates } from './external-feature-query.js';
+import { SOURCE_IDS } from './approved-external-source-registry.js';
+import { attachDistanceLabels, formatRadiusKm } from './spatial-operations.js';
 import { buildMapActionPlanFromMapResult } from './orchestrator/map-action-plan-builder.js';
 import { validateMapActionPlan } from './orchestrator/map-action-validator.js';
 import { parsePlacePoiIntent, isPlacePoiV1Enabled } from './place-poi-intent.js';
+import { searchPlaces, PLACE_PROVIDERS } from './places-provider.js';
+import {
+  DYNAMIC_PLACE_ROUTE,
+  DYNAMIC_PLACE_STATUS,
+  isSuccessfulPlaceStatus
+} from './dynamic-place-search-status.js';
 
-const QUERY_TIMEOUT_MS = 30_000;
-
-function escapeSqlLiteral(value) {
-  return String(value || '').replace(/'/g, "''");
+function toMapPlace(normalized, poi) {
+  const place = {
+    placeId: normalized.id,
+    featureId: normalized.id,
+    name: normalized.name,
+    latitude: normalized.latitude,
+    longitude: normalized.longitude,
+    geometry: { type: 'Point', coordinates: [normalized.longitude, normalized.latitude] },
+    provider: normalized.provider,
+    providerId: normalized.providerId,
+    retrievedAt: normalized.retrievedAt,
+    iqaiType: 'place_poi',
+    sourceName: poi.label,
+    spatialPrecision: normalized.provider === PLACE_PROVIDERS.ARCGIS_PLACES
+      ? 'ArcGIS Places near-point'
+      : 'ArcGIS FeatureServer headless query'
+  };
+  if (normalized.category) place.category = normalized.category;
+  if (normalized.amenity) place.amenity = normalized.amenity;
+  if (normalized.address) place.address = normalized.address;
+  if (Number.isFinite(normalized.distanceMeters)) place.distanceMeters = normalized.distanceMeters;
+  return place;
 }
 
-function buildPoiWhereClause(poi = {}) {
-  const parts = [];
-  if (poi.amenity) {
-    parts.push(`amenity = '${escapeSqlLiteral(poi.amenity)}'`);
-  }
-  if (poi.namePattern) {
-    const pattern = escapeSqlLiteral(poi.namePattern);
-    parts.push(`(UPPER(name) LIKE UPPER('%${pattern}%') OR UPPER(name_en) LIKE UPPER('%${pattern}%') OR UPPER(name_fr) LIKE UPPER('%${pattern}%'))`);
-  }
-  return parts.length ? parts.join(' AND ') : '1=1';
-}
-
-function layerQueryUrl(source) {
-  return `${String(source.serviceUrl).replace(/\/$/, '')}/${source.layerId}/query`;
-}
-
-async function fetchJson(url, fetchFn) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), QUERY_TIMEOUT_MS);
-  try {
-    const response = await fetchFn(url, { signal: controller.signal });
-    if (!response.ok) return { ok: false, error: `HTTP ${response.status}` };
-    const data = await response.json();
-    if (data?.error) return { ok: false, error: data.error.message || 'ArcGIS query error' };
-    return { ok: true, data };
-  } catch (error) {
-    return { ok: false, error: error?.message || 'Request failed' };
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-function normalizePoiFeature(rawFeature, poi, origin, source, queryReceiptId) {
-  const raw = rawFeature.attributes || {};
-  const geometry = rawFeature.geometry || {};
-  const longitude = geometry.x;
-  const latitude = geometry.y;
-  const coordCheck = validateGeographicCoordinates(longitude, latitude, source.id);
-  if (!coordCheck.ok) throw new Error(coordCheck.message);
-
-  const objectId = raw.OBJECTID ?? raw.ObjectID ?? null;
-  const street = [raw.addr_housenumber, raw.addr_street].filter(Boolean).join(' ').trim();
-  const city = raw.addr_city || raw.addr_state || '';
-  const address = [street, city].filter(Boolean).join(', ') || null;
-
+function buildProvenance({
+  intent,
+  origin,
+  geocodeReceipt,
+  searchResult,
+  places,
+  status
+}) {
   return {
-    placeId: `osm:${objectId}`,
-    featureId: `poi:${objectId}`,
-    objectId,
-    name: raw.name || raw.name_en || raw.name_fr || poi.label,
-    category: poi.category || poi.amenity || 'place',
-    amenity: raw.amenity || poi.amenity || null,
-    address,
-    latitude,
-    longitude,
-    geometry: { type: 'Point', coordinates: [longitude, latitude] },
-    provider: source.id,
-    providerLayerRef: `${source.id}:${source.layerId}`,
-    sourceReceipt: {
-      queryReceiptId,
-      sourceId: source.id,
-      providerLayerRef: `${source.id}:${source.layerId}`,
-      objectId,
-      osmId: raw.osm_id || null
-    }
+    route: DYNAMIC_PLACE_ROUTE,
+    userPrompt: intent.sourceText,
+    placeQuery: intent.placeText,
+    anchorText: origin.locationText,
+    resolvedAnchor: origin.matchedAddress || origin.locationText,
+    anchorCoordinates: {
+      latitude: origin.latitude,
+      longitude: origin.longitude
+    },
+    radiusMeters: intent.radiusMeters,
+    provider: searchResult.provider,
+    providerQuery: searchResult.providerQuery,
+    retrievedAt: searchResult.retrievedAt,
+    resultCount: places.length,
+    providerIds: places.map((place) => place.providerId).filter(Boolean),
+    distances: places
+      .map((place) => place.distanceMeters)
+      .filter((value) => Number.isFinite(value)),
+    status,
+    fallbackFrom: searchResult.fallbackFrom || null,
+    fallbackReason: searchResult.fallbackReason || null
   };
 }
 
 function buildMapResultFromPlaces(intent, origin, places, provenance, geocodeReceipt) {
   const features = places.map((place) => ({
     ...place,
-    displayName: place.name,
-    iqaiType: 'place_poi',
-    sourceName: intent.poi.label,
-    spatialPrecision: 'ArcGIS FeatureServer headless query'
+    displayName: place.name
   }));
 
   return {
@@ -101,7 +85,9 @@ function buildMapResultFromPlaces(intent, origin, places, provenance, geocodeRec
     action: intent.mode === 'NEAREST' ? 'NEAREST' : 'WITHIN',
     prompt: intent.sourceText,
     capability: 'PLACE_POI_SEARCH',
+    route: DYNAMIC_PLACE_ROUTE,
     layerTitle: intent.layerTitle,
+    ephemeral: true,
     origin: {
       latitude: origin.latitude,
       longitude: origin.longitude,
@@ -120,16 +106,18 @@ function buildMapResultFromPlaces(intent, origin, places, provenance, geocodeRec
       datasetId: `poi:${intent.poi.label}`,
       conceptId: `POI:${intent.poi.category || intent.poi.label}`,
       displayName: intent.poi.label,
-      sourceId: SOURCE_IDS.OSM_NA_AMENITIES,
-      authority: 'OpenStreetMap Amenities / OSM_NA_Amenities',
+      sourceId: provenance.provider || SOURCE_IDS.OSM_NA_AMENITIES,
+      authority: provenance.provider === PLACE_PROVIDERS.ARCGIS_PLACES
+        ? 'ArcGIS Places'
+        : 'OpenStreetMap Amenities / OSM_NA_Amenities',
       iqaiType: 'place_poi',
       matchedFeatures: features.length,
       features,
       provenance
     }],
     summary: {
-      status: 'Controlled',
-      execution: 'PLACE_POI_SEARCH',
+      status: provenance.status,
+      execution: DYNAMIC_PLACE_ROUTE,
       matchedFeatures: features.length,
       radiusMeters: intent.radiusMeters,
       limit: intent.limit || null,
@@ -139,16 +127,31 @@ function buildMapResultFromPlaces(intent, origin, places, provenance, geocodeRec
       displayMode: 'scoped'
     },
     source: {
-      id: SOURCE_IDS.OSM_NA_AMENITIES,
-      name: 'Esri OSM North America Amenities',
-      authority: 'OpenStreetMap via ArcGIS FeatureServer',
-      catalogueUrl: provenance.catalogueUrl,
+      id: provenance.provider,
+      name: provenance.provider === PLACE_PROVIDERS.ARCGIS_PLACES
+        ? 'ArcGIS Places'
+        : 'Esri OSM North America Amenities',
+      authority: provenance.provider === PLACE_PROVIDERS.ARCGIS_PLACES
+        ? 'Esri Places Service'
+        : 'OpenStreetMap via ArcGIS FeatureServer',
       trust: 'TRUSTED_EXTERNAL'
     },
     geocodeReceipt,
     queryReceipt: provenance,
+    provenance,
     resolvedLocationText: origin.locationText,
     matchedAddress: origin.matchedAddress
+  };
+}
+
+function failureResult(code, message, extra = {}) {
+  return {
+    ok: false,
+    status: extra.status || code,
+    code,
+    message,
+    route: DYNAMIC_PLACE_ROUTE,
+    ...extra
   };
 }
 
@@ -159,23 +162,27 @@ function buildMapResultFromPlaces(intent, origin, places, provenance, geocodeRec
 export async function executePlacePoiSearch(input = {}, options = {}) {
   const started = Date.now();
   if (!isPlacePoiV1Enabled()) {
-    return { ok: false, code: 'DISABLED', message: 'Place POI search is disabled.' };
+    return failureResult('DISABLED', 'Place POI search is disabled.', {
+      status: DYNAMIC_PLACE_STATUS.EXECUTION_FAILURE
+    });
   }
 
   const intent = input.intent || parsePlacePoiIntent(input.prompt);
   if (!intent) {
-    return { ok: false, code: 'UNRECOGNIZED_PROMPT', message: 'Could not parse place POI request.' };
-  }
-
-  const source = getApprovedExternalSource(SOURCE_IDS.OSM_NA_AMENITIES);
-  if (!source) {
-    return { ok: false, code: 'PROVIDER_UNAVAILABLE', message: 'Approved POI provider is not registered.' };
+    return failureResult(
+      DYNAMIC_PLACE_STATUS.QUERY_NOT_UNDERSTOOD,
+      'Could not parse dynamic place search request.',
+      { status: DYNAMIC_PLACE_STATUS.QUERY_NOT_UNDERSTOOD }
+    );
   }
 
   let origin = input.originContext || null;
   if (intent.usesHere) {
     if (!origin?.latitude || !origin?.longitude) {
-      return { ok: false, code: 'HERE_CONTEXT_REQUIRED', message: 'Select a map location or provide an explicit address instead of "here".' };
+      return failureResult('HERE_CONTEXT_REQUIRED', 'Select a map location or provide an explicit address instead of "here".', {
+        status: DYNAMIC_PLACE_STATUS.ANCHOR_NOT_RESOLVED,
+        intent
+      });
     }
     origin = {
       latitude: origin.latitude,
@@ -195,12 +202,15 @@ export async function executePlacePoiSearch(input = {}, options = {}) {
       });
     }
     if (!geocode.ok) {
-      return {
-        ok: false,
-        code: 'GEOCODE_FAILED',
-        message: geocode.message,
-        performance: { geocodeMs: Date.now() - geocodeStarted }
-      };
+      return failureResult(
+        DYNAMIC_PLACE_STATUS.ANCHOR_NOT_RESOLVED,
+        geocode.message,
+        {
+          status: DYNAMIC_PLACE_STATUS.ANCHOR_NOT_RESOLVED,
+          intent,
+          performance: { geocodeMs: Date.now() - geocodeStarted }
+        }
+      );
     }
     origin = {
       latitude: geocode.candidate.latitude,
@@ -221,88 +231,70 @@ export async function executePlacePoiSearch(input = {}, options = {}) {
     longitude: origin.longitude
   };
 
-  const fetchFn = options.fetchFn || globalThis.fetch;
-  const where = buildPoiWhereClause(intent.poi);
-  const spatialParams = new URLSearchParams({
-    geometry: `${origin.longitude},${origin.latitude}`,
-    geometryType: 'esriGeometryPoint',
-    spatialRel: 'esriSpatialRelIntersects',
-    distance: String(intent.radiusMeters),
-    units: 'esriSRUnit_Meter',
-    inSR: '4326'
-  });
-
-  const queryReceiptId = randomUUID();
   const queryStarted = Date.now();
-  const outFields = source.fields.join(',');
-  const fetchUrl = `${layerQueryUrl(source)}?where=${encodeURIComponent(where)}&outFields=${encodeURIComponent(outFields)}&returnGeometry=true&outSR=4326&f=json&resultRecordCount=2000&${spatialParams.toString()}`;
-  const fetchResult = await fetchJson(fetchUrl, fetchFn);
-  if (!fetchResult.ok) {
-    return {
-      ok: false,
-      code: 'PROVIDER_UNAVAILABLE',
-      message: fetchResult.error || 'POI provider query failed.',
-      geocodeReceipt,
-      performance: { timeToFirstPOIMs: Date.now() - queryStarted }
-    };
-  }
-
-  const rawFeatures = fetchResult.data?.features || [];
-  let places = [];
+  let searchResult;
   try {
-    for (const feature of rawFeatures) {
-      places.push(normalizePoiFeature(feature, intent.poi, origin, source, queryReceiptId));
-    }
-  } catch (error) {
-    return { ok: false, code: 'INVALID_PROVIDER_GEOMETRY', message: error.message, geocodeReceipt };
+    searchResult = await searchPlaces({
+      query: intent.poi.searchText || intent.placeText,
+      point: { latitude: origin.latitude, longitude: origin.longitude },
+      radiusMeters: intent.radiusMeters,
+      limit: intent.mode === 'NEAREST' ? (intent.limit || 1) : intent.limit,
+      poi: intent.poi
+    }, options);
+  } catch {
+    return failureResult(
+      DYNAMIC_PLACE_STATUS.EXECUTION_FAILURE,
+      'Dynamic place search failed during provider query.',
+      { status: DYNAMIC_PLACE_STATUS.EXECUTION_FAILURE, geocodeReceipt, intent }
+    );
   }
 
+  if (!isSuccessfulPlaceStatus(searchResult.status)) {
+    return failureResult(
+      searchResult.status,
+      searchResult.message || 'Place provider query failed.',
+      {
+        status: searchResult.status,
+        intent,
+        geocodeReceipt,
+        queryReceipt: searchResult.providerQuery,
+        provider: searchResult.provider,
+        performance: { timeToFirstPOIMs: Date.now() - queryStarted }
+      }
+    );
+  }
+
+  let places = searchResult.places.map((item) => toMapPlace(item, intent.poi));
+  if (intent.mode !== 'NEAREST') {
+    places = places.filter((place) => (
+      !Number.isFinite(place.distanceMeters) || place.distanceMeters <= intent.radiusMeters
+    ));
+  }
+  places.sort((a, b) => (a.distanceMeters ?? 0) - (b.distanceMeters ?? 0));
   if (intent.mode === 'NEAREST' && intent.limit) {
-    places = selectNearest(places, origin, intent.limit);
-  } else {
-    places = places
-      .map((place) => ({
-        ...place,
-        distanceMeters: haversineDistanceMeters(
-          origin.latitude,
-          origin.longitude,
-          place.latitude,
-          place.longitude
-        )
-      }))
-      .filter((place) => place.distanceMeters <= intent.radiusMeters)
-      .sort((a, b) => a.distanceMeters - b.distanceMeters);
+    places = places.slice(0, intent.limit);
   }
   places = attachDistanceLabels(places);
 
-  const timeToFirstPOIMs = Date.now() - queryStarted;
-  const provenance = {
-    queryReceiptId,
-    sourceId: source.id,
-    sourceTitle: source.title,
-    provider: source.provider,
-    providerLayerRef: `${source.id}:${source.layerId}`,
-    geocoder: geocodeReceipt.geocoder,
-    spatialOperation: intent.mode,
-    radiusMeters: intent.radiusMeters,
-    radiusLabel: `${formatRadiusKm(intent.radiusMeters)} km`,
-    where,
-    resultCount: places.length,
-    queryTime: new Date().toISOString(),
-    catalogueUrl: source.provenance?.catalogueUrl || null,
-    attribution: source.attribution,
-    licence: source.licence
-  };
+  const status = places.length ? DYNAMIC_PLACE_STATUS.PASS : DYNAMIC_PLACE_STATUS.NO_VERIFIED_RESULTS;
+  const provenance = buildProvenance({
+    intent,
+    origin,
+    geocodeReceipt,
+    searchResult,
+    places,
+    status
+  });
 
   const mapResult = buildMapResultFromPlaces(intent, origin, places, provenance, geocodeReceipt);
   const taskResult = {
-    resultId: queryReceiptId,
+    resultId: randomUUID(),
     resultVersion: 1,
     output: { mapResult }
   };
   const mapActionPlan = buildMapActionPlanFromMapResult(taskResult, {
     graphId: input.graphId || randomUUID(),
-    sessionScope: input.sessionScope || `poi:${queryReceiptId}`
+    sessionScope: input.sessionScope || `poi:${taskResult.resultId}`
   });
   const validation = validateMapActionPlan(mapActionPlan, {
     sessionScope: mapActionPlan.sessionScope,
@@ -311,38 +303,47 @@ export async function executePlacePoiSearch(input = {}, options = {}) {
   });
 
   if (!validation.approved) {
-    return {
-      ok: false,
-      code: 'MAP_PLAN_REJECTED',
-      message: 'POI map action plan rejected by validator.',
-      validation,
-      geocodeReceipt,
-      queryReceipt: provenance
-    };
+    return failureResult(
+      DYNAMIC_PLACE_STATUS.EXECUTION_FAILURE,
+      'POI map action plan rejected by validator.',
+      {
+        status: DYNAMIC_PLACE_STATUS.EXECUTION_FAILURE,
+        code: 'MAP_PLAN_REJECTED',
+        validation,
+        geocodeReceipt,
+        queryReceipt: provenance,
+        intent
+      }
+    );
   }
 
   const message = places.length
     ? `Found ${places.length} ${intent.poi.label} result(s) near ${origin.matchedAddress || origin.locationText}.`
-    : `No ${intent.poi.label} results found within ${formatRadiusKm(intent.radiusMeters)} km of ${origin.matchedAddress || origin.locationText}.`;
+    : `No verified ${intent.poi.label} results within ${formatRadiusKm(intent.radiusMeters)} km of ${origin.matchedAddress || origin.locationText}.`;
 
   return {
     ok: true,
+    status,
+    code: status,
+    route: DYNAMIC_PLACE_ROUTE,
     intent,
     places,
     geocodeReceipt,
     queryReceipt: provenance,
+    provenance,
     mapResult,
     mapActionPlan,
     validation,
     layerTitle: intent.layerTitle,
     message,
     provider: {
-      service: 'OSM_NA_AMENITIES FeatureServer',
+      service: searchResult.provider,
       geocoder: 'ArcGIS World GeocodeServer',
-      esriPlacesApi: false
+      esriPlacesApi: searchResult.provider === PLACE_PROVIDERS.ARCGIS_PLACES,
+      fallbackFrom: searchResult.fallbackFrom || null
     },
     performance: {
-      timeToFirstPOIMs,
+      timeToFirstPOIMs: Date.now() - queryStarted,
       timeToRenderedPOIsMs: null,
       totalMs: Date.now() - started
     }

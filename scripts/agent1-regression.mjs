@@ -35,6 +35,7 @@ export const AGENT1_REGRESSION_FILES = [
   'test/a1-ai-map-capability-routing.test.js',
   'test/a1-ai-map-deterministic-handoff.test.js',
   'test/a1-place-poi-search.test.js',
+  'test/a1-dynamic-place-search.test.js',
   'test/a1-operator-acceptance-closeout.test.js',
   'test/a1-governed-intelligence-closeout.test.js',
   'test/a1-fidelity-strip.test.js',

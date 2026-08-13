@@ -1237,14 +1237,15 @@ async function buildDeterministicResultsLayer(mapResult, modules) {
           { fieldName: 'name', label: 'Name' },
           { fieldName: 'address', label: 'Address' },
           { fieldName: 'distanceLabel', label: 'Distance' },
-          { fieldName: 'sourceName', label: 'Source' }
+          { fieldName: 'sourceName', label: 'Source' },
+          { fieldName: 'provider', label: 'Provider' }
         ]
       }]
     };
 
   const layer = new FeatureLayer({
     id: DETERMINISTIC_RESULTS_LAYER_ID,
-    title: 'IQAI Deterministic Results',
+    title: mapResult.layerTitle || 'IQAI Deterministic Results',
     source: graphics,
     objectIdField: 'OBJECTID',
     fields: featureLayerFields(),
@@ -2070,6 +2071,7 @@ function featureCoordinates(feature) {
 }
 
 function buildGroupTitle(mapResult) {
+  if (mapResult.layerTitle) return mapResult.layerTitle;
   const action = mapResult.request?.action || mapResult.summary?.action;
   const datasetLabel = mapResult.summary?.dataset || 'Results';
   if (action === 'LOCATE') return 'IQAI — Locate';
@@ -2099,6 +2101,8 @@ function featureLayerFields() {
     { name: 'distanceMeters', type: 'double', nullable: true },
     { name: 'distanceLabel', type: 'string' },
     { name: 'sourceName', type: 'string' },
+    { name: 'provider', type: 'string' },
+    { name: 'providerId', type: 'string' },
     { name: 'authority', type: 'string' },
     { name: 'spatialPrecision', type: 'string' },
     { name: 'stationNumber', type: 'string' },
@@ -2119,6 +2123,8 @@ function featureAttributes(feature, dataset) {
     distanceMeters: feature.distanceMeters,
     distanceLabel: feature.distanceLabel || formatDistanceMeters(feature.distanceMeters),
     sourceName: feature.sourceName || dataset?.displayName || '—',
+    provider: feature.provider || '',
+    providerId: feature.providerId || '',
     authority: feature.authority || dataset?.authority || '',
     spatialPrecision: feature.spatialPrecision || 'Deterministic GIS',
     stationNumber: feature.stationNumber || '',
@@ -2667,5 +2673,8 @@ export async function clearMapResultsOnRuntime() {
   lastScopedQueryContext = null;
   clearIqaiSelection(true);
   deterministicResultsLayer = null;
+  if (typeof window !== 'undefined') {
+    window.__IQAI_DETERMINISTIC_LAYER__ = null;
+  }
   resetRendererDisplayState();
 }

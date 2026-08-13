@@ -795,24 +795,46 @@ export class AppShell {
         sessionScope: `${viaAiMap ? 'ai-map' : 'direct'}:${commandId}`,
         traceId: commandId
       });
-      const chain = ['Place POI search', result.executionReceipt?.mutatedMap ? 'Results mapped' : 'No map change'];
-      const message = result.message || result.error || 'Place POI search complete.';
+      const mapped = Boolean(result.executionReceipt?.mutatedMap);
+      const empty = result.status === 'NO_VERIFIED_RESULTS';
+      const chain = [
+        'Dynamic place search',
+        result.status || (result.ok ? 'PASS' : 'FAILED'),
+        mapped ? 'Results mapped' : (empty ? 'No verified results' : 'No map change')
+      ];
+      const message = result.message || result.error || 'Dynamic place search complete.';
+      const severity = !result.ok ? 'warning' : (empty ? 'warning' : 'success');
+      if (typeof window !== 'undefined') {
+        window.__IQAI_LAST_DYNAMIC_PLACE_SEARCH__ = {
+          prompt,
+          route: result.route || result.provenance?.route || 'DYNAMIC_PLACE_SEARCH',
+          status: result.status || result.code || null,
+          provider: result.provider?.service || result.provenance?.provider || null,
+          resultCount: result.places?.length ?? 0,
+          radiusMeters: result.intent?.radiusMeters ?? result.provenance?.radiusMeters ?? null,
+          anchor: result.geocodeReceipt?.matchedAddress || result.geocodeReceipt?.locationText || null,
+          layerTitle: result.layerTitle || null,
+          mapped,
+          provenance: result.provenance || result.queryReceipt || null,
+          at: new Date().toISOString()
+        };
+      }
       if (viaAiMap) {
-        this.presentAiMapMessage(message, chain, result.ok ? 'success' : 'warning');
+        this.presentAiMapMessage(message, chain, severity);
       } else {
         this.setConversationResponse(message);
         this.commandBar?.setUnderstoodLine(message);
       }
       return {
         rejected: !result.ok,
-        gisExecuted: Boolean(result.executionReceipt?.mutatedMap),
+        gisExecuted: mapped,
         commandId,
         placePoi: result
       };
     } catch (error) {
-      const message = error?.message || 'Place POI search failed.';
+      const message = error?.message || 'Dynamic place search failed.';
       if (viaAiMap) {
-        this.presentAiMapMessage(message, ['Place POI search', 'Failed'], 'error');
+        this.presentAiMapMessage(message, ['Dynamic place search', 'Failed'], 'error');
       } else {
         this.setConversationResponse(message);
       }

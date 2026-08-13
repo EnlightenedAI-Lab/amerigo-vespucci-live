@@ -76,7 +76,7 @@ describe('place POI intent parser', () => {
     assert.equal(intent.poi.label, 'Starbucks');
     assert.equal(intent.mode, 'NEAR');
     assert.equal(intent.radiusMeters, DEFAULT_NEAR_RADIUS_METERS);
-    assert.match(intent.layerTitle, /Starbucks near/i);
+    assert.match(intent.layerTitle, /AI MAP · Starbucks/i);
   });
 
   it('parses coffee shops within 1 km of Old Montréal', () => {
@@ -118,8 +118,12 @@ describe('place POI search service', () => {
     assert.equal(result.places.length, 1);
     assert.equal(result.places[0].name, 'Starbucks');
     assert.equal(result.places[0].provider, 'OSM_NA_AMENITIES');
+    assert.equal(result.status, 'PASS');
+    assert.equal(result.route, 'DYNAMIC_PLACE_SEARCH');
     assert.equal(result.validation.approved, true);
     assert.equal(result.mapResult.capability, 'PLACE_POI_SEARCH');
+    assert.equal(result.mapResult.route, 'DYNAMIC_PLACE_SEARCH');
+    assert.match(result.layerTitle, /AI MAP · Starbucks/i);
     assert.doesNotMatch(result.layerTitle, /Last 7 days/i);
     assert.equal(result.mapActionPlan.mapResultPayload.capability, 'PLACE_POI_SEARCH');
     assert.equal(result.geocodeReceipt.geocoder, 'ArcGIS World GeocodeServer');
@@ -149,10 +153,15 @@ describe('place POI search service', () => {
     assert.equal(parseIntelligenceMapIntent('Map Starbucks near 997 de la Commune.'), null);
   });
 
-  it('requires here context when prompt uses here', async () => {
-    const result = await executePlacePoiSearch({ prompt: 'Map restaurants within 500 m of here.' });
-    assert.equal(result.ok, false);
-    assert.equal(result.code, 'HERE_CONTEXT_REQUIRED');
+  it('returns no verified results without fabricating points', async () => {
+    const result = await executePlacePoiSearch(
+      { prompt: 'Map Zzyzxq Qorblat Coffeeworks within 2 km of 997 de la Commune.' },
+      { geocodeResolver: async () => ORIGIN_GEOCODE, fetchFn: mockPoiFetch([]) }
+    );
+    assert.equal(result.ok, true);
+    assert.equal(result.status, 'NO_VERIFIED_RESULTS');
+    assert.equal(result.places.length, 0);
+    assert.equal(result.mapResult.features.length, 0);
   });
 });
 
@@ -160,6 +169,7 @@ describe('place POI capability routing', () => {
   it('routes Starbucks to PLACE_POI_SEARCH with execution available', () => {
     const plan = planSpatialCapability('Map Starbucks near 997 de la Commune.');
     assert.equal(plan.capability, SPATIAL_CAPABILITY.PLACE_POI_SEARCH);
+    assert.equal(plan.route, 'DYNAMIC_PLACE_SEARCH');
     assert.equal(plan.available, true);
     assert.equal(plan.executionAuthority, 'PLACE_POI_SERVICE');
     assert.notEqual(plan.capability, SPATIAL_CAPABILITY.INTELLIGENCE_RESEARCH);
