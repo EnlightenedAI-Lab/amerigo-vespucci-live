@@ -125,7 +125,9 @@ export async function runPointIntelligenceV2MultiFamilyClick(mapOperational = fa
     failures.push(`expected 1 bundle request, got ${getPointIntelligenceRequestCount() - beforeCount}`);
   }
   if (mapOperational && layers.clickGraphics < 1) failures.push('missing click marker');
-  if (mapOperational && layers.resultGraphics < 1) failures.push('missing result graphics');
+  if (mapOperational && layers.resultGraphics < 1 && (layers.stationFeatures || 0) < 1) {
+    failures.push('missing result graphics');
+  }
 
   const panel = document.querySelector('#spatial-point-intelligence-results');
   const html = buildPointIntelligenceSummaryHtml({
@@ -170,7 +172,9 @@ export async function runPointIntelligenceV2ZeroResultStep() {
   if ((response.resultCount ?? response.results?.length ?? 0) > 0) {
     failures.push('unexpected results for outside coverage');
   }
-  if (layers.resultGraphics > 0) failures.push('unexpected map features for zero-result query');
+  if (layers.resultGraphics > 0 || (layers.stationFeatures || 0) > 0) {
+    failures.push('unexpected map features for zero-result query');
+  }
   return { pass: failures.length === 0, failures, response, layers };
 }
 

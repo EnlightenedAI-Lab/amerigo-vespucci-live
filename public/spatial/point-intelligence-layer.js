@@ -11,9 +11,20 @@ import {
   getObservationId
 } from './point-intelligence-map-presentation.js';
 import { getPointIntelligenceFocusState } from './point-intelligence-focus-state.js';
+import { isProofSourceFamily } from './point-intelligence-station-model.js';
+import {
+  POINT_INTEL_SELECTION_LAYER_ID,
+  POINT_INTEL_STATION_LAYER_ID,
+  applyStationSelection,
+  clearPointIntelligenceStationLayer,
+  findStationRecordByObservationId,
+  hitTestPointIntelligenceStation,
+  renderPointIntelligenceStationLayer
+} from './point-intelligence-station-layer.js';
 
 export const POINT_INTEL_CLICK_LAYER_ID = 'iqai-point-intel-click';
 export const POINT_INTEL_RESULTS_LAYER_ID = 'iqai-point-intel-results';
+export { POINT_INTEL_STATION_LAYER_ID };
 
 const FAMILY_COLORS = Object.freeze({
   hydrometric: [46, 125, 210, 0.92],
@@ -90,6 +101,7 @@ export async function clearPointIntelligenceLayers() {
     const layer = webMap.findLayerById(layerId);
     if (layer) layer.removeAll?.();
   }
+  await clearPointIntelligenceStationLayer();
   clickLayer = null;
   resultsLayer = null;
   currentPresentation = null;
@@ -126,7 +138,7 @@ export async function renderPointIntelligenceClickMarker(point) {
 export async function renderPointIntelligenceMapPresentation(results = [], focusState = null) {
   const resolvedFocus = focusState || getPointIntelligenceFocusState();
   const presentation = buildPointIntelligenceMapPresentation(results, resolvedFocus);
-  currentPresentation = presentation;
+  const stationRecords = await renderPointIntelligenceStationLayer(results, resolvedFocus);
 
   const [SimpleMarkerSymbol, Graphic, Point, Polyline, Polygon] = await Promise.all([
     importArc('@arcgis/core/symbols/SimpleMarkerSymbol.js'),
@@ -137,37 +149,58 @@ export async function renderPointIntelligenceMapPresentation(results = [], focus
   ]);
 
   resultsLayer = await ensureGraphicsLayer(POINT_INTEL_RESULTS_LAYER_ID, 'Point Intelligence sources');
-  if (!resultsLayer) return presentation;
-
-  resultsLayer.removeAll();
-
   const graphics = [];
-  for (const asset of presentation.renderedMarkers) {
-    const arcGeometry = geometryToArc(asset.geometry, Point, Polyline, Polygon);
-    if (!arcGeometry) continue;
-    const symbol = arcGeometry.type === 'point'
-      ? new SimpleMarkerSymbol(markerSymbol(asset.family, asset))
-      : undefined;
-    graphics.push(new Graphic({
-      geometry: arcGeometry,
-      symbol,
-      attributes: {
-        role: 'pi-evidence',
-        category: asset.family,
-        assetKey: asset.assetKey,
-        observationId: asset.representativeObservationId,
-        observationIds: asset.observationIds.join('|'),
-        observationCount: asset.observationCount,
-        emphasized: asset.emphasized ? 1 : 0,
-        deemphasized: asset.deemphasized ? 1 : 0,
-        nativeRecordId: asset.result?.nativeRecordId || null,
-        providerName: asset.result?.providerName || null
-      }
-    }));
+  if (resultsLayer) {
+    resultsLayer.removeAll();
+    for (const asset of presentation.renderedMarkers) {
+      if (isProofSourceFamily(asset.family)) continue;
+      const arcGeometry = geometryToArc(asset.geometry, Point, Polyline, Polygon);
+      if (!arcGeometry) continue;
+      const symbol = arcGeometry.type === 'point'
+        ? new SimpleMarkerSymbol(markerSymbol(asset.family, asset))
+        : undefined;
+      graphics.push(new Graphic({
+        geometry: arcGeometry,
+        symbol,
+        attributes: {
+          role: 'pi-evidence',
+          category: asset.family,
+          assetKey: asset.assetKey,
+          observationId: asset.representativeObservationId,
+          observationIds: asset.observationIds.join('|'),
+          observationCount: asset.observationCount,
+          emphasized: asset.emphasized ? 1 : 0,
+          deemphasized: asset.deemphasized ? 1 : 0,
+          nativeRecordId: asset.result?.nativeRecordId || null,
+          providerName: asset.result?.providerName || null
+        }
+      }));
+    }
+    if (graphics.length) resultsLayer.addMany(graphics);
   }
 
-  if (graphics.length) resultsLayer.addMany(graphics);
-  return presentation;
+  currentPresentation = {
+    ...presentation,
+    stationRecords,
+    accounting: {
+      ...presentation.accounting,
+      stationObjects: stationRecords.length,
+      renderedMapLocations: stationRecords.length + graphics.length
+    }
+  };
+  raisePointIntelligenceStationLayers();
+  await applyStationSelection(resolvedFocus);
+  return currentPresentation;
+}
+
+function raisePointIntelligenceStationLayers() {
+  const view = getMapView();
+  const map = view?.map;
+  if (!map) return;
+  const stations = map.findLayerById(POINT_INTEL_STATION_LAYER_ID);
+  const selection = map.findLayerById(POINT_INTEL_SELECTION_LAYER_ID);
+  if (stations) map.reorder(stations, map.layers.length - 1);
+  if (selection) map.reorder(selection, map.layers.length - 1);
 }
 
 /**
@@ -185,6 +218,9 @@ export async function replacePointIntelligencePresentation(point, results = [], 
  * @param {object} mapEvent
  */
 export async function hitTestPointIntelligenceEvidence(mapEvent) {
+  const stationHit = await hitTestPointIntelligenceStation(mapEvent);
+  if (stationHit?.observationId) return stationHit;
+
   const view = getMapView();
   if (!view?.hitTest) return null;
   const response = await view.hitTest(mapEvent);
@@ -209,17 +245,31 @@ export async function hitTestPointIntelligenceEvidence(mapEvent) {
  */
 export async function ensureObservationVisible(observationId) {
   const view = getMapView();
-  if (!view || !resultsLayer || !observationId) return;
-  const graphic = resultsLayer.graphics?.find?.(
+  if (!view || !observationId) return;
+
+  const graphic = resultsLayer?.graphics?.find?.(
     (g) => g.attributes?.observationId === observationId
       || String(g.attributes?.observationIds || '').split('|').includes(observationId)
   );
-  if (!graphic?.geometry) return;
+  if (graphic?.geometry) {
+    try {
+      if (view.extent?.contains?.(graphic.geometry)) return;
+      await view.goTo({ target: graphic, scale: view.scale }, { duration: 250 });
+    } catch {
+      // extent adjustment is best-effort
+    }
+    return;
+  }
+
+  const station = findStationRecordByObservationId(observationId);
+  if (!station) return;
   try {
-    if (view.extent?.contains?.(graphic.geometry)) return;
-    await view.goTo({ target: graphic, scale: view.scale }, { duration: 250 });
+    const Point = await importArc('@arcgis/core/geometry/Point.js');
+    const target = new Point({ longitude: station.longitude, latitude: station.latitude });
+    if (view.extent?.contains?.(target)) return;
+    await view.goTo({ target, scale: view.scale }, { duration: 250 });
   } catch {
-    // extent adjustment is best-effort
+    // best-effort
   }
 }
 
@@ -231,9 +281,12 @@ export function getPointIntelligenceLayerState() {
   }
   const click = webMap.findLayerById(POINT_INTEL_CLICK_LAYER_ID);
   const results = webMap.findLayerById(POINT_INTEL_RESULTS_LAYER_ID);
+  const stations = webMap.findLayerById(POINT_INTEL_STATION_LAYER_ID);
   return {
     clickGraphics: click?.graphics?.length ?? 0,
     resultGraphics: results?.graphics?.length ?? 0,
+    stationFeatures: currentPresentation?.stationRecords?.length ?? 0,
+    stationLayerPresent: Boolean(stations),
     mapPresentation: currentPresentation
   };
 }

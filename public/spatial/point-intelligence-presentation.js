@@ -18,6 +18,8 @@ import {
 import { getObservationId, getAuthoritativeAssetKey } from './point-intelligence-map-presentation.js';
 import { renderInspectorHostHtml } from './point-intelligence-inspector-presentation.js';
 import { renderStreetLevelContextHostHtml } from './street-level-context-presentation.js';
+import { renderProofLegendHtml } from './point-intelligence-station-symbols.js';
+import { isProofSourceFamily } from './point-intelligence-station-model.js';
 import {
   formatTemporalStateSummary,
   getPointIntelligenceTemporalState
@@ -869,6 +871,9 @@ function renderLocationIntelligenceFocus(response, point, presentation) {
   const radiusLabel = Number.isFinite(radiusMeters)
     ? formatClickDistance(radiusMeters)
     : String(radiusMeters || '');
+  const hasProofStations = (response?.results || []).some((result) => (
+    isProofSourceFamily(result?.category || result?.nativeCollectionId)
+  ));
   const synthesisModel = buildLocationSynthesisModel(response, point, { radiusMeters });
   const synthesisHtml = renderLocationSynthesisHtml(synthesisModel);
 
@@ -892,6 +897,7 @@ function renderLocationIntelligenceFocus(response, point, presentation) {
         ${temporalHtml ? `<div class="lif-temporal-mix" aria-label="Temporal mix">${temporalHtml}</div>` : ''}
         <div class="lif-map-toolbar">
           <div class="lif-map-accounting" data-pi-map-accounting hidden></div>
+          <div class="pi-station-legend-host" data-pi-station-legend>${hasProofStations ? renderProofLegendHtml() : ''}</div>
           <button type="button" class="lif-clear-focus" data-pi-clear-focus hidden>All evidence</button>
         </div>
         <div class="lif-non-spatial" data-pi-non-spatial-message hidden role="status"></div>

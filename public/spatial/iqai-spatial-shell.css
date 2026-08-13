@@ -2146,6 +2146,81 @@
   cursor: crosshair;
 }
 
+.pi-station-hover {
+  position: absolute;
+  z-index: 40;
+  min-width: 148px;
+  max-width: 220px;
+  padding: 0.45rem 0.55rem;
+  pointer-events: none;
+  background: rgba(10, 16, 22, 0.92);
+  border: 1px solid rgba(220, 228, 234, 0.28);
+  color: #e8eef2;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.pi-station-hover__id {
+  font-weight: 600;
+  font-size: 0.78rem;
+}
+
+.pi-station-hover__family {
+  color: rgba(210, 220, 226, 0.72);
+  font-size: 0.64rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0.12rem 0 0.28rem;
+}
+
+.pi-station-hover__line {
+  margin-top: 0.08rem;
+}
+
+.pi-station-legend {
+  display: grid;
+  gap: 0.22rem;
+  font-size: 0.7rem;
+  color: var(--iqai-muted);
+}
+
+.pi-station-legend__row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.pi-station-legend__mark {
+  width: 12px;
+  height: 12px;
+  flex: 0 0 12px;
+  box-sizing: border-box;
+}
+
+.pi-station-legend__mark--hydro {
+  border: 1px solid #7eb0cc;
+  background: #102436;
+  box-shadow: inset 0 0 0 2px #102436, inset 5px 0 0 #bad6e4;
+}
+
+.pi-station-legend__mark--weather {
+  border: 1px solid #8cba9a;
+  background: #122820;
+  transform: rotate(45deg);
+}
+
+.pi-station-legend__states {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.15rem;
+  font-size: 0.64rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .pi-summary__status {
   font-weight: 600;
   margin-bottom: 0.5rem;

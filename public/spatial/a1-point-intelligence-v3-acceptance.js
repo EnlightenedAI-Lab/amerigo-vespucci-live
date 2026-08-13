@@ -102,7 +102,7 @@ export async function runPointIntelligenceV3BundleClick(mapOperational = false) 
     failures.push('bundle request missing temporalIntent.mode=LATEST');
   }
   if (mapOperational && layers.clickGraphics < 1) failures.push('missing click marker');
-  if (mapOperational && summary.familiesWithEvidence > 0 && layers.resultGraphics < 1) {
+  if (mapOperational && summary.familiesWithEvidence > 0 && layers.resultGraphics < 1 && (layers.stationFeatures || 0) < 1) {
     failures.push('missing result graphics');
   }
 

@@ -26,7 +26,7 @@ import {
   getObservationId
 } from './point-intelligence-map-presentation.js';
 import { buildLocationIntelligenceFocusModel } from './point-intelligence-lif-model.js';
-import { setPointIntelligenceInspectorBundleContext } from './point-intelligence-inspector-controller.js';
+import { setPointIntelligenceInspectorBundleContext, openEvidenceInspectorForObservation } from './point-intelligence-inspector-controller.js';
 
 let lastPoint = null;
 let lastResults = [];
@@ -137,6 +137,8 @@ export async function focusEvidenceFromMap(hit) {
   }, generation);
   await refreshMapFromFocus();
   applyPanelFocusClasses();
+  scrollObservationIntoView(hit.observationId);
+  openEvidenceInspectorForObservation(hit.observationId, hit.family);
   return {
     observationId: hit.observationId,
     family: hit.family
