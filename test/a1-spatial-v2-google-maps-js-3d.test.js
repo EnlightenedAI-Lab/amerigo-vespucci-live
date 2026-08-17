@@ -16,6 +16,7 @@ test('Google Maps JS 3D specialist files exist without the rejected proxy path',
   assert.equal(fs.existsSync(path.join(V2, 'map', 'google-maps-js-3d.js')), true);
   assert.equal(fs.existsSync(path.join(V2, 'map', 'google-photorealistic-3d-proof.js')), true);
   assert.equal(fs.existsSync(path.join(V2, 'google-photorealistic-3d-proof.html')), true);
+  assert.equal(fs.existsSync(path.join(V2, 'shell', 'GooglePhotorealistic3dControl.js')), true);
   assert.equal(fs.existsSync(path.join(V2, 'map', 'google-photorealistic-3d.js')), false);
   assert.equal(fs.existsSync(path.join(ROOT, 'src', 'spatial-v2', 'google-3dtiles.js')), false);
   assert.equal(fs.existsSync(path.join(ROOT, 'test', 'a1-spatial-v2-google-photorealistic-3d.test.js')), false);
@@ -59,6 +60,33 @@ test('Google Maps JS 3D uses Map3DElement and not ArcGIS SceneView', () => {
   assert.equal((foundation.match(/new SceneView\(/g) || []).length, 0);
 });
 
+test('real V2 map stage exposes a bounded Google 3D operator lifecycle', () => {
+  const app = read('shell', 'AppShell.js');
+  const stage = read('shell', 'MapStage.js');
+  const control = read('shell', 'GooglePhotorealistic3dControl.js');
+  const css = read('iqai-spatial-v2.css');
+  const foundation = read('map', 'map-foundation.js');
+
+  assert.match(stage, />OPEN 3D</);
+  assert.match(stage, />RETURN TO 2D</);
+  assert.match(stage, />GOOGLE PHOTOREALISTIC 3D</);
+  assert.match(stage, /data-iqai-google-3d-stage/);
+  assert.match(app, /bindGooglePhotorealistic3dControl/);
+  assert.match(app, /google3d\.setMapReady/);
+  assert.match(app, /google3d,/);
+  assert.match(control, /openGoogleMapsJs3d/);
+  assert.match(control, /closeGoogleMapsJs3d/);
+  assert.match(control, /view\.on\('click'/);
+  assert.match(control, /visibility = 'hidden'/);
+  assert.match(control, /visibility = 'visible'/);
+  assert.match(control, /mapViewPreserved/);
+  assert.match(css, /data-iqai-specialist-view="google-3d"/);
+  assert.equal((foundation.match(/new MapView\(/g) || []).length, 1);
+  assert.doesNotMatch(control, /new MapView\(/);
+  assert.doesNotMatch(control, /GOOGLE_MAP_TILES_API_KEY/);
+  assert.doesNotMatch(control, /\.save\(|portalItem\.update/);
+});
+
 test('Google Maps JS 3D proof page is an isolated specialist stage', () => {
   const html = fs.readFileSync(path.join(V2, 'google-photorealistic-3d-proof.html'), 'utf8');
   const appShell = read('shell', 'AppShell.js');
@@ -86,4 +114,9 @@ test('headed Google 3D proof foregrounds the exact CDP target and fails closed v
   assert.doesNotMatch(validation, /Target\.targetCreated/);
   assert.match(validation, /renderReachedSteady/);
   assert.match(validation, /navigationPixelsHaveContrast/);
+  assert.match(validation, /SHELL_INTEGRATION/);
+  assert.match(validation, /Input\.dispatchMouseEvent/);
+  assert.match(validation, /selectedPointFromMapClick/);
+  assert.match(validation, /productLabelVisible/);
+  assert.match(validation, /if \(!report\.pass\) process\.exitCode = 1/);
 });

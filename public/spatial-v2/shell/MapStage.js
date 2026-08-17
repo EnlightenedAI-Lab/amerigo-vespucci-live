@@ -6,6 +6,12 @@ export function renderMapStage() {
     <main id="${id}" class="iqai-v2-stage" data-iqai-slot="${slot}" aria-label="Map stage">
       <div class="iqai-v2-stage__well" data-iqai-reserve="map" data-iqai-map-state="INITIALIZING">
         <div class="iqai-v2-map-host" data-iqai-map-host></div>
+        <div
+          class="iqai-v2-google-3d-stage"
+          data-iqai-google-3d-stage
+          aria-label="Google Photorealistic 3D"
+          hidden
+        ></div>
         <div class="iqai-v2-stage__grid" aria-hidden="true"></div>
         <div class="iqai-v2-stage__placeholder" data-iqai-map-placeholder>
           <p class="iqai-v2-stage__kicker">MAP STAGE</p>
@@ -21,6 +27,12 @@ export function renderMapStage() {
         </div>
         <div class="iqai-v2-map-nav" data-iqai-map-nav hidden></div>
         <div class="iqai-v2-imagery-dock" data-iqai-imagery-dock hidden></div>
+        <div class="iqai-v2-google-3d-controls" data-iqai-google-3d-controls>
+          <strong data-iqai-google-3d-title hidden>GOOGLE PHOTOREALISTIC 3D</strong>
+          <button type="button" data-iqai-google-3d-open disabled>OPEN 3D</button>
+          <button type="button" data-iqai-google-3d-return hidden>RETURN TO 2D</button>
+          <span data-iqai-google-3d-status aria-live="polite">MAP LOADING</span>
+        </div>
       </div>
     </main>
   `;

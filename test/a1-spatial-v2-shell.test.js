@@ -34,6 +34,7 @@ const REQUIRED_V2_FILES = [
   'shell/AskIqaiDock.js',
   'shell/ask-capability-bus.js',
   'shell/command-center-state.js',
+  'shell/GooglePhotorealistic3dControl.js',
   'shell/OperatorImageryExperience.js',
   'shell/WhatAmILookingAt.js'
 ];

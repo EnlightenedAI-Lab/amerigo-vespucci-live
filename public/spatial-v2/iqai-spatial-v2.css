@@ -369,6 +369,90 @@ body.iqai-v2-body {
   height: 100%;
 }
 
+.iqai-v2-google-3d-stage {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: #0b0d10;
+}
+
+.iqai-v2-google-3d-stage[hidden],
+.iqai-v2-google-3d-controls [hidden] {
+  display: none !important;
+}
+
+.iqai-v2-google-3d-stage gmp-map-3d {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.iqai-v2-google-3d-controls {
+  position: absolute;
+  left: 0.85rem;
+  bottom: 0.85rem;
+  z-index: 7;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  max-width: calc(100% - 1.7rem);
+  padding: 0.45rem 0.55rem;
+  border-top: 2px solid #14120f;
+  background: var(--iqai-v2-surface);
+  color: var(--iqai-v2-text);
+}
+
+.iqai-v2-google-3d-controls strong,
+.iqai-v2-google-3d-controls span {
+  font-size: var(--iqai-v2-kicker-size);
+  font-weight: 800;
+  letter-spacing: 0.1em;
+}
+
+.iqai-v2-google-3d-controls span {
+  color: var(--iqai-v2-text-secondary);
+}
+
+.iqai-v2-google-3d-controls button {
+  min-height: var(--iqai-v2-control-h);
+  padding: 0 0.65rem;
+  border: 1px solid var(--iqai-v2-border-strong);
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  font-size: var(--iqai-v2-kicker-size);
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+}
+
+.iqai-v2-google-3d-controls button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.iqai-v2-stage__well[data-iqai-specialist-view="google-3d"] .iqai-v2-google-3d-controls {
+  top: 0.85rem;
+  right: 0.85rem;
+  bottom: auto;
+  left: auto;
+  border-top-color: #f4f0ea;
+  background: rgba(15, 17, 21, 0.9);
+  color: #f4f0ea;
+}
+
+.iqai-v2-stage__well[data-iqai-specialist-view="google-3d"] .iqai-v2-google-3d-controls span {
+  color: rgba(244, 240, 234, 0.72);
+}
+
+.iqai-v2-stage__well[data-iqai-specialist-view="google-3d"] .iqai-v2-map-nav,
+.iqai-v2-stage__well[data-iqai-specialist-view="google-3d"] .iqai-v2-operator-ground,
+.iqai-v2-stage__well[data-iqai-specialist-view="google-3d"] .iqai-v2-begin,
+.iqai-v2-stage__well[data-iqai-specialist-view="google-3d"] .iqai-v2-guided-cue,
+.iqai-v2-stage__well[data-iqai-specialist-view="google-3d"] .iqai-v2-imagery-dock {
+  display: none !important;
+}
+
 .iqai-v2-map-host .esri-popup,
 .iqai-v2-map-host .esri-features,
 .iqai-v2-map-host .esri-zoom,
@@ -988,6 +1072,7 @@ body.iqai-v2-body {
 .iqai-v2-plugin:focus-visible,
 .iqai-v2-ask__send:focus-visible,
 .iqai-v2-mode:focus-visible,
+.iqai-v2-google-3d-controls button:focus-visible,
 .iqai-v2-imagery-mode:focus-visible,
 .iqai-v2-imagery-btn:focus-visible,
 .iqai-v2-operator-imagery button:focus-visible,

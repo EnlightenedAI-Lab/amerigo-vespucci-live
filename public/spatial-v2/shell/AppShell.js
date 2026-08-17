@@ -10,6 +10,7 @@ import {
 } from './CommandHeader.js';
 import { renderContextInspector, setInspectorRegion } from './ContextInspector.js';
 import { applyMapFoundationToStage, renderMapStage } from './MapStage.js';
+import { bindGooglePhotorealistic3dControl } from './GooglePhotorealistic3dControl.js';
 import { getMapFoundationController, initMapFoundation, subscribeMapFoundation } from '../map/map-foundation.js';
 import { getGroundSnapshot, setGroundMode, subscribeGroundController } from '../imagery/ground-controller.js';
 import { TIME_PROVIDER_FILTER } from '../imagery/imagery-contract.js';
@@ -188,6 +189,7 @@ export function mountCommandCenter(root) {
     capabilities: createApplicationCapabilities(commandState)
   });
   const mapController = getMapFoundationController();
+  const google3d = bindGooglePhotorealistic3dControl(root);
   let mapSnapshot = mapController.getSnapshot();
   let imageryBooted = false;
 
@@ -320,6 +322,7 @@ export function mountCommandCenter(root) {
   subscribeMapFoundation((snapshot) => {
     mapSnapshot = snapshot;
     applyMapFoundationToStage(root, snapshot);
+    google3d.setMapReady(snapshot.state === 'READY');
     setCapabilityStateLabel(root, 'map', snapshot.state === 'READY' ? 'READY' : snapshot.state);
     if (snapshot.state === 'READY') {
       updateHeaderStatus(
@@ -349,6 +352,7 @@ export function mountCommandCenter(root) {
     slots: SHELL_SLOTS,
     measure: () => measureShellComposition(root),
     mapFoundation: mapController,
+    google3d,
     commandCenter: {
       getSnapshot: () => commandState.getSnapshot(),
       setExperience: (experience) => commandState.setExperience(experience),

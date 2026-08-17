@@ -12,7 +12,14 @@ import {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '..');
-const OUT = path.join(ROOT, 'artifacts', 'spatial-v2-google-maps-js-3d-v2');
+const SHELL_INTEGRATION = process.argv.includes('--shell');
+const OUT = path.join(
+  ROOT,
+  'artifacts',
+  SHELL_INTEGRATION
+    ? 'spatial-v2-google-maps-js-3d-product-v1'
+    : 'spatial-v2-google-maps-js-3d-v2'
+);
 const VIEWPORT = { width: 1920, height: 1080 };
 const BASE = 'http://localhost:3000';
 const LON = MONTREAL_OPERATIONAL_CENTER.longitude;
@@ -467,26 +474,128 @@ try {
       deviceScaleFactor: 1,
       mobile: false
     });
-    const proofUrl = `${BASE}/spatial-v2/google-photorealistic-3d-proof.html?lon=${LON}&lat=${LAT}`;
-    await send('Page.navigate', { url: proofUrl });
-    const booted = await waitFor(send, 'Boolean(window.__iqaiGooglePhotorealistic3d?.snapshot)', 120, 250);
-    if (!booted) throw new Error('Google Maps JS 3D proof page did not boot.');
+    const apiExpression = SHELL_INTEGRATION
+      ? 'window.__iqaiSpatialV2?.google3d'
+      : 'window.__iqaiGooglePhotorealistic3d';
+    const targetUrl = SHELL_INTEGRATION
+      ? `${BASE}/spatial-v2/`
+      : `${BASE}/spatial-v2/google-photorealistic-3d-proof.html?lon=${LON}&lat=${LAT}`;
+    await send('Page.navigate', { url: targetUrl });
+    const booted = await waitFor(send, `Boolean(${apiExpression}?.snapshot)`, 120, 250);
+    if (!booted) {
+      throw new Error(SHELL_INTEGRATION
+        ? 'Spatial V2 Google 3D operator control did not boot.'
+        : 'Google Maps JS 3D proof page did not boot.');
+    }
     await waitFor(
       send,
-      'window.__iqaiGooglePhotorealistic3d.snapshot().mapViewExists === true',
+      `${apiExpression}.snapshot().mapViewExists === true`,
       120,
       500
     );
-    const before = await evaluateJson(send, 'window.__iqaiGooglePhotorealistic3d.snapshot()');
+    let selectedSet = null;
+    if (SHELL_INTEGRATION) {
+      const operatorReady = await waitFor(
+        send,
+        `window.__iqaiSpatialV2.mapFoundation.getSnapshot().state === 'READY'
+          && document.querySelector('[data-iqai-google-3d-open]')?.disabled === false`,
+        160,
+        500
+      );
+      if (!operatorReady) throw new Error('Spatial V2 map stage did not enable OPEN 3D.');
+      const mapRect = await evaluateJson(send, `(() => {
+        const rect = document.querySelector('[data-iqai-map-host]')?.getBoundingClientRect();
+        return rect ? {
+          x: rect.x + rect.width / 2,
+          y: rect.y + rect.height / 2
+        } : null;
+      })()`);
+      if (!mapRect) throw new Error('Spatial V2 map surface has no clickable bounds.');
+      await send('Input.dispatchMouseEvent', {
+        type: 'mousePressed',
+        x: mapRect.x,
+        y: mapRect.y,
+        button: 'left',
+        clickCount: 1
+      });
+      await send('Input.dispatchMouseEvent', {
+        type: 'mouseReleased',
+        x: mapRect.x,
+        y: mapRect.y,
+        button: 'left',
+        clickCount: 1
+      });
+      const selectedFromMap = await waitFor(
+        send,
+        `${apiExpression}.snapshot().selectedPoint?.source === 'map-click'`,
+        40,
+        250
+      );
+      if (!selectedFromMap) throw new Error('Map click did not establish the Google 3D selected point.');
+      selectedSet = await evaluateJson(send, `${apiExpression}.snapshot().selectedPoint`);
+    }
+    const before = await evaluateJson(send, `${apiExpression}.snapshot()`);
+    const shellBefore = SHELL_INTEGRATION
+      ? await evaluateJson(send, `({
+          command: window.__iqaiSpatialV2.commandCenter.getSnapshot(),
+          ground: window.__iqaiSpatialV2.ground(),
+          time: window.__iqaiSpatialV2.time(),
+          map: window.__iqaiSpatialV2.mapFoundation.getSnapshot()
+        })`)
+      : null;
+    const uiBefore = SHELL_INTEGRATION
+      ? await evaluateJson(send, `(() => {
+          const visible = (el) => Boolean(el && !el.hidden && el.getBoundingClientRect().width > 0);
+          const open = document.querySelector('[data-iqai-google-3d-open]');
+          const returned = document.querySelector('[data-iqai-google-3d-return]');
+          const title = document.querySelector('[data-iqai-google-3d-title]');
+          return {
+            openVisible: visible(open),
+            openEnabled: Boolean(open && !open.disabled),
+            returnVisible: visible(returned),
+            titleVisible: visible(title),
+            title: title?.textContent?.trim() || null
+          };
+        })()`)
+      : null;
     log(`2D mapViewCreateCount=${before?.mapViewCreateCount} exists=${before?.mapViewExists}`);
     const twoDShot = await capture(send, '01-montreal-2d-before-3d.png');
 
-    const openedWait = await evaluateJson(send, `(async () => {
-      return window.__iqaiGooglePhotorealistic3d.open();
-    })()`, true, 80000);
-    await sleep(50000);
+    let openedWait;
+    if (SHELL_INTEGRATION) {
+      await evaluate(send, `(() => {
+        document.querySelector('[data-iqai-google-3d-open]')?.click();
+        return true;
+      })()`);
+      const openedFromUi = await waitFor(
+        send,
+        `${apiExpression}.snapshot().stageState === 'OPEN' && ${apiExpression}.snapshot().steady === true`,
+        180,
+        500
+      );
+      openedWait = await evaluateJson(send, `${apiExpression}.snapshot()`);
+      if (!openedFromUi) log(`OPEN 3D settled as ${openedWait?.stageState || 'UNKNOWN'}: ${openedWait?.error || 'not steady'}`);
+    } else {
+      openedWait = await evaluateJson(send, `(async () => {
+        return ${apiExpression}.open();
+      })()`, true, 80000);
+    }
+    await sleep(SHELL_INTEGRATION ? 12000 : 50000);
     const threeDShot = await capture(send, '02-montreal-google-maps-js-3d.png');
-    const opened = await evaluateJson(send, 'window.__iqaiGooglePhotorealistic3d.snapshot()');
+    const opened = await evaluateJson(send, `${apiExpression}.snapshot()`);
+    const uiOpened = SHELL_INTEGRATION
+      ? await evaluateJson(send, `(() => {
+          const visible = (el) => Boolean(el && !el.hidden && el.getBoundingClientRect().width > 0);
+          const returned = document.querySelector('[data-iqai-google-3d-return]');
+          const title = document.querySelector('[data-iqai-google-3d-title]');
+          return {
+            returnVisible: visible(returned),
+            titleVisible: visible(title),
+            title: title?.textContent?.trim() || null,
+            mapHostVisibility: document.querySelector('[data-iqai-map-host]')?.style?.visibility || ''
+          };
+        })()`)
+      : null;
     const map3dDom = await evaluateJson(send, `(() => {
       const el = document.querySelector('gmp-map-3d');
       return {
@@ -498,30 +607,76 @@ try {
     log(`3D open=${opened?.open} maps3d=${opened?.maps3dLoaded} renderer=${opened?.renderer} mode=${opened?.mode} marker=${opened?.markerPresent} error=${opened?.error || ''}`);
     const headingBefore = Number(opened?.camera?.heading);
     const nudged = await evaluateJson(send, `(async () => {
-      return window.__iqaiGooglePhotorealistic3d.nudgeHeading(32);
+      return ${apiExpression}.nudgeHeading(32);
     })()`, true, 20000).catch((error) => ({ error: String(error?.message || error) }));
     await sleep(4500);
-    const afterNudge = await evaluateJson(send, 'window.__iqaiGooglePhotorealistic3d.snapshot()');
+    const afterNudge = await evaluateJson(send, `${apiExpression}.snapshot()`);
     const threeDNavShot = await capture(send, '02b-montreal-google-maps-js-3d-heading.png');
 
-    const returned = await evaluateJson(send, `(async () => {
-      return window.__iqaiGooglePhotorealistic3d.close();
-    })()`, true, 20000);
+    let returned;
+    if (SHELL_INTEGRATION && opened?.stageState === 'OPEN') {
+      await evaluate(send, `(() => {
+        document.querySelector('[data-iqai-google-3d-return]')?.click();
+        return true;
+      })()`);
+      const returnedFromUi = await waitFor(
+        send,
+        `${apiExpression}.snapshot().stageState === 'IDLE' && ${apiExpression}.snapshot().open === false`,
+        80,
+        250
+      );
+      if (!returnedFromUi) throw new Error('RETURN TO 2D did not restore the product map stage.');
+      returned = await evaluateJson(send, `${apiExpression}.snapshot()`);
+    } else if (SHELL_INTEGRATION) {
+      returned = await evaluateJson(send, `(async () => {
+        return ${apiExpression}.close();
+      })()`, true, 20000);
+    } else {
+      returned = await evaluateJson(send, `(async () => {
+        return ${apiExpression}.close();
+      })()`, true, 20000);
+    }
     await sleep(800);
-    const after = await evaluateJson(send, 'window.__iqaiGooglePhotorealistic3d.snapshot()');
+    const after = await evaluateJson(send, `${apiExpression}.snapshot()`);
+    const shellAfter = SHELL_INTEGRATION
+      ? await evaluateJson(send, `({
+          command: window.__iqaiSpatialV2.commandCenter.getSnapshot(),
+          ground: window.__iqaiSpatialV2.ground(),
+          time: window.__iqaiSpatialV2.time(),
+          map: window.__iqaiSpatialV2.mapFoundation.getSnapshot()
+        })`)
+      : null;
+    const uiAfter = SHELL_INTEGRATION
+      ? await evaluateJson(send, `(() => {
+          const visible = (el) => Boolean(el && !el.hidden && el.getBoundingClientRect().width > 0);
+          const open = document.querySelector('[data-iqai-google-3d-open]');
+          const returned = document.querySelector('[data-iqai-google-3d-return]');
+          return {
+            openVisible: visible(open),
+            returnVisible: visible(returned),
+            mapHostVisibility: document.querySelector('[data-iqai-map-host]')?.style?.visibility || ''
+          };
+        })()`)
+      : null;
     const twoDAfterShot = await capture(send, '03-montreal-2d-after-return.png');
     log(`return open=${after?.open} mapViewCreateCount=${after?.mapViewCreateCount} gmp=${Boolean(await evaluate(send, 'Boolean(document.querySelector("gmp-map-3d"))'))}`);
 
     return {
       before,
+      selectedSet,
+      shellBefore,
+      uiBefore,
       openedWait,
       opened,
+      uiOpened,
       map3dDom,
       nudged,
       headingBefore,
       afterNudge,
       returned,
       after,
+      shellAfter,
+      uiAfter,
       screenshots: [twoDShot, threeDShot, threeDNavShot, twoDAfterShot]
     };
   });
@@ -549,6 +704,21 @@ const camera = live?.opened?.camera || null;
 const headingChanged = Number.isFinite(live?.headingBefore)
   && Number.isFinite(Number(live?.afterNudge?.camera?.heading))
   && Math.abs((((Number(live.afterNudge.camera.heading) - live.headingBefore) + 540) % 360) - 180) >= 10;
+const selectedAfter = live?.after?.selectedPoint || null;
+const selectedPointPreserved = Boolean(
+  selected
+  && selectedAfter
+  && Math.abs(Number(selected.longitude) - Number(selectedAfter.longitude)) < 1e-7
+  && Math.abs(Number(selected.latitude) - Number(selectedAfter.latitude)) < 1e-7
+);
+const shellStatePreserved = !SHELL_INTEGRATION || Boolean(
+  live?.shellBefore
+  && live?.shellAfter
+  && live.shellBefore.command?.experience === live.shellAfter.command?.experience
+  && live.shellBefore.command?.activeCapability === live.shellAfter.command?.activeCapability
+  && live.shellBefore.command?.imageryView === live.shellAfter.command?.imageryView
+  && live.shellBefore.ground?.currentMode === live.shellAfter.ground?.currentMode
+);
 const pixels = live?.screenshots?.[1]
   ? pngStats(live.screenshots[1])
   : { error: 'no 3D screenshot' };
@@ -562,19 +732,29 @@ const checks = {
   maps3dLoaded: live?.opened?.maps3dLoaded === true,
   map3dElement: live?.opened?.renderer === 'Map3DElement' && live?.map3dDom?.present === true,
   montrealSelected: isGreaterMontrealLongitudeLatitude(selected?.longitude, selected?.latitude),
+  selectedPointFromMapClick: !SHELL_INTEGRATION || live?.selectedSet?.source === 'map-click',
   cameraTilted: Number(camera?.tilt) >= 50 && Number(camera?.tilt) <= 80,
   markerPresent: live?.opened?.markerPresent === true,
   renderReachedSteady: live?.opened?.steady === true && !live?.opened?.error,
   headingNavigated: headingChanged === true,
+  openActionVisible: !SHELL_INTEGRATION
+    || (live?.uiBefore?.openVisible === true && live?.uiBefore?.openEnabled === true),
+  productLabelVisible: !SHELL_INTEGRATION
+    || (
+      live?.uiOpened?.titleVisible === true
+      && live?.uiOpened?.title === 'GOOGLE PHOTOREALISTIC 3D'
+    ),
+  returnActionVisible: !SHELL_INTEGRATION || live?.uiOpened?.returnVisible === true,
   pixelsHaveContrast: Number(pixels?.contrast || 0) >= 24 && Number(pixels?.lumMax || 0) >= 40,
   navigationPixelsHaveContrast: Number(pixelsNav?.contrast || 0) >= 24
     && Number(pixelsNav?.lumMax || 0) >= 80,
-  mapViewPreserved: live?.before?.mapViewCreateCount === 1 && live?.after?.mapViewCreateCount === 1,
+  mapViewPreserved: live?.before?.mapViewCreateCount === 1
+    && live?.after?.mapViewCreateCount === 1
+    && live?.after?.mapViewPreserved !== false,
   returnedTo2d: live?.after?.open === false && live?.after?.mapViewExists === true && live?.after?.mapHostHidden === false,
-  selectedPointSurvived: isGreaterMontrealLongitudeLatitude(
-    live?.after?.mapCenter?.longitude,
-    live?.after?.mapCenter?.latitude
-  ),
+  selectedPointSurvived: selectedPointPreserved,
+  shellStatePreserved,
+  nearmapAndWaybackOperational: !SHELL_INTEGRATION || (nearmapNet === true && waybackNet === true),
   noServerTilesKey: tilesKeyLeaked === false,
   noProxy3dTiles: proxy3dTiles === false,
   noPortalWrite: portalWrite === false,
@@ -583,7 +763,10 @@ const checks = {
 
 const report = {
   generatedAt: new Date().toISOString(),
-  spikeId: 'ARCGIS-P0-GOOGLE-MAPS-JS-PHOTOREALISTIC-3D-MONTREAL-V2',
+  spikeId: SHELL_INTEGRATION
+    ? 'ARCGIS-GOOGLE-MAPS-JS-3D-PRODUCT-INTEGRATION-V1'
+    : 'ARCGIS-P0-GOOGLE-MAPS-JS-PHOTOREALISTIC-3D-MONTREAL-V2',
+  target: SHELL_INTEGRATION ? 'spatial-v2-product-shell' : 'isolated-proof',
   viewport: VIEWPORT,
   base: BASE,
   liveOn3000,
@@ -592,6 +775,7 @@ const report = {
   preauthInjected: Boolean(preauth),
   browserError,
   selectedPoint: selected,
+  operatorSelection: live?.selectedSet || null,
   camera,
   map3dDom: live?.map3dDom || null,
   headingBefore: live?.headingBefore ?? null,
@@ -609,6 +793,11 @@ const report = {
   consoles: live?.consoles || [],
   googleResponses: live?.googleResponses || [],
   screenshots: live?.screenshots || [],
+  shellBefore: live?.shellBefore || null,
+  shellAfter: live?.shellAfter || null,
+  uiBefore: live?.uiBefore || null,
+  uiOpened: live?.uiOpened || null,
+  uiAfter: live?.uiAfter || null,
   opened: live?.opened || null,
   after: live?.after || null,
   checks,
