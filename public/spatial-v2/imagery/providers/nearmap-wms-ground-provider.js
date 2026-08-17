@@ -20,6 +20,34 @@ function wmsProxyUrl() {
   return NEARMAP_WMS_PROXY;
 }
 
+let wmsInterceptorInstalled = false;
+
+async function ensureNearmapWmsInterceptor() {
+  if (wmsInterceptorInstalled) return;
+  const esriConfig = await importArc('@arcgis/core/config.js');
+  esriConfig.request.interceptors.push({
+    urls: /\/wms\/v1\/latest\/apikey\//i,
+    before: (params) => {
+      const proxy = wmsProxyUrl();
+      let incoming = null;
+      try {
+        incoming = new URL(params.url, typeof window !== 'undefined' ? window.location.origin : 'http://127.0.0.1');
+      } catch {
+        params.url = proxy;
+        return;
+      }
+      const outgoing = new URL(proxy, incoming.origin);
+      incoming.searchParams.forEach((value, key) => {
+        if (!/apikey|token|password|secret/i.test(key)) {
+          outgoing.searchParams.set(key, value);
+        }
+      });
+      params.url = outgoing.toString();
+    }
+  });
+  wmsInterceptorInstalled = true;
+}
+
 export const nearmapWmsGroundProvider = {
   id: 'nearmap-wms-latest',
   title: 'Nearmap latest',
@@ -75,6 +103,7 @@ export const nearmapWmsGroundProvider = {
     if (entitlement !== ENTITLEMENT_STATE.READY) {
       throw new Error('Nearmap latest WMS is unavailable.');
     }
+    await ensureNearmapWmsInterceptor();
     const [Basemap, WMSLayer] = await Promise.all([
       importArc('@arcgis/core/Basemap.js'),
       importArc('@arcgis/core/layers/WMSLayer.js')

@@ -96,7 +96,8 @@ test('Ground Controller V1 enables working modes and keeps future modes disabled
   assert.match(ground, /No verified local WMS\/WMTS is configured/);
   assert.match(nearmap, /\/api\/spatial-v2\/imagery\/nearmap\/wms/);
   assert.match(nearmap, /imageFormat: 'png'/);
-  assert.match(nearmap, /FORMAT: 'image\/png'/);
+  assert.match(nearmap, /request\.interceptors/);
+  assert.match(nearmap, /latest\\\/apikey/);
   assert.doesNotMatch(nearmap, /api\.nearmap\.com/);
   assert.doesNotMatch(nearmap, /NEARMAP_API_KEY/);
   assert.doesNotMatch(nearmap, /NEARMAP_WMS_URL/);
