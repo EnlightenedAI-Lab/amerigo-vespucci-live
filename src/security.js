@@ -1,7 +1,7 @@
 const SENSITIVE_KEYS = new Set([
   'token', 'password', 'apikey', 'api_key', 'x-api-key',
   'arcgis_token', 'arcgis_admin_token', 'arcgis_username', 'arcgis_password',
-  'aisstream_api_key', 'datadocked_api_key', 'open_meteo_api_key'
+  'aisstream_api_key', 'datadocked_api_key', 'open_meteo_api_key', 'nearmap_api_key', 'nearmap_wms_url'
 ]);
 
 const SENSITIVE_PATTERNS = [
@@ -33,7 +33,7 @@ export function stripSensitiveFields(value) {
  */
 export function sanitizeError(error) {
   const message = error instanceof Error ? error.message : String(error);
-  if (/token|password|api[_-]?key|credential|secret/i.test(message)) {
+  if (/token|password|api[_-]?key|credential|secret|apikey\//i.test(message)) {
     return { error: 'An upstream data request failed.' };
   }
   if (message.length > 200) {

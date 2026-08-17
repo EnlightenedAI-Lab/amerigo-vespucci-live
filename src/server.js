@@ -28,6 +28,7 @@ import {
   POINT_INTELLIGENCE_QUERY_PATH,
   POINT_INTELLIGENCE_QUERY_BUNDLE_PATH
 } from './spatial/agent1-spatial-routes.js';
+import { registerImageryV2Routes } from './spatial-v2/imagery-routes.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
@@ -482,6 +483,7 @@ export function createServer(state, config, arcgis, options = {}) {
   });
 
   registerAgent1SpatialRoutes(app, options);
+  registerImageryV2Routes(app);
 
   app.get('/api/spatial/stm/live-buses', async (_req, res) => {
     res.set('Cache-Control', 'no-store');
@@ -736,6 +738,18 @@ export function createServer(state, config, arcgis, options = {}) {
   }
 
   app.use('/spatial', (req, res, next) => {
+    if (/\.(js|css|mjs|html)$/i.test(req.path)) {
+      res.set('Cache-Control', 'no-store');
+    }
+    next();
+  });
+
+  app.get(['/spatial-v2', '/spatial-v2/', '/spatial-v2/index.html'], (_req, res) => {
+    res.set('Cache-Control', 'no-store');
+    res.sendFile(path.join(PUBLIC_DIR, 'spatial-v2', 'index.html'));
+  });
+
+  app.use('/spatial-v2', (req, res, next) => {
     if (/\.(js|css|mjs|html)$/i.test(req.path)) {
       res.set('Cache-Control', 'no-store');
     }
