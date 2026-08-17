@@ -153,8 +153,8 @@ async function withCdpPage(browserPath, debugPort, fn) {
   const child = spawn(browserPath, [
     `--remote-debugging-port=${debugPort}`,
     `--user-data-dir=${userDataDir}`,
-    '--headless=new',
-    '--hide-scrollbars',
+    '--window-size=1920,1080',
+    '--disable-background-timer-throttling',
     '--no-first-run',
     '--no-default-browser-check',
     '--force-device-scale-factor=1',
