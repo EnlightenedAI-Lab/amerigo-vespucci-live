@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en" data-iqai-surface="spatial-v2-google-maps-js-3d-proof">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>IQAI Montréal — Google Maps JS Photorealistic 3D</title>
+  <script>
+    if (location.hostname === '127.0.0.1' && location.port === '3000') {
+      location.replace('http://localhost:3000' + location.pathname + location.search);
+    }
+  </script>
+  <link rel="stylesheet" href="https://js.arcgis.com/5.1/esri/themes/light/main.css" />
+  <style>
+    html, body { margin: 0; height: 100%; background: #0b0d10; color: #e8eaed; font: 14px/1.4 Arial, sans-serif; }
+    #iqai-spatial-v2 { position: relative; height: 100%; }
+    .iqai-v2-map-host,
+    [data-iqai-google-3d-host] { position: absolute; inset: 0; }
+    [data-iqai-google-3d-host][hidden] { display: none !important; }
+    gmp-map-3d { display: block; width: 100%; height: 100%; }
+    [data-iqai-google-3d-chrome] {
+      position: absolute;
+      left: 16px;
+      top: 16px;
+      z-index: 50;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      padding: 8px 10px;
+      background: rgba(15, 17, 21, 0.92);
+      border: 1px solid #3c4043;
+    }
+    button { cursor: pointer; }
+    [data-iqai-google-3d-status] { max-width: 42vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  </style>
+</head>
+<body>
+  <div id="iqai-spatial-v2">
+    <div class="iqai-v2-map-host" data-iqai-map-host></div>
+    <div data-iqai-google-3d-host hidden></div>
+    <div data-iqai-google-3d-chrome>
+      <button type="button" data-iqai-google-3d-open>OPEN 3D</button>
+      <button type="button" data-iqai-google-3d-return>RETURN TO 2D</button>
+      <span data-iqai-google-3d-status>loading</span>
+    </div>
+  </div>
+  <script type="module" src="/spatial-v2/map/google-photorealistic-3d-proof.js"></script>
+</body>
+</html>
