@@ -147,6 +147,7 @@ export const PLUGIN_SLOTS = Object.freeze([
 
 export const ASK_QUICK_ACTIONS = Object.freeze([
   Object.freeze({ id: 'map', label: 'MAP' }),
+  Object.freeze({ id: 'imagery', label: 'IMAGERY' }),
   Object.freeze({ id: 'analyze', label: 'ANALYZE' }),
   Object.freeze({ id: 'intelligence', label: 'INTELLIGENCE' }),
   Object.freeze({ id: 'vision', label: 'VISION' }),

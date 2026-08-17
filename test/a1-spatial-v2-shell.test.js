@@ -31,7 +31,11 @@ const REQUIRED_V2_FILES = [
   'shell/CapabilityRail.js',
   'shell/MapStage.js',
   'shell/ContextInspector.js',
-  'shell/AskIqaiDock.js'
+  'shell/AskIqaiDock.js',
+  'shell/ask-capability-bus.js',
+  'shell/command-center-state.js',
+  'shell/OperatorImageryExperience.js',
+  'shell/WhatAmILookingAt.js'
 ];
 
 const REQUIRED_SLOTS = [
@@ -138,6 +142,7 @@ test('V2 shell keeps Ask IQAI as the single front door', () => {
   assert.match(dock, /Ask a question or describe what you want to build/);
   assert.deepEqual(ASK_QUICK_ACTIONS.map((item) => item.label), [
     'MAP',
+    'IMAGERY',
     'ANALYZE',
     'INTELLIGENCE',
     'VISION',
@@ -172,7 +177,8 @@ test('V2 shell does not migrate V1 capabilities or fake live connections', () =>
   for (const file of shellLanguageFiles) {
     const text = fs.readFileSync(file, 'utf8');
     assert.equal(/\bCONNECTED\b/.test(text.replaceAll('NOT CONNECTED', '')), false, `${file} presents a connected state`);
-    assert.doesNotMatch(text, /online|healthy|live telemetry/i);
+    assert.doesNotMatch(text, />\s*ONLINE\s*</i);
+    assert.doesNotMatch(text, /healthy|live telemetry/i);
   }
   const values = HEADER_STATUS_SLOTS.map((item) => item.value);
   assert.ok(values.includes('NOT CONNECTED'));

@@ -36,23 +36,74 @@ export function renderAskIqaiDock() {
   `;
 }
 
-export function bindAskIqaiDock(root) {
+function receiptMessage(receipt) {
+  if (!receipt) return 'FAILED — No Ask receipt was produced.';
+  if (receipt.state === 'ROUTED') {
+    const message = receipt.result?.message || receipt.capabilityLabel || receipt.capabilityId;
+    return `ROUTED — ${message}${/[.!?]$/.test(message) ? '' : '.'}`;
+  }
+  if (receipt.state === 'UNAVAILABLE') {
+    return `UNAVAILABLE — ${receipt.result?.message || 'The requested capability is not available.'}`;
+  }
+  if (receipt.state === 'FAILED') {
+    return `FAILED — ${receipt.error || 'The capability failed without a reported reason.'}`;
+  }
+  if (receipt.reason === 'EMPTY_INPUT') {
+    return 'UNROUTED — Enter a question. No capability was executed.';
+  }
+  return 'UNROUTED — No registered capability accepted this request.';
+}
+
+export function paintAskIqaiReceipt(root, receipt) {
+  const status = root.querySelector('[data-iqai-ask-status]');
+  if (!status) return;
+  status.hidden = false;
+  status.dataset.iqaiAskState = receipt?.state || 'FAILED';
+  status.textContent = receiptMessage(receipt);
+}
+
+export function bindAskIqaiDock(root, handlers = {}) {
   const form = root.querySelector('[data-iqai-ask-form]');
-  if (!form) return;
+  if (!form) return () => {};
 
   const status = form.querySelector('[data-iqai-ask-status]');
-  form.addEventListener('submit', (event) => {
+  const input = form.querySelector('[name="ask"]');
+  const onSubmit = async (event) => {
     event.preventDefault();
     if (!status) return;
     status.hidden = false;
-    status.textContent = 'NOT CONNECTED — Ask IQAI is a shell surface only.';
-  });
+    status.dataset.iqaiAskState = 'APPLYING';
+    status.textContent = 'APPLYING — Resolving against registered application capabilities.';
+    const selected = form.querySelector('[data-iqai-quick-action][aria-pressed="true"]');
+    if (typeof handlers.onSubmit !== 'function') {
+      paintAskIqaiReceipt(root, {
+        state: 'UNAVAILABLE',
+        result: { message: 'The Ask capability bus is not available.' }
+      });
+      return;
+    }
+    const receipt = await handlers.onSubmit({
+      text: input?.value || '',
+      quickActionId: selected?.getAttribute('data-iqai-quick-action') || null
+    });
+    paintAskIqaiReceipt(root, receipt);
+  };
 
-  form.addEventListener('click', (event) => {
+  const onClick = (event) => {
     const chip = event.target.closest('[data-iqai-quick-action]');
     if (!chip || !form.contains(chip)) return;
     const pressed = chip.getAttribute('aria-pressed') === 'true';
-    chip.setAttribute('aria-pressed', pressed ? 'false' : 'true');
-    chip.classList.toggle('is-pressed', !pressed);
-  });
+    form.querySelectorAll('[data-iqai-quick-action]').forEach((item) => {
+      const nextPressed = item === chip && !pressed;
+      item.setAttribute('aria-pressed', nextPressed ? 'true' : 'false');
+      item.classList.toggle('is-pressed', nextPressed);
+    });
+  };
+
+  form.addEventListener('submit', onSubmit);
+  form.addEventListener('click', onClick);
+  return () => {
+    form.removeEventListener('submit', onSubmit);
+    form.removeEventListener('click', onClick);
+  };
 }

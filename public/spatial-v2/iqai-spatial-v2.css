@@ -214,6 +214,11 @@ body.iqai-v2-body {
   cursor: default;
 }
 
+.iqai-v2-mode:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
 /* —— 2. Left capability rail —— */
 .iqai-v2-rail {
   grid-column: 1;
@@ -641,6 +646,22 @@ body.iqai-v2-body {
   overflow: hidden;
 }
 
+#iqai-spatial-v2[data-iqai-experience="normal"] .iqai-v2-inspector {
+  grid-template-rows:
+    minmax(0, 2.15fr)
+    minmax(0, 1.55fr)
+    minmax(0, 1fr)
+    minmax(0, 1fr);
+}
+
+#iqai-spatial-v2[data-iqai-experience="normal"] [data-iqai-slot="selected-object-slot"] {
+  display: none;
+}
+
+#iqai-spatial-v2[data-iqai-experience="expert"] .iqai-v2-inspector {
+  grid-template-rows: repeat(5, minmax(0, 1fr));
+}
+
 .iqai-v2-region {
   display: flex;
   flex-direction: column;
@@ -673,6 +694,198 @@ body.iqai-v2-body {
   min-height: 0;
   overflow: auto;
   color: var(--iqai-v2-text-secondary);
+}
+
+.iqai-v2-current-capability p {
+  margin: 0.4rem 0 0;
+}
+
+.iqai-v2-operator-imagery {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  min-height: 0;
+  font-size: var(--iqai-v2-kicker-size);
+}
+
+.iqai-v2-operator-imagery__modes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.25rem;
+}
+
+.iqai-v2-operator-imagery button,
+.iqai-v2-operator-imagery input {
+  font-family: inherit;
+}
+
+.iqai-v2-operator-imagery__mode,
+.iqai-v2-operator-imagery__discover button,
+.iqai-v2-operator-imagery__actions button,
+.iqai-v2-operator-imagery__diagnostics,
+.iqai-v2-operator-imagery__observation {
+  min-width: 0;
+  min-height: 2rem;
+  padding: 0.32rem 0.4rem;
+  border: 1px solid var(--iqai-v2-border-strong);
+  background: var(--iqai-v2-surface);
+  color: var(--iqai-v2-text-secondary);
+  font-size: var(--iqai-v2-kicker-size);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.iqai-v2-operator-imagery__mode.is-selected,
+.iqai-v2-operator-imagery__observation.is-selected {
+  border-color: var(--iqai-v2-text);
+  background: var(--iqai-v2-text);
+  color: #fff;
+}
+
+.iqai-v2-operator-imagery__facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.35rem 0.55rem;
+  margin: 0;
+}
+
+.iqai-v2-operator-imagery__facts div {
+  min-width: 0;
+}
+
+.iqai-v2-operator-imagery__facts dt,
+.iqai-v2-explanation__field dt {
+  font-size: 0.78em;
+  font-weight: 750;
+  letter-spacing: 0.09em;
+  color: var(--iqai-v2-muted);
+}
+
+.iqai-v2-operator-imagery__facts dd,
+.iqai-v2-explanation__field dd {
+  margin: 0.1rem 0 0;
+  overflow-wrap: anywhere;
+  color: var(--iqai-v2-text);
+}
+
+.iqai-v2-operator-imagery__discover {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.35rem;
+  align-items: end;
+}
+
+.iqai-v2-operator-imagery__discover > button:only-child {
+  grid-column: 1 / -1;
+}
+
+.iqai-v2-operator-imagery__discover label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.iqai-v2-operator-imagery__discover input {
+  width: 100%;
+  height: 2rem;
+  padding: 0 0.35rem;
+  border: 1px solid var(--iqai-v2-border-strong);
+}
+
+.iqai-v2-operator-imagery__actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.25rem;
+}
+
+.iqai-v2-operator-imagery__actions button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+}
+
+.iqai-v2-operator-imagery__actions button span {
+  margin-top: 0.08rem;
+  font-size: 0.76em;
+  color: var(--iqai-v2-muted);
+}
+
+.iqai-v2-operator-imagery__actions button:disabled {
+  cursor: not-allowed;
+  background: var(--iqai-v2-bg);
+  opacity: 0.72;
+}
+
+.iqai-v2-operator-imagery__observations {
+  display: flex;
+  flex-direction: column;
+  gap: 0.22rem;
+  max-height: 8rem;
+  overflow: auto;
+}
+
+.iqai-v2-operator-imagery__observation {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.4rem;
+  text-align: left;
+}
+
+.iqai-v2-operator-imagery__empty,
+.iqai-v2-operator-imagery__status,
+.iqai-v2-explanation__connection {
+  margin: 0;
+  color: var(--iqai-v2-muted);
+}
+
+.iqai-v2-operator-imagery__diagnostics {
+  width: 100%;
+}
+
+.iqai-v2-explanation {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  font-size: var(--iqai-v2-kicker-size);
+}
+
+.iqai-v2-explanation__connection {
+  font-weight: 750;
+  letter-spacing: 0.08em;
+}
+
+.iqai-v2-explanation dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.4rem 0.6rem;
+  margin: 0;
+}
+
+.iqai-v2-explanation__field {
+  min-width: 0;
+}
+
+.iqai-v2-explanation__expert {
+  border-top: 1px solid var(--iqai-v2-border);
+  padding-top: 0.35rem;
+}
+
+.iqai-v2-explanation__expert summary {
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+
+.iqai-v2-explanation__expert pre {
+  margin: 0.35rem 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: ui-monospace, "Cascadia Code", monospace;
+  font-size: 0.9em;
 }
 
 /* —— 5. Bottom Ask IQAI dock —— */
@@ -776,7 +989,10 @@ body.iqai-v2-body {
 .iqai-v2-ask__send:focus-visible,
 .iqai-v2-mode:focus-visible,
 .iqai-v2-imagery-mode:focus-visible,
-.iqai-v2-imagery-btn:focus-visible {
+.iqai-v2-imagery-btn:focus-visible,
+.iqai-v2-operator-imagery button:focus-visible,
+.iqai-v2-operator-imagery input:focus-visible,
+.iqai-v2-explanation summary:focus-visible {
   outline: 2px solid var(--iqai-v2-accent);
   outline-offset: 2px;
 }
@@ -800,6 +1016,16 @@ body.iqai-v2-body {
   font-weight: 650;
   letter-spacing: 0.06em;
   color: var(--iqai-v2-muted);
+}
+
+.iqai-v2-ask__status[data-iqai-ask-state="ROUTED"] {
+  color: var(--iqai-v2-text);
+}
+
+.iqai-v2-ask__status[data-iqai-ask-state="FAILED"],
+.iqai-v2-ask__status[data-iqai-ask-state="UNAVAILABLE"],
+.iqai-v2-ask__status[data-iqai-ask-state="UNROUTED"] {
+  color: #7c2d12;
 }
 
 /* Density reduction — preserve architecture, do not redesign around 1080p. */
@@ -862,6 +1088,15 @@ body.iqai-v2-body {
   .iqai-v2-mode {
     height: 2.85rem;
     padding: 0 0.7rem;
+  }
+
+  .iqai-v2-mode--presentation {
+    display: none;
+  }
+
+  .iqai-v2-operator-imagery__facts,
+  .iqai-v2-explanation dl {
+    gap: 0.28rem 0.42rem;
   }
 }
 

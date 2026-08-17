@@ -1,11 +1,18 @@
 import { IQAI_SPATIAL_V2_SHELL_VERSION, SHELL_SLOTS } from './layout-registry.js';
-import { bindAskIqaiDock, renderAskIqaiDock } from './AskIqaiDock.js';
+import { bindAskIqaiDock, paintAskIqaiReceipt, renderAskIqaiDock } from './AskIqaiDock.js';
 import { bindCapabilityRail, renderCapabilityRail, setCapabilityStateLabel, setPluginStateLabel } from './CapabilityRail.js';
-import { renderCommandHeader, startHeaderClock, updateHeaderStatus } from './CommandHeader.js';
+import {
+  bindExperienceControls,
+  paintExperienceControl,
+  renderCommandHeader,
+  startHeaderClock,
+  updateHeaderStatus
+} from './CommandHeader.js';
 import { renderContextInspector, setInspectorRegion } from './ContextInspector.js';
 import { applyMapFoundationToStage, renderMapStage } from './MapStage.js';
 import { getMapFoundationController, initMapFoundation, subscribeMapFoundation } from '../map/map-foundation.js';
 import { getGroundSnapshot, setGroundMode, subscribeGroundController } from '../imagery/ground-controller.js';
+import { TIME_PROVIDER_FILTER } from '../imagery/imagery-contract.js';
 import {
   activateObservation,
   discoverImageryTime,
@@ -16,7 +23,23 @@ import {
   setTimeEngineOptions,
   subscribeTimeEngine
 } from '../imagery/time-engine.js';
-import { bootImageryGround, setImageryDockOpen } from './ImageryPanel.js';
+import {
+  bootImageryGround,
+  isImageryDockOpen,
+  setImageryDockOpen
+} from './ImageryPanel.js';
+import { createAskCapabilityBus } from './ask-capability-bus.js';
+import {
+  createCommandCenterState,
+  createCommandCenterTruthSnapshot,
+  EXPERIENCE_MODE,
+  IMAGERY_VIEW
+} from './command-center-state.js';
+import {
+  bindOperatorImageryExperience,
+  paintOperatorImageryExperience
+} from './OperatorImageryExperience.js';
+import { paintWhatAmILookingAt } from './WhatAmILookingAt.js';
 
 function rectOf(el) {
   if (!el) return null;
@@ -52,6 +75,102 @@ export function measureShellComposition(root = document.getElementById('iqai-spa
   };
 }
 
+function unavailableCapability(id, label, aliases, quickActionIds, unavailableReason) {
+  return {
+    id,
+    label,
+    aliases,
+    quickActionIds,
+    isAvailable: false,
+    unavailableReason,
+    handle: () => null
+  };
+}
+
+function createApplicationCapabilities(commandState) {
+  return [
+    {
+      id: 'map',
+      label: 'Operational map',
+      aliases: ['map', 'show map', 'open map'],
+      quickActionIds: ['map'],
+      isAvailable: true,
+      handle: () => {
+        commandState.setActiveCapability('map');
+        return {
+          applicationAction: 'CONTEXT_SELECTED',
+          engineExecuted: false,
+          message: 'Operational map context selected. No GIS command was executed.'
+        };
+      }
+    },
+    {
+      id: 'imagery',
+      label: 'Imagery',
+      aliases: [
+        'imagery',
+        'show imagery',
+        'latest imagery',
+        'show latest imagery',
+        'imagery history',
+        'show imagery history',
+        'all imagery'
+      ],
+      quickActionIds: ['imagery'],
+      isAvailable: true,
+      handle: ({ normalizedText }) => {
+        let imageryView = IMAGERY_VIEW.LATEST;
+        if (normalizedText === 'imagery history' || normalizedText === 'show imagery history') {
+          imageryView = IMAGERY_VIEW.HISTORY;
+        }
+        if (normalizedText === 'all imagery') imageryView = IMAGERY_VIEW.ALL;
+        commandState.setImageryView(imageryView);
+        return {
+          applicationAction: 'IMAGERY_CONTEXT_SELECTED',
+          engineExecuted: false,
+          imageryView,
+          message: `${imageryView === IMAGERY_VIEW.ALL ? 'All imagery' : imageryView} context opened. No imagery result was invented.`
+        };
+      }
+    },
+    unavailableCapability(
+      'analysis',
+      'Scientific analysis',
+      [
+        'analyze',
+        'show vegetation health',
+        'show water change',
+        'show burn effects',
+        'find new clearing',
+        'what changed between these dates'
+      ],
+      ['analyze'],
+      'Remote-sensing analysis is not connected. ArcGIS Master owns the computation.'
+    ),
+    unavailableCapability(
+      'intelligence',
+      'Open-world intelligence',
+      ['intelligence', 'open world intelligence'],
+      ['intelligence'],
+      'Open-world intelligence is not connected.'
+    ),
+    unavailableCapability(
+      'vision',
+      'Vision',
+      ['vision', 'analyze this image'],
+      ['vision'],
+      'Vision is not connected.'
+    ),
+    unavailableCapability(
+      'build',
+      'Build',
+      ['build', 'build a map', 'create a map'],
+      ['build'],
+      'Build execution is not connected.'
+    )
+  ];
+}
+
 export function mountCommandCenter(root) {
   if (!root) return null;
 
@@ -64,16 +183,142 @@ export function mountCommandCenter(root) {
   `;
 
   startHeaderClock(root);
-  bindCapabilityRail(root, {
-    onCapability: () => setImageryDockOpen(root, false),
-    onPlugin: (pluginId) => setImageryDockOpen(root, pluginId === 'imagery')
+  const commandState = createCommandCenterState();
+  const askBus = createAskCapabilityBus({
+    capabilities: createApplicationCapabilities(commandState)
   });
-  bindAskIqaiDock(root);
+  const mapController = getMapFoundationController();
+  let mapSnapshot = mapController.getSnapshot();
+  let imageryBooted = false;
+
+  const paintCommandCenter = () => {
+    const state = commandState.getSnapshot();
+    const ground = getGroundSnapshot();
+    const time = getTimeEngineSnapshot();
+    const observation = time.selected || ground.receipt?.observation;
+
+    paintExperienceControl(root, state.experience);
+    setImageryDockOpen(
+      root,
+      state.experience === EXPERIENCE_MODE.EXPERT && state.diagnosticsOpen
+    );
+    paintOperatorImageryExperience(root, {
+      state,
+      ground,
+      time,
+      mapState: mapSnapshot.state
+    });
+    paintWhatAmILookingAt(root, { state, ground, time });
+
+    const provenanceLines = [
+      `Ground: ${ground.label || ground.currentMode}`,
+      `Ground state: ${ground.applyState}`,
+      `Imagery time state: ${time.engineState}`,
+      observation?.productName ? `Product: ${observation.productName}` : null,
+      observation?.dateKindUsed ? `Date kind: ${observation.dateKindUsed}` : null,
+      `requestedDate: ${time.requestedDate || 'null'}`,
+      `acquisitionDate: ${observation?.acquisitionDate || 'null'}`,
+      `releaseDate: ${observation?.releaseDate || 'null'}`,
+      `onlineDate: ${observation?.firstPublicDate || 'null'}`,
+      `vintage: ${observation?.vintageLabel || observation?.vintageYear || 'null'}`,
+      `match: ${time.matchKind} deltaDays=${time.deltaDays == null ? 'null' : time.deltaDays}`,
+      'Imagery time is not OWI AS_OF, PI AT/RANGE, or Situation time.',
+      'Map presence and engine READY do not prove imagery pixels.',
+      observation?.limitation || null,
+      observation?.establishes ? `Establishes: ${observation.establishes}` : null,
+      observation?.doesNotEstablish ? `Does not establish: ${observation.doesNotEstablish}` : null
+    ].filter(Boolean);
+    setInspectorRegion(root, 'provenance-slot', {
+      stateLabel: time.activeId
+        ? 'IMAGERY TIME'
+        : (ground.applyState === 'READY' ? 'GROUND' : (ground.applyState || 'RESERVED')),
+      body: provenanceLines.join('\n')
+    });
+
+    const askReceipt = state.lastAskReceipt;
+    const receiptLines = askReceipt
+      ? [
+          `askReceipt: ${askReceipt.receiptId}`,
+          `state: ${askReceipt.state}`,
+          `reason: ${askReceipt.reason}`,
+          `capability: ${askReceipt.capabilityId || 'none'}`,
+          `executed: ${askReceipt.executed}`,
+          `input: ${askReceipt.input || '(empty)'}`,
+          askReceipt.result?.applicationAction
+            ? `applicationAction: ${askReceipt.result.applicationAction}`
+            : null,
+          askReceipt.result?.engineExecuted != null
+            ? `engineExecuted: ${askReceipt.result.engineExecuted}`
+            : null,
+          askReceipt.error ? `error: ${askReceipt.error}` : null
+        ].filter(Boolean)
+      : ['Ask receipt: none'];
+    const imageryReceiptLines = state.experience === EXPERIENCE_MODE.EXPERT
+      ? [
+          `groundMode: ${ground.currentMode}`,
+          `timeActive: ${time.activeId || 'none'}`,
+          `wayback: ${time.entitlements.wayback}`,
+          `nearmap: ${time.entitlements.nearmap}`,
+          ground.error ? `groundError: ${ground.error}` : null,
+          time.error ? `timeError: ${time.error}` : null
+        ].filter(Boolean)
+      : [
+          `Imagery engine: ${time.engineState}`,
+          'Engine receipts and provider diagnostics are available in Expert.'
+        ];
+    setInspectorRegion(root, 'execution-receipt-slot', {
+      stateLabel: askReceipt?.state || time.engineState || ground.applyState || 'RECEIPT',
+      body: [...receiptLines, ...imageryReceiptLines].join('\n')
+    });
+
+    let imageryState = ground.applyState || 'RESERVED';
+    if (ground.applyState === 'READY' && time.engineState === 'READY') imageryState = 'READY';
+    if (ground.applyState === 'APPLYING' || time.engineState === 'APPLYING' || time.engineState === 'DISCOVERING') {
+      imageryState = 'APPLYING';
+    }
+    if (ground.applyState === 'ERROR' || time.engineState === 'ERROR') imageryState = 'ERROR';
+    setPluginStateLabel(root, 'imagery', imageryState);
+  };
+
+  bindCapabilityRail(root, {
+    onCapability: (capabilityId) => commandState.setActiveCapability(capabilityId),
+    onPlugin: (pluginId) => commandState.setActiveCapability(pluginId)
+  });
+  bindExperienceControls(root, {
+    onChange: (experience) => commandState.setExperience(experience)
+  });
+  bindOperatorImageryExperience(root, {
+    onView: (imageryView) => commandState.setImageryView(imageryView),
+    onRequestedDate: (requestedDate) => setTimeEngineOptions({ requestedDate }),
+    onDiscover: () => {
+      const state = commandState.getSnapshot();
+      const options = {
+        providerFilter: TIME_PROVIDER_FILTER.ALL
+      };
+      if (state.imageryView === IMAGERY_VIEW.LATEST) {
+        options.requestedDate = new Date().toISOString().slice(0, 10);
+      }
+      setTimeEngineOptions(options);
+      void discoverImageryTime(options).catch(() => {});
+    },
+    onPrevious: () => void previousObservation().catch(() => {}),
+    onNext: () => void nextObservation().catch(() => {}),
+    onSelect: (observationId) => void selectObservation(observationId).catch(() => {}),
+    onDiagnostics: () => commandState.setDiagnosticsOpen(!isImageryDockOpen(root))
+  });
+  bindAskIqaiDock(root, {
+    onSubmit: (request) => askBus.execute(request)
+  });
+  askBus.subscribe((receipt) => {
+    commandState.setAskReceipt(receipt);
+    paintAskIqaiReceipt(root, receipt);
+  });
+  commandState.subscribe(paintCommandCenter);
 
   const mapHost = root.querySelector('[data-iqai-map-host]');
   const navHost = root.querySelector('[data-iqai-map-nav]');
-  let imageryBooted = false;
   subscribeMapFoundation((snapshot) => {
+    mapSnapshot = snapshot;
     applyMapFoundationToStage(root, snapshot);
     setCapabilityStateLabel(root, 'map', snapshot.state === 'READY' ? 'READY' : snapshot.state);
     if (snapshot.state === 'READY') {
@@ -92,57 +337,38 @@ export function mountCommandCenter(root) {
     } else if (snapshot.state === 'ERROR') {
       updateHeaderStatus(root, 'agol-portal', 'NOT CONNECTED', 'disconnected');
     }
+    paintCommandCenter();
   });
-  const paintImageryProvenance = () => {
-    const ground = getGroundSnapshot();
-    const time = getTimeEngineSnapshot();
-    const observation = time.selected || ground.receipt?.observation;
-    const lines = [
-      `Ground: ${ground.label || ground.currentMode}`,
-      `Ground state: ${ground.applyState}`,
-      `Imagery time state: ${time.engineState}`,
-      observation?.productName ? `Product: ${observation.productName}` : null,
-      observation?.dateKindUsed ? `Date kind: ${observation.dateKindUsed}` : null,
-      `requestedDate: ${time.requestedDate || 'null'}`,
-      `releaseDate: ${observation?.releaseDate || 'null'}`,
-      `acquisitionDate: ${observation?.acquisitionDate || 'null'}`,
-      `firstPublicDate: ${observation?.firstPublicDate || 'null'}`,
-      `match: ${time.matchKind} deltaDays=${time.deltaDays == null ? 'null' : time.deltaDays}`,
-      'Imagery time is not OWI AS_OF, PI AT/RANGE, or Situation time.',
-      observation?.limitation || null,
-      observation?.establishes ? `Establishes: ${observation.establishes}` : null,
-      observation?.doesNotEstablish ? `Does not establish: ${observation.doesNotEstablish}` : null
-    ].filter(Boolean);
-    setInspectorRegion(root, 'provenance-slot', {
-      stateLabel: time.activeId ? 'IMAGERY TIME' : (ground.applyState === 'READY' ? 'GROUND' : (ground.applyState || 'RESERVED')),
-      body: lines.join('\n')
-    });
-    setInspectorRegion(root, 'execution-receipt-slot', {
-      stateLabel: time.engineState || ground.applyState || 'RECEIPT',
-      body: [
-        `groundMode: ${ground.currentMode}`,
-        `timeActive: ${time.activeId || 'none'}`,
-        `wayback: ${time.entitlements.wayback}`,
-        `nearmap: ${time.entitlements.nearmap}`,
-        ground.error ? `groundError: ${ground.error}` : null,
-        time.error ? `timeError: ${time.error}` : null
-      ].filter(Boolean).join('\n')
-    });
-    setPluginStateLabel(
-      root,
-      'imagery',
-      time.activeId ? 'TIME' : (ground.applyState === 'READY' ? 'GROUND' : ground.applyState)
-    );
-  };
-  subscribeGroundController(paintImageryProvenance);
-  subscribeTimeEngine(paintImageryProvenance);
+  subscribeGroundController(paintCommandCenter);
+  subscribeTimeEngine(paintCommandCenter);
   void initMapFoundation(mapHost, { navHost }).catch(() => {});
 
   const api = {
     version: IQAI_SPATIAL_V2_SHELL_VERSION,
+    applicationVersion: 'command-center-foundation-v1',
     slots: SHELL_SLOTS,
     measure: () => measureShellComposition(root),
-    mapFoundation: getMapFoundationController(),
+    mapFoundation: mapController,
+    commandCenter: {
+      getSnapshot: () => commandState.getSnapshot(),
+      setExperience: (experience) => commandState.setExperience(experience),
+      setActiveCapability: (capabilityId) => commandState.setActiveCapability(capabilityId),
+      setImageryView: (imageryView) => commandState.setImageryView(imageryView)
+    },
+    ask: {
+      execute: (request) => askBus.execute(request),
+      getLastReceipt: () => askBus.getLastReceipt(),
+      getCapabilities: () => askBus.getCapabilities()
+    },
+    truth: () => createCommandCenterTruthSnapshot({
+      map: {
+        ...mapController.getSnapshot(),
+        mapViewCreateCount: mapController.getMapViewCreateCount()
+      },
+      ground: getGroundSnapshot(),
+      time: getTimeEngineSnapshot(),
+      askReceipt: askBus.getLastReceipt()
+    }),
     ground: () => getGroundSnapshot(),
     time: () => getTimeEngineSnapshot(),
     setGroundMode,

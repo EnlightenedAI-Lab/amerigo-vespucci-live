@@ -41,13 +41,25 @@ export function renderCommandHeader() {
       </div>
 
       <div class="iqai-v2-header__modes">
-        <span class="iqai-v2-mode iqai-v2-mode--current" data-iqai-mode="operator">OPERATOR</span>
+        <button
+          type="button"
+          class="iqai-v2-mode iqai-v2-mode--current"
+          data-iqai-experience="NORMAL"
+          aria-pressed="true"
+        >NORMAL</button>
+        <button
+          type="button"
+          class="iqai-v2-mode"
+          data-iqai-experience="EXPERT"
+          aria-pressed="false"
+        >EXPERT</button>
         <button
           type="button"
           class="iqai-v2-mode iqai-v2-mode--presentation"
           data-iqai-mode="presentation"
           title="Presentation mode is reserved. Camera lock, chrome reduction, and replay are not implemented."
           aria-pressed="false"
+          disabled
         >PRESENTATION</button>
       </div>
     </header>
@@ -69,6 +81,28 @@ export function updateHeaderStatus(root, statusId, value, state) {
   if (!cell) return;
   cell.textContent = value;
   if (state) cell.dataset.state = state;
+}
+
+export function paintExperienceControl(root, experience) {
+  root.dataset.iqaiExperience = String(experience || 'NORMAL').toLowerCase();
+  root.querySelectorAll('[data-iqai-experience]').forEach((control) => {
+    const selected = control.getAttribute('data-iqai-experience') === experience;
+    control.classList.toggle('iqai-v2-mode--current', selected);
+    control.setAttribute('aria-pressed', selected ? 'true' : 'false');
+  });
+}
+
+export function bindExperienceControls(root, handlers = {}) {
+  const onClick = (event) => {
+    const control = event.target.closest('[data-iqai-experience]');
+    if (!control || !root.contains(control)) return;
+    const experience = control.getAttribute('data-iqai-experience');
+    if (experience && typeof handlers.onChange === 'function') {
+      handlers.onChange(experience);
+    }
+  };
+  root.addEventListener('click', onClick);
+  return () => root.removeEventListener('click', onClick);
 }
 
 export function startHeaderClock(root) {
