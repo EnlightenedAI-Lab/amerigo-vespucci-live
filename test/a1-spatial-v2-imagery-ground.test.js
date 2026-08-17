@@ -97,7 +97,11 @@ test('Ground Controller V1 enables working modes and keeps future modes disabled
   assert.match(nearmap, /\/api\/spatial-v2\/imagery\/nearmap\/wms/);
   assert.match(nearmap, /imageFormat: 'png'/);
   assert.match(nearmap, /request\.interceptors/);
-  assert.match(nearmap, /latest\\\/apikey/);
+  assert.match(nearmap, /NEARMAP_WMS_PATH/);
+  assert.match(nearmap, /HTMLImageElement/);
+  const foundation = read('map', 'map-foundation.js');
+  assert.match(foundation, /ensureNearmapWmsInterceptor/);
+  assert.match(foundation, /applyOperationalHome/);
   assert.doesNotMatch(nearmap, /api\.nearmap\.com/);
   assert.doesNotMatch(nearmap, /NEARMAP_API_KEY/);
   assert.doesNotMatch(nearmap, /NEARMAP_WMS_URL/);

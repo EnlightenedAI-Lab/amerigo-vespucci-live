@@ -20,32 +20,81 @@ function wmsProxyUrl() {
   return NEARMAP_WMS_PROXY;
 }
 
-let wmsInterceptorInstalled = false;
+const NEARMAP_WMS_PATH = /\/wms\/v1\/(?:latest\/)?apikey\//i;
 
-async function ensureNearmapWmsInterceptor() {
-  if (wmsInterceptorInstalled) return;
-  const esriConfig = await importArc('@arcgis/core/config.js');
-  esriConfig.request.interceptors.push({
-    urls: /\/wms\/v1\/latest\/apikey\//i,
-    before: (params) => {
-      const proxy = wmsProxyUrl();
-      let incoming = null;
-      try {
-        incoming = new URL(params.url, typeof window !== 'undefined' ? window.location.origin : 'http://127.0.0.1');
-      } catch {
-        params.url = proxy;
-        return;
-      }
-      const outgoing = new URL(proxy, incoming.origin);
-      incoming.searchParams.forEach((value, key) => {
-        if (!/apikey|token|password|secret/i.test(key)) {
-          outgoing.searchParams.set(key, value);
-        }
-      });
-      params.url = outgoing.toString();
+function rewriteNearmapWmsUrl(urlString) {
+  const proxy = wmsProxyUrl();
+  let incoming = null;
+  try {
+    incoming = new URL(String(urlString || ''), typeof window !== 'undefined' ? window.location.origin : 'http://127.0.0.1');
+  } catch {
+    return proxy;
+  }
+  if (!NEARMAP_WMS_PATH.test(incoming.pathname) && !NEARMAP_WMS_PATH.test(incoming.href)) {
+    return String(urlString || '');
+  }
+  const outgoing = new URL(proxy, typeof window !== 'undefined' ? window.location.origin : 'http://127.0.0.1');
+  incoming.searchParams.forEach((value, key) => {
+    if (!/apikey|token|password|secret/i.test(key)) {
+      outgoing.searchParams.set(key, value);
     }
   });
-  wmsInterceptorInstalled = true;
+  return outgoing.toString();
+}
+
+let interceptPromise = null;
+
+export function ensureNearmapWmsInterceptor() {
+  if (interceptPromise) return interceptPromise;
+  interceptPromise = (async () => {
+    const esriConfig = await importArc('@arcgis/core/config.js');
+    esriConfig.request.interceptors.push({
+      urls: NEARMAP_WMS_PATH,
+      before: (params) => {
+        params.url = rewriteNearmapWmsUrl(params.url);
+      }
+    });
+    if (typeof window === 'undefined') return;
+    if (!window.__iqaiNearmapFetchGuard) {
+      const originalFetch = window.fetch.bind(window);
+      window.fetch = (input, init) => {
+        if (typeof input === 'string') return originalFetch(rewriteNearmapWmsUrl(input), init);
+        if (input instanceof Request) {
+          const nextUrl = rewriteNearmapWmsUrl(input.url);
+          if (nextUrl !== input.url) return originalFetch(new Request(nextUrl, input), init);
+        }
+        return originalFetch(input, init);
+      };
+      window.__iqaiNearmapFetchGuard = true;
+    }
+    if (!window.__iqaiNearmapXhrGuard && window.XMLHttpRequest) {
+      const originalOpen = window.XMLHttpRequest.prototype.open;
+      window.XMLHttpRequest.prototype.open = function(method, url, ...rest) {
+        return originalOpen.call(this, method, rewriteNearmapWmsUrl(url), ...rest);
+      };
+      window.__iqaiNearmapXhrGuard = true;
+    }
+    if (!window.__iqaiNearmapImageGuard && window.HTMLImageElement) {
+      const descriptor = Object.getOwnPropertyDescriptor(window.HTMLImageElement.prototype, 'src');
+      if (descriptor?.set && descriptor?.get) {
+        Object.defineProperty(window.HTMLImageElement.prototype, 'src', {
+          configurable: true,
+          enumerable: descriptor.enumerable,
+          get() {
+            return descriptor.get.call(this);
+          },
+          set(value) {
+            descriptor.set.call(this, rewriteNearmapWmsUrl(value));
+          }
+        });
+      }
+      window.__iqaiNearmapImageGuard = true;
+    }
+  })().catch((error) => {
+    interceptPromise = null;
+    throw error;
+  });
+  return interceptPromise;
 }
 
 export const nearmapWmsGroundProvider = {

@@ -24,6 +24,7 @@ import {
   signInToAgol
 } from './agol-session.js';
 import { mountMapNavControls } from './map-nav-controls.js';
+import { ensureNearmapWmsInterceptor } from '../imagery/providers/nearmap-wms-ground-provider.js';
 
 export const MAP_FOUNDATION_STATES = Object.freeze({
   INITIALIZING: 'INITIALIZING',
@@ -154,14 +155,21 @@ function collectAuthoredLayerIds(map, runtimeId) {
   return ids;
 }
 
+function applyOperationalHome(view) {
+  if (!view) return;
+  view.center = [MONTREAL_OPERATIONAL_CENTER.longitude, MONTREAL_OPERATIONAL_CENTER.latitude];
+  view.scale = MONTREAL_OPERATIONAL_SCALE;
+}
+
 async function ensureMontrealViewpoint(view) {
+  await Promise.race([
+    view.when(),
+    new Promise((resolve) => setTimeout(resolve, 8000))
+  ]).catch(() => {});
   const longitude = view.center?.longitude;
   const latitude = view.center?.latitude;
   if (isGreaterMontrealLongitudeLatitude(longitude, latitude)) return;
-  await view.goTo({
-    center: [MONTREAL_OPERATIONAL_CENTER.longitude, MONTREAL_OPERATIONAL_CENTER.latitude],
-    scale: MONTREAL_OPERATIONAL_SCALE
-  }, { duration: 0 }).catch(() => {});
+  applyOperationalHome(view);
 }
 
 async function loadWebMapOrSignIn(map, session, timeoutMs) {
@@ -219,6 +227,7 @@ async function bootstrap(container, options) {
   emit();
 
   await loadArcgisSdk();
+  await ensureNearmapWmsInterceptor();
   const oauthConfig = await fetchOperationalMapOAuthConfig();
   if (!oauthConfig.oauthAppIdConfigured) {
     throw new Error('ArcGIS OAuth App ID is not configured.');
@@ -267,7 +276,9 @@ async function bootstrap(container, options) {
   webMapCreateCount += 1;
   const view = new MapView({
     container,
-    map: webMap
+    map: webMap,
+    center: [MONTREAL_OPERATIONAL_CENTER.longitude, MONTREAL_OPERATIONAL_CENTER.latitude],
+    scale: MONTREAL_OPERATIONAL_SCALE
   });
   mapView = view;
   mapViewCreateCount += 1;
@@ -312,10 +323,6 @@ async function bootstrap(container, options) {
   state = MAP_FOUNDATION_STATES.READY;
   emit();
 
-  void ensureMontrealViewpoint(mapView).then(() => {
-    homeViewpoint = mapView.viewpoint?.clone?.() || homeViewpoint;
-  }).catch(() => {});
-
   void mapView.when().then(async () => {
     try {
       mapView.ui.components = ['attribution'];
@@ -323,7 +330,9 @@ async function bootstrap(container, options) {
       // CSS also hides leftover Esri chrome.
     }
     await ensureMontrealViewpoint(mapView);
-    homeViewpoint = mapView.viewpoint?.clone?.() || null;
+    if (isGreaterMontrealLongitudeLatitude(mapView.center?.longitude, mapView.center?.latitude)) {
+      homeViewpoint = mapView.viewpoint?.clone?.() || null;
+    }
   }).catch((error) => {
     console.warn('[IQAI V2] MapView when() did not settle', sanitizeError(error));
   });
@@ -351,14 +360,7 @@ export function getMapFoundationController() {
     },
     goHome: async () => {
       if (!mapView) return;
-      if (homeViewpoint) {
-        await mapView.goTo(homeViewpoint).catch(() => {});
-        return;
-      }
-      await mapView.goTo({
-        center: [MONTREAL_OPERATIONAL_CENTER.longitude, MONTREAL_OPERATIONAL_CENTER.latitude],
-        scale: MONTREAL_OPERATIONAL_SCALE
-      }).catch(() => {});
+      applyOperationalHome(mapView);
     }
   };
 }
