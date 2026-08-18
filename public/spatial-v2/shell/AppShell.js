@@ -1,16 +1,23 @@
 import { IQAI_SPATIAL_V2_SHELL_VERSION, SHELL_SLOTS } from './layout-registry.js';
 import { bindAskIqaiDock, paintAskIqaiReceipt, renderAskIqaiDock } from './AskIqaiDock.js';
-import { bindCapabilityRail, renderCapabilityRail, setCapabilityStateLabel, setPluginStateLabel } from './CapabilityRail.js';
+import { bindCapabilityRail, paintCapabilitySelection, renderCapabilityRail, setCapabilityStateLabel, setPluginStateLabel } from './CapabilityRail.js';
 import {
   bindExperienceControls,
+  bindSystemStatusControl,
   paintExperienceControl,
+  paintSystemStatus,
   renderCommandHeader,
   startHeaderClock,
   updateHeaderStatus
 } from './CommandHeader.js';
-import { renderContextInspector, setInspectorRegion } from './ContextInspector.js';
+import { bindContextInspector, paintInspectorPane, renderContextInspector, setInspectorRegion } from './ContextInspector.js';
 import { applyMapFoundationToStage, renderMapStage } from './MapStage.js';
 import { bindGooglePhotorealistic3dControl } from './GooglePhotorealistic3dControl.js';
+import { bindStreet360Control } from './Street360Control.js';
+import { bindViewSwitcher } from './ViewSwitcher.js';
+import { bindDropPinControl } from './DropPinControl.js';
+import { getActiveSpatialFocus } from '../map/spatial-focus.js';
+import { bindOperatorGroundControl, paintOperatorGroundControl } from './OperatorGroundControl.js';
 import { getMapFoundationController, initMapFoundation, subscribeMapFoundation } from '../map/map-foundation.js';
 import { getGroundSnapshot, setGroundMode, subscribeGroundController } from '../imagery/ground-controller.js';
 import { TIME_PROVIDER_FILTER } from '../imagery/imagery-contract.js';
@@ -41,6 +48,7 @@ import {
   paintOperatorImageryExperience
 } from './OperatorImageryExperience.js';
 import { paintWhatAmILookingAt } from './WhatAmILookingAt.js';
+import { deriveGuidedNextAction, identityOfGuided, paintGuidedNextAction } from './guided-next-action.js';
 
 function rectOf(el) {
   if (!el) return null;
@@ -189,7 +197,37 @@ export function mountCommandCenter(root) {
     capabilities: createApplicationCapabilities(commandState)
   });
   const mapController = getMapFoundationController();
-  const google3d = bindGooglePhotorealistic3dControl(root);
+  const specialists = {};
+  const google3d = bindGooglePhotorealistic3dControl(root, {
+    getSpatialFocus: () => getActiveSpatialFocus(),
+    getPeerSelectedPoint: () => getActiveSpatialFocus()
+  });
+  const street360 = bindStreet360Control(root, {
+    getSpatialFocus: () => getActiveSpatialFocus(),
+    getPeerSelectedPoint: () => getActiveSpatialFocus(),
+    isPeerSpecialistOpen: () => {
+      const snap = google3d.snapshot();
+      return snap.open === true || snap.stageState === 'OPENING' || snap.stageState === 'OPEN';
+    },
+    closePeerSpecialist: () => google3d.close({ restoreMap: false })
+  });
+  const dropPin = bindDropPinControl(root, {
+    getActiveView: () => specialists.view?.snapshot?.().activeView || 'map',
+    returnToMap: () => specialists.view?.setView('map'),
+    onPlaced: (point) => {
+      if (!point) return;
+      street360.selectPoint(point.longitude, point.latitude, 'drop-pin');
+      google3d.selectPoint(point.longitude, point.latitude, 'drop-pin');
+      specialists.view?.onMapPointSelected(point);
+    }
+  });
+  specialists.street360 = street360;
+  specialists.view = bindViewSwitcher(root, {
+    google3d,
+    street360,
+    armDropPin: () => dropPin.arm()
+  });
+  const viewSwitcher = specialists.view;
   let mapSnapshot = mapController.getSnapshot();
   let imageryBooted = false;
 
@@ -198,8 +236,26 @@ export function mountCommandCenter(root) {
     const ground = getGroundSnapshot();
     const time = getTimeEngineSnapshot();
     const observation = time.selected || ground.receipt?.observation;
+    const guided = deriveGuidedNextAction({
+      activeCapability: state.activeCapability,
+      imageryView: state.imageryView,
+      observationCount: time.observations?.length || 0,
+      displayConfirmed: time.displayConfirmed === true,
+      historyDateCommitted: state.historyDateCommitted
+    });
+    const sheetOpen = state.activeCapability !== 'map' || Boolean(state.lastAskReceipt);
+    root.dataset.iqaiSheet = sheetOpen ? 'open' : 'closed';
+    const begin = root.querySelector('[data-iqai-begin]');
+    if (begin) begin.hidden = sheetOpen || mapSnapshot.state !== 'READY';
 
     paintExperienceControl(root, state.experience);
+    paintSystemStatus(root, {
+      mapState: mapSnapshot.state,
+      open: state.systemStatusOpen
+    });
+    paintOperatorGroundControl(root, ground);
+    paintCapabilitySelection(root, state.activeCapability);
+    paintInspectorPane(root, state.inspectorPane || 'situation-slot');
     setImageryDockOpen(
       root,
       state.experience === EXPERIENCE_MODE.EXPERT && state.diagnosticsOpen
@@ -208,9 +264,11 @@ export function mountCommandCenter(root) {
       state,
       ground,
       time,
-      mapState: mapSnapshot.state
+      mapState: mapSnapshot.state,
+      guided
     });
     paintWhatAmILookingAt(root, { state, ground, time });
+    paintGuidedNextAction(root, guided, state.experience);
 
     const provenanceLines = [
       `Ground: ${ground.label || ground.currentMode}`,
@@ -224,6 +282,8 @@ export function mountCommandCenter(root) {
       `onlineDate: ${observation?.firstPublicDate || 'null'}`,
       `vintage: ${observation?.vintageLabel || observation?.vintageYear || 'null'}`,
       `match: ${time.matchKind} deltaDays=${time.deltaDays == null ? 'null' : time.deltaDays}`,
+      `displayState: ${time.displayState || 'NONE'}`,
+      `displayConfirmed: ${time.displayConfirmed === true}`,
       'Imagery time is not OWI AS_OF, PI AT/RANGE, or Situation time.',
       'Map presence and engine READY do not prove imagery pixels.',
       observation?.limitation || null,
@@ -259,6 +319,8 @@ export function mountCommandCenter(root) {
       ? [
           `groundMode: ${ground.currentMode}`,
           `timeActive: ${time.activeId || 'none'}`,
+          `displayState: ${time.displayState || 'NONE'}`,
+          `displayConfirmed: ${time.displayConfirmed === true}`,
           `wayback: ${time.entitlements.wayback}`,
           `nearmap: ${time.entitlements.nearmap}`,
           ground.error ? `groundError: ${ground.error}` : null,
@@ -266,6 +328,7 @@ export function mountCommandCenter(root) {
         ].filter(Boolean)
       : [
           `Imagery engine: ${time.engineState}`,
+          `DISPLAY: ${time.displayConfirmed === true ? 'DISPLAY_CONFIRMED' : (time.displayState && time.displayState !== 'NONE' ? 'DISPLAY NOT CONFIRMED' : 'NONE')}`,
           'Engine receipts and provider diagnostics are available in Expert.'
         ];
     setInspectorRegion(root, 'execution-receipt-slot', {
@@ -282,6 +345,9 @@ export function mountCommandCenter(root) {
     setPluginStateLabel(root, 'imagery', imageryState);
   };
 
+  bindContextInspector(root, {
+    onPane: (slot) => commandState.setInspectorPane(slot)
+  });
   bindCapabilityRail(root, {
     onCapability: (capabilityId) => commandState.setActiveCapability(capabilityId),
     onPlugin: (pluginId) => commandState.setActiveCapability(pluginId)
@@ -289,11 +355,24 @@ export function mountCommandCenter(root) {
   bindExperienceControls(root, {
     onChange: (experience) => commandState.setExperience(experience)
   });
+  bindSystemStatusControl(root, {
+    onToggle: () => {
+      const current = commandState.getSnapshot();
+      commandState.setSystemStatusOpen(!current.systemStatusOpen);
+    }
+  });
+  bindOperatorGroundControl(root, {
+    onChange: (modeId) => setGroundMode(modeId)
+  });
   bindOperatorImageryExperience(root, {
     onView: (imageryView) => commandState.setImageryView(imageryView),
-    onRequestedDate: (requestedDate) => setTimeEngineOptions({ requestedDate }),
+    onRequestedDate: (requestedDate) => {
+      commandState.commitHistoryDate();
+      setTimeEngineOptions({ requestedDate });
+    },
     onDiscover: () => {
       const state = commandState.getSnapshot();
+      commandState.commitHistoryDate();
       const options = {
         providerFilter: TIME_PROVIDER_FILTER.ALL
       };
@@ -303,6 +382,7 @@ export function mountCommandCenter(root) {
       setTimeEngineOptions(options);
       void discoverImageryTime(options).catch(() => {});
     },
+    onActivate: () => void activateObservation().catch(() => {}),
     onPrevious: () => void previousObservation().catch(() => {}),
     onNext: () => void nextObservation().catch(() => {}),
     onSelect: (observationId) => void selectObservation(observationId).catch(() => {}),
@@ -323,6 +403,9 @@ export function mountCommandCenter(root) {
     mapSnapshot = snapshot;
     applyMapFoundationToStage(root, snapshot);
     google3d.setMapReady(snapshot.state === 'READY');
+    street360.setMapReady(snapshot.state === 'READY');
+    dropPin.setMapReady(snapshot.state === 'READY');
+    viewSwitcher.paint();
     setCapabilityStateLabel(root, 'map', snapshot.state === 'READY' ? 'READY' : snapshot.state);
     if (snapshot.state === 'READY') {
       updateHeaderStatus(
@@ -348,31 +431,61 @@ export function mountCommandCenter(root) {
 
   const api = {
     version: IQAI_SPATIAL_V2_SHELL_VERSION,
-    applicationVersion: 'command-center-foundation-v1',
+    applicationVersion: 'next-generation-shell-v1',
     slots: SHELL_SLOTS,
     measure: () => measureShellComposition(root),
     mapFoundation: mapController,
     google3d,
+    street360,
+    viewSwitcher,
+    dropPin,
+    spatialFocus: getActiveSpatialFocus,
     commandCenter: {
       getSnapshot: () => commandState.getSnapshot(),
       setExperience: (experience) => commandState.setExperience(experience),
       setActiveCapability: (capabilityId) => commandState.setActiveCapability(capabilityId),
-      setImageryView: (imageryView) => commandState.setImageryView(imageryView)
+      setImageryView: (imageryView) => commandState.setImageryView(imageryView),
+      commitHistoryDate: () => commandState.commitHistoryDate(),
+      setSystemStatusOpen: (open) => commandState.setSystemStatusOpen(open),
+      guided: () => {
+        const command = commandState.getSnapshot();
+        const time = getTimeEngineSnapshot();
+        return deriveGuidedNextAction({
+          activeCapability: command.activeCapability,
+          imageryView: command.imageryView,
+          observationCount: time.observations?.length || 0,
+          displayConfirmed: time.displayConfirmed === true,
+          historyDateCommitted: command.historyDateCommitted
+        });
+      }
     },
     ask: {
       execute: (request) => askBus.execute(request),
       getLastReceipt: () => askBus.getLastReceipt(),
       getCapabilities: () => askBus.getCapabilities()
     },
-    truth: () => createCommandCenterTruthSnapshot({
-      map: {
-        ...mapController.getSnapshot(),
-        mapViewCreateCount: mapController.getMapViewCreateCount()
-      },
-      ground: getGroundSnapshot(),
-      time: getTimeEngineSnapshot(),
-      askReceipt: askBus.getLastReceipt()
-    }),
+    truth: () => {
+      const command = commandState.getSnapshot();
+      const time = getTimeEngineSnapshot();
+      const guided = deriveGuidedNextAction({
+        activeCapability: command.activeCapability,
+        imageryView: command.imageryView,
+        observationCount: time.observations?.length || 0,
+        displayConfirmed: time.displayConfirmed === true,
+        historyDateCommitted: command.historyDateCommitted
+      });
+      return createCommandCenterTruthSnapshot({
+        map: {
+          ...mapController.getSnapshot(),
+          mapViewCreateCount: mapController.getMapViewCreateCount()
+        },
+        ground: getGroundSnapshot(),
+        time,
+        askReceipt: askBus.getLastReceipt(),
+        command,
+        guided: identityOfGuided(guided)
+      });
+    },
     ground: () => getGroundSnapshot(),
     time: () => getTimeEngineSnapshot(),
     setGroundMode,

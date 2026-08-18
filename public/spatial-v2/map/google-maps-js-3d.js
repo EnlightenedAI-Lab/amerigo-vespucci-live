@@ -7,7 +7,6 @@
  */
 
 import {
-  MONTREAL_OPERATIONAL_CENTER,
   isGreaterMontrealLongitudeLatitude
 } from '../../spatial/montreal-operational-config.js';
 
@@ -503,12 +502,7 @@ export async function setGoogleMapsJs3dReference(enabled) {
 }
 
 export function getSelectedPoint() {
-  return selectedPoint ? { ...selectedPoint } : {
-    longitude: MONTREAL_OPERATIONAL_CENTER.longitude,
-    latitude: MONTREAL_OPERATIONAL_CENTER.latitude,
-    spatialReferenceWkid: 4326,
-    source: 'montreal-operational-center'
-  };
+  return selectedPoint ? { ...selectedPoint } : null;
 }
 
 export function getGoogleMapsJs3dElement() {

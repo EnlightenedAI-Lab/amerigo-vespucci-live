@@ -67,9 +67,12 @@ test('real V2 map stage exposes a bounded Google 3D operator lifecycle', () => {
   const css = read('iqai-spatial-v2.css');
   const foundation = read('map', 'map-foundation.js');
 
-  assert.match(stage, />OPEN 3D</);
-  assert.match(stage, />RETURN TO 2D</);
-  assert.match(stage, />GOOGLE PHOTOREALISTIC 3D</);
+  assert.match(stage, />3D VISUAL</);
+  assert.match(stage, />3D ANALYZE</);
+  assert.match(stage, /data-iqai-view="3d-visual"/);
+  assert.doesNotMatch(stage, />OPEN 3D</);
+  assert.doesNotMatch(stage, />RETURN TO 2D</);
+  assert.doesNotMatch(stage, />GOOGLE PHOTOREALISTIC 3D</);
   assert.match(stage, /<span>NAV<\/span>/);
   assert.match(stage, /TILT -/);
   assert.match(stage, /TILT \+/);
@@ -99,10 +102,12 @@ test('real V2 map stage exposes a bounded Google 3D operator lifecycle', () => {
   assert.match(control, /setGoogleMapsJs3dTopView/);
   assert.match(control, /resetGoogleMapsJs3dView/);
   assert.match(control, /setGoogleMapsJs3dReference/);
-  assert.match(control, /view\.on\('click'/);
+  assert.match(control, /getSpatialFocus/);
+  assert.match(control, /isDropPinFocus/);
   assert.match(control, /visibility = 'hidden'/);
   assert.match(control, /visibility = 'visible'/);
   assert.match(control, /mapViewPreserved/);
+  assert.match(control, /restoreMap/);
   assert.match(css, /data-iqai-specialist-view="google-3d"/);
   assert.match(css, /data-iqai-spatial-view="google-3d"/);
   const engine = read('map', 'google-maps-js-3d.js');

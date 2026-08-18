@@ -1,4 +1,5 @@
 import { SHELL_SLOTS } from './layout-registry.js';
+import { renderOperatorGroundControl } from './OperatorGroundControl.js';
 
 export function renderMapStage() {
   const { id, slot } = SHELL_SLOTS.mapStage;
@@ -9,31 +10,49 @@ export function renderMapStage() {
         <div
           class="iqai-v2-google-3d-stage"
           data-iqai-google-3d-stage
-          aria-label="Google Photorealistic 3D"
+          aria-label="3D Visual"
+          hidden
+        ></div>
+        <div
+          class="iqai-v2-street-360-stage"
+          data-iqai-street-360-stage
+          aria-label="Street 360"
           hidden
         ></div>
         <div class="iqai-v2-stage__grid" aria-hidden="true"></div>
         <div class="iqai-v2-stage__placeholder" data-iqai-map-placeholder>
-          <p class="iqai-v2-stage__kicker">MAP STAGE</p>
+          <p class="iqai-v2-stage__kicker">MAP</p>
           <h1 class="iqai-v2-stage__title">Initializing map foundation</h1>
           <p class="iqai-v2-stage__state">INITIALIZING</p>
           <p class="iqai-v2-stage__note">Loading the authored Montréal WebMap. The shell stays available if the map cannot load.</p>
         </div>
         <div class="iqai-v2-stage__error" data-iqai-map-error hidden>
-          <p class="iqai-v2-stage__kicker">MAP STAGE</p>
+          <p class="iqai-v2-stage__kicker">MAP</p>
           <h1 class="iqai-v2-stage__title">Map foundation failed</h1>
           <p class="iqai-v2-stage__state">ERROR</p>
           <p class="iqai-v2-stage__note" data-iqai-map-error-message></p>
         </div>
         <div class="iqai-v2-map-nav" data-iqai-map-nav hidden></div>
+        ${renderOperatorGroundControl()}
+        <div class="iqai-v2-begin" data-iqai-begin>
+          <p class="iqai-v2-begin__kicker">BEGIN</p>
+          <p class="iqai-v2-begin__title">What do you want to know or do?</p>
+          <p class="iqai-v2-begin__hint">Ask IQAI, or open Imagery from LOOK.</p>
+        </div>
         <div class="iqai-v2-imagery-dock" data-iqai-imagery-dock hidden></div>
-        <div class="iqai-v2-google-3d-controls" data-iqai-google-3d-controls>
-          <div class="iqai-v2-google-3d-controls__row">
-            <strong data-iqai-google-3d-title hidden>GOOGLE PHOTOREALISTIC 3D</strong>
-            <button type="button" data-iqai-google-3d-open disabled>OPEN 3D</button>
-            <button type="button" data-iqai-google-3d-return hidden>RETURN TO 2D</button>
-            <span data-iqai-google-3d-status aria-live="polite">MAP LOADING</span>
-          </div>
+        <div class="iqai-v2-view-switcher" data-iqai-view-switcher>
+          <span>VIEW</span>
+          <button type="button" data-iqai-view="map" aria-pressed="true">MAP</button>
+          <button type="button" data-iqai-view="street-360" aria-pressed="false">STREET 360</button>
+          <button type="button" data-iqai-view="3d-visual" aria-pressed="false">3D VISUAL</button>
+          <button type="button" data-iqai-view="3d-analyze" disabled aria-disabled="true">3D ANALYZE</button>
+          <button type="button" data-iqai-drop-pin aria-pressed="false">DROP PIN</button>
+        </div>
+        <p class="iqai-v2-pointer-coords" data-iqai-pointer-coords hidden></p>
+        <div class="iqai-v2-spatial-focus-receipt" data-iqai-spatial-focus-receipt hidden></div>
+        <p class="iqai-v2-view-notice" data-iqai-view-notice hidden></p>
+        <span data-iqai-street-360-date hidden></span>
+        <div class="iqai-v2-google-3d-controls" data-iqai-google-3d-controls hidden>
           <div class="iqai-v2-google-3d-nav" data-iqai-google-3d-nav hidden>
             <span>NAV</span>
             <button type="button" data-iqai-google-3d-nav-action="tilt-minus">TILT -</button>
@@ -66,6 +85,7 @@ export function applyMapFoundationToStage(root, snapshot) {
   const errorPanel = root.querySelector('[data-iqai-map-error]');
   const errorMessage = root.querySelector('[data-iqai-map-error-message]');
   const nav = root.querySelector('[data-iqai-map-nav]');
+  const ground = root.querySelector('[data-iqai-operator-ground]');
   if (!well) return;
 
   well.dataset.iqaiMapState = snapshot.state;
@@ -83,5 +103,8 @@ export function applyMapFoundationToStage(root, snapshot) {
   }
   if (nav) {
     nav.hidden = snapshot.state !== 'READY';
+  }
+  if (ground) {
+    ground.hidden = snapshot.state !== 'READY';
   }
 }

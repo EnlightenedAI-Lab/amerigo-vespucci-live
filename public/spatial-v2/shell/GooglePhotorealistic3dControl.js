@@ -1,4 +1,5 @@
 import { isGreaterMontrealLongitudeLatitude } from '../../spatial/montreal-operational-config.js';
+import { isDropPinFocus } from '../map/spatial-focus.js';
 import {
   getMapView,
   getMapViewCreateCount
@@ -27,34 +28,11 @@ const STAGE_STATE = Object.freeze({
   ERROR: 'ERROR'
 });
 
-function pointFromView(view) {
-  const longitude = Number(view?.center?.longitude);
-  const latitude = Number(view?.center?.latitude);
-  if (!isGreaterMontrealLongitudeLatitude(longitude, latitude)) return null;
-  return {
-    longitude,
-    latitude,
-    spatialReferenceWkid: 4326,
-    source: 'mapview-center'
-  };
-}
-
-function pointFromMapEvent(event) {
-  const longitude = Number(event?.mapPoint?.longitude);
-  const latitude = Number(event?.mapPoint?.latitude);
-  if (!isGreaterMontrealLongitudeLatitude(longitude, latitude)) return null;
-  return {
-    longitude,
-    latitude,
-    spatialReferenceWkid: 4326,
-    source: 'map-click'
-  };
-}
-
-export function bindGooglePhotorealistic3dControl(root) {
+export function bindGooglePhotorealistic3dControl(root, options = {}) {
   const well = root?.querySelector('.iqai-v2-stage__well');
   const mapHost = root?.querySelector('[data-iqai-map-host]');
   const stageHost = root?.querySelector('[data-iqai-google-3d-stage]');
+  const controlsRoot = root?.querySelector('[data-iqai-google-3d-controls]');
   const openButton = root?.querySelector('[data-iqai-google-3d-open]');
   const returnButton = root?.querySelector('[data-iqai-google-3d-return]');
   const nav = root?.querySelector('[data-iqai-google-3d-nav]');
@@ -67,7 +45,6 @@ export function bindGooglePhotorealistic3dControl(root) {
   let mapReady = false;
   let selectedPoint = null;
   let mapViewIdentity = null;
-  let mapClickHandle = null;
   let transition = 0;
 
   const hasSelection = () => Boolean(
@@ -86,12 +63,15 @@ export function bindGooglePhotorealistic3dControl(root) {
     ].includes(stageState);
 
     if (well) {
-      well.dataset.iqaiSpecialistView = specialistVisible ? 'google-3d' : '2d';
+      if (specialistVisible) well.dataset.iqaiSpecialistView = 'google-3d';
+      else if (well.dataset.iqaiSpecialistView === 'google-3d') well.dataset.iqaiSpecialistView = '2d';
     }
     if (root) {
-      root.dataset.iqaiSpatialView = specialistVisible ? 'google-3d' : '2d';
+      if (specialistVisible) root.dataset.iqaiSpatialView = 'google-3d';
+      else if (root.dataset.iqaiSpatialView === 'google-3d') root.dataset.iqaiSpatialView = '2d';
     }
     if (stageHost) stageHost.hidden = !specialistVisible;
+    if (controlsRoot) controlsRoot.hidden = !specialistVisible;
     if (title) title.hidden = !specialistVisible;
     if (openButton) {
       openButton.hidden = specialistVisible;
@@ -113,13 +93,25 @@ export function bindGooglePhotorealistic3dControl(root) {
       reference.checked = specialistVisible && isGoogleMapsJs3dReferenceEnabled();
     }
     if (status) {
-      if (stageState === STAGE_STATE.OPENING) status.textContent = 'OPENING 3D';
-      else if (stageState === STAGE_STATE.OPEN) status.textContent = 'POINT PRESERVED';
-      else if (stageState === STAGE_STATE.CLOSING) status.textContent = 'RETURNING TO 2D';
-      else if (stageState === STAGE_STATE.ERROR) status.textContent = '3D UNAVAILABLE';
-      else if (!mapReady) status.textContent = 'MAP LOADING';
-      else status.textContent = hasSelection() ? 'POINT SELECTED' : 'SELECT A MAP POINT';
+      if (stageState === STAGE_STATE.OPENING) status.textContent = 'LOADING 3D VISUAL…';
+      else if (stageState === STAGE_STATE.ERROR) status.textContent = '3D VISUAL NOT AVAILABLE HERE';
+      else status.textContent = '';
     }
+  }
+
+  function applySpatialFocus() {
+    const peer = options.getSpatialFocus?.() || options.getPeerSelectedPoint?.();
+    if (!isDropPinFocus(peer)) return hasSelection();
+    const lon = Number(peer.longitude);
+    const lat = Number(peer.latitude);
+    if (!isGreaterMontrealLongitudeLatitude(lon, lat)) return hasSelection();
+    selectedPoint = {
+      longitude: lon,
+      latitude: lat,
+      spatialReferenceWkid: 4326,
+      source: 'drop-pin'
+    };
+    return hasSelection();
   }
 
   function selectPoint(longitude, latitude, source = 'operator') {
@@ -133,6 +125,7 @@ export function bindGooglePhotorealistic3dControl(root) {
       source: String(source || 'operator')
     };
     if (stageState === STAGE_STATE.ERROR) stageState = STAGE_STATE.IDLE;
+    options.onSelectPoint?.(selectedPoint);
     paint();
     return true;
   }
@@ -141,17 +134,7 @@ export function bindGooglePhotorealistic3dControl(root) {
     if (!view) return false;
     if (!mapViewIdentity) mapViewIdentity = view;
     mapReady = true;
-    if (!hasSelection()) {
-      const point = pointFromView(view);
-      if (point) selectedPoint = point;
-    }
-    if (!mapClickHandle && typeof view.on === 'function') {
-      mapClickHandle = view.on('click', (event) => {
-        if (stageState !== STAGE_STATE.IDLE && stageState !== STAGE_STATE.ERROR) return;
-        const point = pointFromMapEvent(event);
-        if (point) selectPoint(point.longitude, point.latitude, point.source);
-      });
-    }
+    applySpatialFocus();
     paint();
     return true;
   }
@@ -209,8 +192,9 @@ export function bindGooglePhotorealistic3dControl(root) {
   async function open() {
     const view = getMapView();
     attachMapView(view);
+    applySpatialFocus();
     if (!mapReady || !hasSelection()) {
-      throw new Error('Select a Montréal map point before opening 3D.');
+      return snapshot();
     }
 
     const token = ++transition;
@@ -249,13 +233,18 @@ export function bindGooglePhotorealistic3dControl(root) {
     }
   }
 
-  async function close() {
+  async function close(closeOptions = {}) {
+    const restoreMap = closeOptions.restoreMap !== false;
     const token = ++transition;
     stageState = STAGE_STATE.CLOSING;
     paint();
     await closeGoogleMapsJs3d();
     if (token !== transition) return snapshot();
-    restoreMapSurface();
+    if (restoreMap) restoreMapSurface();
+    else if (stageHost) {
+      stageHost.hidden = true;
+      stageHost.innerHTML = '';
+    }
     stageState = STAGE_STATE.IDLE;
     paint();
     return snapshot();

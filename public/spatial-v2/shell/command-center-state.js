@@ -26,7 +26,10 @@ export function createCommandCenterState() {
     experience: EXPERIENCE_MODE.NORMAL,
     activeCapability: 'map',
     imageryView: IMAGERY_VIEW.LATEST,
+    historyDateCommitted: false,
     diagnosticsOpen: false,
+    systemStatusOpen: false,
+    inspectorPane: 'situation-slot',
     lastAskReceipt: null
   };
 
@@ -68,12 +71,12 @@ export function createCommandCenterState() {
       return emit();
     },
     setActiveCapability(activeCapability) {
+      const next = String(activeCapability || 'map');
       state = {
         ...state,
-        activeCapability: String(activeCapability || 'map'),
-        diagnosticsOpen: activeCapability === 'imagery'
-          ? state.diagnosticsOpen
-          : false
+        activeCapability: next,
+        inspectorPane: next === 'imagery' ? 'situation-slot' : state.inspectorPane,
+        diagnosticsOpen: next === 'imagery' ? state.diagnosticsOpen : false
       };
       return emit();
     },
@@ -84,7 +87,19 @@ export function createCommandCenterState() {
       state = {
         ...state,
         activeCapability: 'imagery',
-        imageryView
+        imageryView,
+        inspectorPane: 'situation-slot',
+        historyDateCommitted: imageryView === IMAGERY_VIEW.HISTORY
+          && state.imageryView === IMAGERY_VIEW.HISTORY
+          ? state.historyDateCommitted
+          : false
+      };
+      return emit();
+    },
+    commitHistoryDate() {
+      state = {
+        ...state,
+        historyDateCommitted: state.imageryView === IMAGERY_VIEW.HISTORY
       };
       return emit();
     },
@@ -94,6 +109,20 @@ export function createCommandCenterState() {
         diagnosticsOpen: state.experience === EXPERIENCE_MODE.EXPERT
           ? Boolean(diagnosticsOpen)
           : false
+      };
+      return emit();
+    },
+    setSystemStatusOpen(systemStatusOpen) {
+      state = {
+        ...state,
+        systemStatusOpen: Boolean(systemStatusOpen)
+      };
+      return emit();
+    },
+    setInspectorPane(inspectorPane) {
+      state = {
+        ...state,
+        inspectorPane: String(inspectorPane || 'situation-slot')
       };
       return emit();
     },
@@ -111,7 +140,9 @@ export function createCommandCenterTruthSnapshot({
   map,
   ground,
   time,
-  askReceipt
+  askReceipt,
+  command,
+  guided
 } = {}) {
   const selected = time?.selected || ground?.receipt?.observation || null;
   return {
@@ -119,10 +150,13 @@ export function createCommandCenterTruthSnapshot({
     mapViewCreateCount: map?.mapViewCreateCount ?? null,
     groundMode: ground?.currentMode || null,
     groundState: ground?.applyState || null,
+    groundDisplayConfirmed: ground?.displayConfirmed === true,
     imageryEngineState: time?.engineState || null,
     imageryRequestedDate: time?.requestedDate || null,
     imagerySelectedId: time?.selectedId || null,
     imageryActiveId: time?.activeId || null,
+    displayConfirmed: time?.displayConfirmed === true,
+    displayState: time?.displayState ?? null,
     imageryMatchKind: time?.matchKind || null,
     imageryDeltaDays: time?.deltaDays ?? null,
     imageryCaptureDate: selected?.acquisitionDate || null,
@@ -130,6 +164,13 @@ export function createCommandCenterTruthSnapshot({
     imageryOnlineDate: selected?.firstPublicDate || null,
     imageryVintage: selected?.vintageLabel || selected?.vintageYear || null,
     askReceiptId: askReceipt?.receiptId || null,
-    askState: askReceipt?.state || null
+    askState: askReceipt?.state || null,
+    activeCapability: command?.activeCapability || null,
+    imageryView: command?.imageryView || null,
+    historyDateCommitted: Boolean(command?.historyDateCommitted),
+    guidedWorkflowId: guided?.workflowId || null,
+    guidedCurrentStep: guided?.currentStep || null,
+    guidedRecommendedAction: guided?.recommendedAction || null,
+    guidedCompletedSteps: guided?.completedSteps ? [...guided.completedSteps] : []
   };
 }

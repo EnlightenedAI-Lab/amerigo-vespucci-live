@@ -1,11 +1,20 @@
 import { INSPECTOR_REGIONS, SHELL_SLOTS } from './layout-registry.js';
 
-function inspectorRegion(region) {
+const SHEET_PANES = Object.freeze([
+  Object.freeze({ slot: 'situation-slot', label: 'WORKFLOW' }),
+  Object.freeze({ slot: 'selected-object-slot', label: 'OBJECT' }),
+  Object.freeze({ slot: 'evidence-slot', label: 'EVIDENCE' }),
+  Object.freeze({ slot: 'provenance-slot', label: 'SOURCE' }),
+  Object.freeze({ slot: 'execution-receipt-slot', label: 'RESULT' })
+]);
+
+function inspectorRegion(region, active) {
   return `
     <section
       id="${region.id}"
-      class="iqai-v2-region"
+      class="iqai-v2-region${active ? ' is-active' : ''}"
       data-iqai-slot="${region.slot}"
+      ${active ? '' : 'hidden'}
     >
       <header class="iqai-v2-region__head">
         <h2 class="iqai-v2-region__title">${region.title}</h2>
@@ -19,8 +28,21 @@ function inspectorRegion(region) {
 export function renderContextInspector() {
   const { id, slot } = SHELL_SLOTS.contextInspector;
   return `
-    <aside id="${id}" class="iqai-v2-inspector" data-iqai-slot="${slot}" aria-label="Context and evidence">
-      ${INSPECTOR_REGIONS.map(inspectorRegion).join('')}
+    <aside id="${id}" class="iqai-v2-inspector" data-iqai-slot="${slot}" aria-label="Contextual intelligence">
+      <div class="iqai-v2-sheet__tabs" role="tablist" aria-label="Intelligence panes">
+        ${SHEET_PANES.map((pane, index) => `
+          <button
+            type="button"
+            class="iqai-v2-sheet__tab${index === 0 ? ' is-active' : ''}"
+            data-iqai-sheet-pane="${pane.slot}"
+            role="tab"
+            aria-selected="${index === 0 ? 'true' : 'false'}"
+          >${pane.label}</button>
+        `).join('')}
+      </div>
+      <div class="iqai-v2-sheet__panes">
+        ${INSPECTOR_REGIONS.map((region, index) => inspectorRegion(region, index === 0)).join('')}
+      </div>
     </aside>
   `;
 }
@@ -32,4 +54,33 @@ export function setInspectorRegion(root, slot, { stateLabel, body } = {}) {
   const bodyEl = region.querySelector('.iqai-v2-region__body');
   if (state && stateLabel != null) state.textContent = stateLabel;
   if (bodyEl && body != null) bodyEl.textContent = body;
+}
+
+export function paintInspectorPane(root, slot) {
+  const inspector = root.querySelector('[data-iqai-slot="context-inspector"]');
+  if (!inspector) return;
+  inspector.querySelectorAll('[data-iqai-sheet-pane]').forEach((tab) => {
+    const active = tab.getAttribute('data-iqai-sheet-pane') === slot;
+    tab.classList.toggle('is-active', active);
+    tab.setAttribute('aria-selected', active ? 'true' : 'false');
+  });
+  inspector.querySelectorAll('.iqai-v2-region').forEach((region) => {
+    const active = region.getAttribute('data-iqai-slot') === slot;
+    region.classList.toggle('is-active', active);
+    region.hidden = !active;
+  });
+}
+
+export function bindContextInspector(root, handlers = {}) {
+  const inspector = root.querySelector('[data-iqai-slot="context-inspector"]');
+  if (!inspector) return () => {};
+  const onClick = (event) => {
+    const tab = event.target.closest('[data-iqai-sheet-pane]');
+    if (!tab || !inspector.contains(tab)) return;
+    const slot = tab.getAttribute('data-iqai-sheet-pane');
+    paintInspectorPane(root, slot);
+    handlers.onPane?.(slot);
+  };
+  inspector.addEventListener('click', onClick);
+  return () => inspector.removeEventListener('click', onClick);
 }

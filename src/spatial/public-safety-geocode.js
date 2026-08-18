@@ -169,3 +169,67 @@ export async function geocodeMontrealMapLocation(locationText, options = {}) {
     candidate: chosen
   };
 }
+
+function formatReverseAddress(address) {
+  if (!address || typeof address !== 'object') return null;
+  const match = String(
+    address.Match_addr
+    || address.LongLabel
+    || address.ShortLabel
+    || address.Address
+    || ''
+  ).trim();
+  if (match) return match;
+  const parts = [
+    address.PlaceName,
+    address.Neighborhood,
+    address.City,
+    address.RegionAbbr || address.Region
+  ].filter((part) => String(part || '').trim());
+  const joined = parts.join(', ').trim();
+  return joined || null;
+}
+
+/**
+ * Reverse-geocode a WGS84 point via the same ArcGIS World GeocodeServer
+ * used for Montréal address search. Missing results stay unresolved.
+ */
+export async function reverseGeocodeWorldLocation(longitude, latitude) {
+  const lon = Number(longitude);
+  const lat = Number(latitude);
+  if (!Number.isFinite(lon) || !Number.isFinite(lat)) {
+    return { ok: false, resolvedAddress: null, geocoderUrl: GEOCODER_URL };
+  }
+  const params = new URLSearchParams({
+    f: 'json',
+    location: `${lon},${lat}`,
+    langCode: 'en',
+    featureTypes: 'PointAddress,StreetAddress,StreetName,POI'
+  });
+  try {
+    const data = await fetchJson(`${GEOCODER_URL}/reverseGeocode?${params}`);
+    const resolvedAddress = formatReverseAddress(data?.address);
+    if (!resolvedAddress) {
+      return {
+        ok: false,
+        resolvedAddress: null,
+        geocoder: 'ArcGIS World GeocodeServer',
+        geocoderUrl: GEOCODER_URL
+      };
+    }
+    return {
+      ok: true,
+      resolvedAddress,
+      geocoder: 'ArcGIS World GeocodeServer',
+      geocoderUrl: GEOCODER_URL,
+      address: data.address
+    };
+  } catch {
+    return {
+      ok: false,
+      resolvedAddress: null,
+      geocoder: 'ArcGIS World GeocodeServer',
+      geocoderUrl: GEOCODER_URL
+    };
+  }
+}

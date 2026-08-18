@@ -7,6 +7,7 @@ export function renderAskIqaiDock() {
       <form class="iqai-v2-ask__form" data-iqai-ask-form="true" autocomplete="off">
         <div class="iqai-v2-ask__top">
           <h2 class="iqai-v2-ask__label">ASK IQAI</h2>
+          <p class="iqai-v2-ask__prompt">What do you want to know or do?</p>
           <div class="iqai-v2-ask__actions" aria-label="Quick actions">
             ${ASK_QUICK_ACTIONS.map((action) => `
               <button
@@ -28,7 +29,7 @@ export function renderAskIqaiDock() {
               placeholder="Ask a question or describe what you want to build..."
             ></textarea>
           </label>
-          <button type="submit" class="iqai-v2-ask__send">SEND</button>
+          <button type="submit" class="iqai-v2-ask__send" data-iqai-guided-action="ASK">ASK</button>
         </div>
         <p class="iqai-v2-ask__status" data-iqai-ask-status hidden></p>
       </form>
