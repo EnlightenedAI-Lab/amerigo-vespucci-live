@@ -17,7 +17,7 @@ const OUT = path.join(
   ROOT,
   'artifacts',
   SHELL_INTEGRATION
-    ? 'spatial-v2-google-maps-js-3d-product-v1'
+    ? 'spatial-v2-google-maps-js-3d-nav-control-v1'
     : 'spatial-v2-google-maps-js-3d-v2'
 );
 const VIEWPORT = { width: 1920, height: 1080 };
@@ -54,6 +54,58 @@ function findBrowser() {
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function shortestAngleDelta(from, to) {
+  const a = Number(from);
+  const b = Number(to);
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return NaN;
+  return Math.abs((((b - a) % 360) + 540) % 360 - 180);
+}
+
+function cameraPreserved(before, after) {
+  if (!before || !after) return false;
+  const rangeOk = !Number.isFinite(Number(before.range))
+    || !Number.isFinite(Number(after.range))
+    || Math.abs(Number(before.range) - Number(after.range)) <= 160;
+  return Math.abs(Number(before.lat) - Number(after.lat)) < 0.0008
+    && Math.abs(Number(before.lng) - Number(after.lng)) < 0.0008
+    && shortestAngleDelta(before.tilt, after.tilt) <= 12
+    && shortestAngleDelta(before.heading, after.heading) <= 12
+    && rangeOk;
+}
+
+async function pointerDrag(send, { x, y, dx, dy, modifiers = 0 }) {
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y, modifiers });
+  await send('Input.dispatchMouseEvent', {
+    type: 'mousePressed',
+    x,
+    y,
+    button: 'left',
+    buttons: 1,
+    clickCount: 1,
+    modifiers
+  });
+  const steps = 10;
+  for (let i = 1; i <= steps; i += 1) {
+    await send('Input.dispatchMouseEvent', {
+      type: 'mouseMoved',
+      x: x + (dx * i) / steps,
+      y: y + (dy * i) / steps,
+      button: 'left',
+      buttons: 1,
+      modifiers
+    });
+    await sleep(40);
+  }
+  await send('Input.dispatchMouseEvent', {
+    type: 'mouseReleased',
+    x: x + dx,
+    y: y + dy,
+    button: 'left',
+    clickCount: 1,
+    modifiers
+  });
 }
 
 function isPortOpen(port, host = '127.0.0.1') {
@@ -581,17 +633,35 @@ try {
       })()`, true, 80000);
     }
     await sleep(SHELL_INTEGRATION ? 12000 : 50000);
-    const threeDShot = await capture(send, '02-montreal-google-maps-js-3d.png');
+    const threeDShot = await capture(
+      send,
+      SHELL_INTEGRATION
+        ? '02-montreal-google-maps-js-3d-reference-off.png'
+        : '02-montreal-google-maps-js-3d.png'
+    );
     const opened = await evaluateJson(send, `${apiExpression}.snapshot()`);
     const uiOpened = SHELL_INTEGRATION
       ? await evaluateJson(send, `(() => {
           const visible = (el) => Boolean(el && !el.hidden && el.getBoundingClientRect().width > 0);
           const returned = document.querySelector('[data-iqai-google-3d-return]');
           const title = document.querySelector('[data-iqai-google-3d-title]');
+          const layers = document.querySelector('[data-iqai-google-3d-layers]');
+          const reference = document.querySelector('[data-iqai-google-3d-reference]');
+          const nav = document.querySelector('[data-iqai-google-3d-nav]');
+          const actions = [...(nav?.querySelectorAll('[data-iqai-google-3d-nav-action]') || [])]
+            .map((button) => button.textContent.trim());
           return {
             returnVisible: visible(returned),
             titleVisible: visible(title),
             title: title?.textContent?.trim() || null,
+            navVisible: visible(nav),
+            navLabel: nav?.querySelector('span')?.textContent?.trim() || null,
+            navActions: actions,
+            layersVisible: visible(layers),
+            layersLabel: layers?.querySelector('span')?.textContent?.trim() || null,
+            referenceVisible: Boolean(reference && layers && !layers.hidden),
+            referenceChecked: Boolean(reference?.checked),
+            referenceLabel: layers?.textContent?.replace(/\\s+/g, ' ').trim() || null,
             mapHostVisibility: document.querySelector('[data-iqai-map-host]')?.style?.visibility || ''
           };
         })()`)
@@ -601,17 +671,150 @@ try {
       return {
         present: Boolean(el),
         width: el ? Math.round(el.getBoundingClientRect().width) : 0,
-        height: el ? Math.round(el.getBoundingClientRect().height) : 0
+        height: el ? Math.round(el.getBoundingClientRect().height) : 0,
+        defaultUIHidden: el ? el.defaultUIHidden === true : null,
+        gestureHandling: el ? String(el.gestureHandling || '') : null
       };
     })()`);
     log(`3D open=${opened?.open} maps3d=${opened?.maps3dLoaded} renderer=${opened?.renderer} mode=${opened?.mode} marker=${opened?.markerPresent} error=${opened?.error || ''}`);
+
+    async function clickNavAction(action) {
+      const clicked = await evaluate(send, `(() => {
+        const button = document.querySelector('[data-iqai-google-3d-nav-action="${action}"]');
+        if (!button || button.disabled) return false;
+        button.click();
+        return true;
+      })()`);
+      if (!clicked) throw new Error(`NAV ${action} was not available.`);
+    }
+
+    let afterTiltPlus = null;
+    let afterTiltMinus = null;
+    let afterRotateRight = null;
+    let afterRotateLeft = null;
+    let afterTop = null;
+    let afterOblique = null;
+    let afterNorth = null;
+    let afterMousePan = null;
+    let afterFly = null;
+    let afterReset = null;
+    let referenceOn = null;
+    let referenceOffAgain = null;
+    let referenceOnShot = null;
+    let tiltShot = null;
+    let topShot = null;
+    let obliqueShot = null;
+    let flyShot = null;
+    let headingShot = null;
+    let orbitMid = null;
+    let orbitShot = null;
+    let cameraBeforeReference = opened?.camera || null;
+    const stageCreateCountOpen = Number(opened?.stageCreateCount);
+    const tiltBefore = Number(opened?.camera?.tilt);
     const headingBefore = Number(opened?.camera?.heading);
-    const nudged = await evaluateJson(send, `(async () => {
-      return ${apiExpression}.nudgeHeading(32);
-    })()`, true, 20000).catch((error) => ({ error: String(error?.message || error) }));
-    await sleep(4500);
-    const afterNudge = await evaluateJson(send, `${apiExpression}.snapshot()`);
-    const threeDNavShot = await capture(send, '02b-montreal-google-maps-js-3d-heading.png');
+
+    if (SHELL_INTEGRATION && opened?.open === true) {
+      await clickNavAction('tilt-plus');
+      await sleep(1200);
+      afterTiltPlus = await evaluateJson(send, `${apiExpression}.snapshot()`);
+      tiltShot = await capture(send, '02c-montreal-google-maps-js-3d-tilt-plus.png');
+      await clickNavAction('tilt-minus');
+      await sleep(900);
+      afterTiltMinus = await evaluateJson(send, `${apiExpression}.snapshot()`);
+      await clickNavAction('rotate-right');
+      await sleep(900);
+      afterRotateRight = await evaluateJson(send, `${apiExpression}.snapshot()`);
+      headingShot = await capture(send, '02b-montreal-google-maps-js-3d-heading.png');
+      await clickNavAction('rotate-left');
+      await sleep(900);
+      afterRotateLeft = await evaluateJson(send, `${apiExpression}.snapshot()`);
+      await clickNavAction('top');
+      await sleep(2200);
+      afterTop = await evaluateJson(send, `${apiExpression}.snapshot()`);
+      topShot = await capture(send, '02f-montreal-google-maps-js-3d-top.png');
+      await clickNavAction('oblique');
+      await sleep(2200);
+      afterOblique = await evaluateJson(send, `${apiExpression}.snapshot()`);
+      obliqueShot = await capture(send, '02g-montreal-google-maps-js-3d-oblique.png');
+      await clickNavAction('north');
+      await sleep(900);
+      afterNorth = await evaluateJson(send, `${apiExpression}.snapshot()`);
+
+      const stageRect = await evaluateJson(send, `(() => {
+        const el = document.querySelector('gmp-map-3d');
+        const rect = el?.getBoundingClientRect();
+        return rect ? {
+          x: rect.x + rect.width * 0.58,
+          y: rect.y + rect.height * 0.55,
+          width: rect.width,
+          height: rect.height
+        } : null;
+      })()`);
+      if (stageRect) {
+        await pointerDrag(send, {
+          x: stageRect.x,
+          y: stageRect.y,
+          dx: 120,
+          dy: 70,
+          modifiers: 0
+        });
+        await sleep(1400);
+        afterMousePan = await evaluateJson(send, `${apiExpression}.snapshot()`);
+      }
+      await clickNavAction('fly');
+      await sleep(2200);
+      afterFly = await evaluateJson(send, `${apiExpression}.snapshot()`);
+      flyShot = await capture(send, '02h-montreal-google-maps-js-3d-fly.png');
+      await clickNavAction('orbit');
+      await sleep(2800);
+      orbitMid = await evaluateJson(send, `${apiExpression}.snapshot()`);
+      orbitShot = await capture(send, '02e-montreal-google-maps-js-3d-orbit.png');
+      await sleep(2000);
+      await clickNavAction('reset');
+      await sleep(2200);
+      afterReset = await evaluateJson(send, `${apiExpression}.snapshot()`);
+      cameraBeforeReference = afterReset?.camera || opened?.camera || null;
+      await evaluate(send, `(() => {
+        const input = document.querySelector('[data-iqai-google-3d-reference]');
+        if (input && !input.checked) input.click();
+        return true;
+      })()`);
+      await waitFor(
+        send,
+        `${apiExpression}.snapshot().referenceEnabled === true`,
+        40,
+        250
+      );
+      await sleep(5000);
+      referenceOn = await evaluateJson(send, `${apiExpression}.snapshot()`);
+      referenceOnShot = await capture(send, '02d-montreal-google-maps-js-3d-reference-on.png');
+      log(`REFERENCE ON mode=${referenceOn?.mode} cameraPreserved=${cameraPreserved(cameraBeforeReference, referenceOn?.camera)}`);
+      await evaluate(send, `(() => {
+        const input = document.querySelector('[data-iqai-google-3d-reference]');
+        if (input && input.checked) input.click();
+        return true;
+      })()`);
+      await waitFor(
+        send,
+        `${apiExpression}.snapshot().referenceEnabled === false`,
+        40,
+        250
+      );
+      await sleep(3000);
+      referenceOffAgain = await evaluateJson(send, `${apiExpression}.snapshot()`);
+    }
+
+    let nudged = afterRotateRight;
+    let afterNudge = afterRotateRight;
+    let threeDNavShot = headingShot || tiltShot;
+    if (!SHELL_INTEGRATION) {
+      nudged = await evaluateJson(send, `(async () => {
+        return ${apiExpression}.nudgeHeading(32);
+      })()`, true, 20000).catch((error) => ({ error: String(error?.message || error) }));
+      await sleep(4500);
+      afterNudge = await evaluateJson(send, `${apiExpression}.snapshot()`);
+      threeDNavShot = await capture(send, '02b-montreal-google-maps-js-3d-heading.png');
+    }
 
     let returned;
     if (SHELL_INTEGRATION && opened?.stageState === 'OPEN') {
@@ -670,14 +873,42 @@ try {
       opened,
       uiOpened,
       map3dDom,
-      nudged,
+      afterTiltPlus,
+      afterTiltMinus,
+      afterRotateRight,
+      afterRotateLeft,
+      afterTop,
+      afterOblique,
+      afterNorth,
+      afterMousePan,
+      afterFly,
+      afterReset,
+      referenceOn,
+      referenceOffAgain,
+      stageCreateCountOpen,
+      cameraBeforeReference,
+      tiltBefore,
       headingBefore,
+      nudged,
       afterNudge,
+      orbitMid,
       returned,
       after,
       shellAfter,
       uiAfter,
-      screenshots: [twoDShot, threeDShot, threeDNavShot, twoDAfterShot]
+      screenshots: [
+        twoDShot,
+        threeDShot,
+        threeDNavShot,
+        twoDAfterShot,
+        referenceOnShot,
+        tiltShot,
+        headingShot,
+        topShot,
+        obliqueShot,
+        flyShot,
+        orbitShot
+      ].filter(Boolean)
     };
   });
 } catch (error) {
@@ -701,15 +932,23 @@ const nearmapNet = networkUrls.some((url) => /nearmap/i.test(url));
 const waybackNet = networkUrls.some((url) => /wayback/i.test(url));
 const selected = live?.opened?.selectedPoint || live?.before?.mapCenter || { longitude: LON, latitude: LAT };
 const camera = live?.opened?.camera || null;
-const headingChanged = Number.isFinite(live?.headingBefore)
-  && Number.isFinite(Number(live?.afterNudge?.camera?.heading))
-  && Math.abs((((Number(live.afterNudge.camera.heading) - live.headingBefore) + 540) % 360) - 180) >= 10;
+const headingChanged = SHELL_INTEGRATION
+  ? Number.isFinite(shortestAngleDelta(live?.headingBefore, live?.afterRotateRight?.camera?.heading))
+    && shortestAngleDelta(live?.headingBefore, live?.afterRotateRight?.camera?.heading) >= 20
+  : Number.isFinite(shortestAngleDelta(live?.headingBefore, live?.afterNudge?.camera?.heading))
+    && shortestAngleDelta(live?.headingBefore, live?.afterNudge?.camera?.heading) >= 10;
 const selectedAfter = live?.after?.selectedPoint || null;
 const selectedPointPreserved = Boolean(
   selected
   && selectedAfter
   && Math.abs(Number(selected.longitude) - Number(selectedAfter.longitude)) < 1e-7
   && Math.abs(Number(selected.latitude) - Number(selectedAfter.latitude)) < 1e-7
+);
+const selectedThroughReference = !SHELL_INTEGRATION || Boolean(
+  live?.opened?.selectedPoint
+  && live?.referenceOn?.selectedPoint
+  && Math.abs(Number(live.opened.selectedPoint.longitude) - Number(live.referenceOn.selectedPoint.longitude)) < 1e-7
+  && Math.abs(Number(live.opened.selectedPoint.latitude) - Number(live.referenceOn.selectedPoint.latitude)) < 1e-7
 );
 const shellStatePreserved = !SHELL_INTEGRATION || Boolean(
   live?.shellBefore
@@ -719,12 +958,35 @@ const shellStatePreserved = !SHELL_INTEGRATION || Boolean(
   && live.shellBefore.command?.imageryView === live.shellAfter.command?.imageryView
   && live.shellBefore.ground?.currentMode === live.shellAfter.ground?.currentMode
 );
-const pixels = live?.screenshots?.[1]
-  ? pngStats(live.screenshots[1])
+const screenshotNamed = (fragment) => (live?.screenshots || []).find((file) => String(file).includes(fragment));
+const pixels = screenshotNamed('02-montreal-google-maps-js-3d')
+  ? pngStats(screenshotNamed('02-montreal-google-maps-js-3d'))
   : { error: 'no 3D screenshot' };
-const pixelsNav = live?.screenshots?.[2]
-  ? pngStats(live.screenshots[2])
-  : { error: 'no heading screenshot' };
+const pixelsNav = screenshotNamed('heading')
+  ? pngStats(screenshotNamed('heading'))
+  : screenshotNamed('tilt-plus')
+    ? pngStats(screenshotNamed('tilt-plus'))
+    : { error: 'no heading screenshot' };
+const operatorTiltDelta = shortestAngleDelta(live?.tiltBefore, live?.afterTiltPlus?.camera?.tilt);
+const operatorRotateDelta = shortestAngleDelta(live?.headingBefore, live?.afterRotateRight?.camera?.heading);
+const orbitDelta = shortestAngleDelta(
+  live?.afterFly?.camera?.heading ?? live?.afterNudge?.camera?.heading,
+  live?.orbitMid?.camera?.heading
+);
+const mousePanMoved = Boolean(
+  live?.afterNorth?.camera
+  && live?.afterMousePan?.camera
+  && (
+    Math.abs(Number(live.afterNorth.camera.lat) - Number(live.afterMousePan.camera.lat)) > 0.00005
+    || Math.abs(Number(live.afterNorth.camera.lng) - Number(live.afterMousePan.camera.lng)) > 0.00005
+  )
+);
+const flyReturnedToPoint = Boolean(
+  live?.opened?.selectedPoint
+  && live?.afterFly?.camera
+  && Math.abs(Number(live.opened.selectedPoint.latitude) - Number(live.afterFly.camera.lat)) < 0.0015
+  && Math.abs(Number(live.opened.selectedPoint.longitude) - Number(live.afterFly.camera.lng)) < 0.0015
+);
 
 const checks = {
   mapsJsConfigKey: browserKeyConfigured === true,
@@ -737,6 +999,50 @@ const checks = {
   markerPresent: live?.opened?.markerPresent === true,
   renderReachedSteady: live?.opened?.steady === true && !live?.opened?.error,
   headingNavigated: headingChanged === true,
+  nativeUiEnabled: !SHELL_INTEGRATION
+    || (live?.opened?.defaultUIHidden === false && live?.map3dDom?.defaultUIHidden === false),
+  navControlVisible: !SHELL_INTEGRATION || (
+    live?.uiOpened?.navVisible === true
+    && live?.uiOpened?.navLabel === 'NAV'
+    && (live?.uiOpened?.navActions || []).includes('TILT +')
+    && (live?.uiOpened?.navActions || []).includes('RESET VIEW')
+    && (live?.uiOpened?.navActions || []).includes('FLY TO POINT')
+  ),
+  tiltNavigated: !SHELL_INTEGRATION || (Number.isFinite(operatorTiltDelta) && operatorTiltDelta >= 8),
+  rotateNavigated: !SHELL_INTEGRATION || (Number.isFinite(operatorRotateDelta) && operatorRotateDelta >= 20),
+  topView: !SHELL_INTEGRATION || Number(live?.afterTop?.camera?.tilt) <= 16,
+  obliqueView: !SHELL_INTEGRATION
+    || (Number(live?.afterOblique?.camera?.tilt) >= 50 && Number(live?.afterOblique?.camera?.tilt) <= 80),
+  northView: !SHELL_INTEGRATION || shortestAngleDelta(0, live?.afterNorth?.camera?.heading) <= 8,
+  flyToPoint: !SHELL_INTEGRATION || flyReturnedToPoint === true,
+  mousePanWorked: !SHELL_INTEGRATION || mousePanMoved === true,
+  orbitMoved: !SHELL_INTEGRATION || (Number.isFinite(orbitDelta) && orbitDelta >= 12),
+  resetView: !SHELL_INTEGRATION || (
+    Number(live?.afterReset?.camera?.tilt) >= 50
+    && Number(live?.afterReset?.camera?.tilt) <= 70
+    && live?.afterReset?.markerPresent === true
+  ),
+  referenceOffDefault: !SHELL_INTEGRATION || (
+    /SATELLITE/i.test(String(live?.opened?.mode || ''))
+    && live?.opened?.referenceEnabled === false
+    && live?.uiOpened?.referenceChecked === false
+  ),
+  referenceOnMode: !SHELL_INTEGRATION || (
+    /HYBRID/i.test(String(live?.referenceOn?.mode || ''))
+    && live?.referenceOn?.referenceEnabled === true
+    && live?.referenceOn?.markerPresent === true
+  ),
+  cameraPreservedOnReference: !SHELL_INTEGRATION
+    || cameraPreserved(live?.cameraBeforeReference, live?.referenceOn?.camera),
+  referenceToggleNoRecreate: !SHELL_INTEGRATION
+    || Number(live?.referenceOn?.stageCreateCount) === Number(live?.stageCreateCountOpen),
+  layersControlVisible: !SHELL_INTEGRATION || (
+    live?.uiOpened?.layersVisible === true
+    && live?.uiOpened?.layersLabel === 'LAYERS'
+    && /REFERENCE/.test(String(live?.uiOpened?.referenceLabel || ''))
+    && !/HYBRID|SATELLITE|MapMode/.test(String(live?.uiOpened?.referenceLabel || ''))
+  ),
+  selectedThroughReference,
   openActionVisible: !SHELL_INTEGRATION
     || (live?.uiBefore?.openVisible === true && live?.uiBefore?.openEnabled === true),
   productLabelVisible: !SHELL_INTEGRATION
@@ -764,7 +1070,7 @@ const checks = {
 const report = {
   generatedAt: new Date().toISOString(),
   spikeId: SHELL_INTEGRATION
-    ? 'ARCGIS-GOOGLE-MAPS-JS-3D-PRODUCT-INTEGRATION-V1'
+    ? 'ARCGIS-GOOGLE-MAPS-JS-3D-NAV-CONTROL-V1'
     : 'ARCGIS-P0-GOOGLE-MAPS-JS-PHOTOREALISTIC-3D-MONTREAL-V2',
   target: SHELL_INTEGRATION ? 'spatial-v2-product-shell' : 'isolated-proof',
   viewport: VIEWPORT,
@@ -779,7 +1085,18 @@ const report = {
   camera,
   map3dDom: live?.map3dDom || null,
   headingBefore: live?.headingBefore ?? null,
-  headingAfter: live?.afterNudge?.camera?.heading ?? null,
+  headingAfter: live?.afterRotateRight?.camera?.heading ?? live?.afterNudge?.camera?.heading ?? null,
+  afterTiltPlus: live?.afterTiltPlus || null,
+  afterTop: live?.afterTop || null,
+  afterOblique: live?.afterOblique || null,
+  afterNorth: live?.afterNorth || null,
+  afterMousePan: live?.afterMousePan || null,
+  afterFly: live?.afterFly || null,
+  afterReset: live?.afterReset || null,
+  orbitMid: live?.orbitMid || null,
+  referenceOn: live?.referenceOn || null,
+  referenceOffAgain: live?.referenceOffAgain || null,
+  cameraBeforeReference: live?.cameraBeforeReference || null,
   pixels,
   pixelsNav,
   networkHosts,

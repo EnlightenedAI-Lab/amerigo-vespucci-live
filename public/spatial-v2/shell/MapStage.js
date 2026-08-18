@@ -28,10 +28,32 @@ export function renderMapStage() {
         <div class="iqai-v2-map-nav" data-iqai-map-nav hidden></div>
         <div class="iqai-v2-imagery-dock" data-iqai-imagery-dock hidden></div>
         <div class="iqai-v2-google-3d-controls" data-iqai-google-3d-controls>
-          <strong data-iqai-google-3d-title hidden>GOOGLE PHOTOREALISTIC 3D</strong>
-          <button type="button" data-iqai-google-3d-open disabled>OPEN 3D</button>
-          <button type="button" data-iqai-google-3d-return hidden>RETURN TO 2D</button>
-          <span data-iqai-google-3d-status aria-live="polite">MAP LOADING</span>
+          <div class="iqai-v2-google-3d-controls__row">
+            <strong data-iqai-google-3d-title hidden>GOOGLE PHOTOREALISTIC 3D</strong>
+            <button type="button" data-iqai-google-3d-open disabled>OPEN 3D</button>
+            <button type="button" data-iqai-google-3d-return hidden>RETURN TO 2D</button>
+            <span data-iqai-google-3d-status aria-live="polite">MAP LOADING</span>
+          </div>
+          <div class="iqai-v2-google-3d-nav" data-iqai-google-3d-nav hidden>
+            <span>NAV</span>
+            <button type="button" data-iqai-google-3d-nav-action="tilt-minus">TILT -</button>
+            <button type="button" data-iqai-google-3d-nav-action="tilt-plus">TILT +</button>
+            <button type="button" data-iqai-google-3d-nav-action="rotate-left">ROTATE LEFT</button>
+            <button type="button" data-iqai-google-3d-nav-action="rotate-right">ROTATE RIGHT</button>
+            <button type="button" data-iqai-google-3d-nav-action="top">TOP</button>
+            <button type="button" data-iqai-google-3d-nav-action="oblique">OBLIQUE</button>
+            <button type="button" data-iqai-google-3d-nav-action="north">NORTH</button>
+            <button type="button" data-iqai-google-3d-nav-action="fly">FLY TO POINT</button>
+            <button type="button" data-iqai-google-3d-nav-action="orbit">ORBIT POINT</button>
+            <button type="button" data-iqai-google-3d-nav-action="reset">RESET VIEW</button>
+          </div>
+          <div class="iqai-v2-google-3d-layers" data-iqai-google-3d-layers hidden>
+            <span>LAYERS</span>
+            <label>
+              <input type="checkbox" data-iqai-google-3d-reference aria-label="REFERENCE">
+              REFERENCE
+            </label>
+          </div>
         </div>
       </div>
     </main>

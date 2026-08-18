@@ -5,9 +5,18 @@ import {
 } from '../map/map-foundation.js';
 import {
   closeGoogleMapsJs3d,
+  flyGoogleMapsJs3dToSelectedPoint,
   getGoogleMapsJs3dSnapshot,
+  isGoogleMapsJs3dReferenceEnabled,
   nudgeGoogleMapsJs3dHeading,
-  openGoogleMapsJs3d
+  nudgeGoogleMapsJs3dTilt,
+  openGoogleMapsJs3d,
+  orbitGoogleMapsJs3d,
+  resetGoogleMapsJs3dNorth,
+  resetGoogleMapsJs3dView,
+  setGoogleMapsJs3dObliqueView,
+  setGoogleMapsJs3dReference,
+  setGoogleMapsJs3dTopView
 } from '../map/google-maps-js-3d.js';
 
 const STAGE_STATE = Object.freeze({
@@ -48,6 +57,9 @@ export function bindGooglePhotorealistic3dControl(root) {
   const stageHost = root?.querySelector('[data-iqai-google-3d-stage]');
   const openButton = root?.querySelector('[data-iqai-google-3d-open]');
   const returnButton = root?.querySelector('[data-iqai-google-3d-return]');
+  const nav = root?.querySelector('[data-iqai-google-3d-nav]');
+  const layers = root?.querySelector('[data-iqai-google-3d-layers]');
+  const reference = root?.querySelector('[data-iqai-google-3d-reference]');
   const title = root?.querySelector('[data-iqai-google-3d-title]');
   const status = root?.querySelector('[data-iqai-google-3d-status]');
 
@@ -88,6 +100,17 @@ export function bindGooglePhotorealistic3dControl(root) {
     if (returnButton) {
       returnButton.hidden = !specialistVisible;
       returnButton.disabled = stageState === STAGE_STATE.CLOSING;
+    }
+    if (nav) {
+      nav.hidden = !specialistVisible;
+      for (const button of nav.querySelectorAll('button')) {
+        button.disabled = stageState !== STAGE_STATE.OPEN;
+      }
+    }
+    if (layers) layers.hidden = !specialistVisible;
+    if (reference) {
+      reference.disabled = stageState !== STAGE_STATE.OPEN;
+      reference.checked = specialistVisible && isGoogleMapsJs3dReferenceEnabled();
     }
     if (status) {
       if (stageState === STAGE_STATE.OPENING) status.textContent = 'OPENING 3D';
@@ -173,6 +196,9 @@ export function bindGooglePhotorealistic3dControl(root) {
       openActionVisible: Boolean(openButton && !openButton.hidden),
       returnActionVisible: Boolean(returnButton && !returnButton.hidden),
       viewLabel: title?.textContent?.trim() || null,
+      referenceEnabled: isGoogleMapsJs3dReferenceEnabled(),
+      navVisible: Boolean(nav && !nav.hidden),
+      layersVisible: Boolean(layers && !layers.hidden),
       mapCenter: {
         longitude: view?.center?.longitude ?? null,
         latitude: view?.center?.latitude ?? null
@@ -235,6 +261,21 @@ export function bindGooglePhotorealistic3dControl(root) {
     return snapshot();
   }
 
+  async function runNav(action) {
+    if (stageState !== STAGE_STATE.OPEN) return snapshot();
+    if (action === 'tilt-minus') return nudgeGoogleMapsJs3dTilt(-12);
+    if (action === 'tilt-plus') return nudgeGoogleMapsJs3dTilt(12);
+    if (action === 'rotate-left') return nudgeGoogleMapsJs3dHeading(-30);
+    if (action === 'rotate-right') return nudgeGoogleMapsJs3dHeading(30);
+    if (action === 'top') return setGoogleMapsJs3dTopView();
+    if (action === 'oblique') return setGoogleMapsJs3dObliqueView();
+    if (action === 'north') return resetGoogleMapsJs3dNorth();
+    if (action === 'fly') return flyGoogleMapsJs3dToSelectedPoint();
+    if (action === 'orbit') return orbitGoogleMapsJs3d();
+    if (action === 'reset') return resetGoogleMapsJs3dView();
+    return snapshot();
+  }
+
   const onClick = (event) => {
     const openControl = event.target.closest('[data-iqai-google-3d-open]');
     if (openControl && root.contains(openControl)) {
@@ -244,9 +285,24 @@ export function bindGooglePhotorealistic3dControl(root) {
     const returnControl = event.target.closest('[data-iqai-google-3d-return]');
     if (returnControl && root.contains(returnControl)) {
       void close().catch(() => {});
+      return;
+    }
+    const navControl = event.target.closest('[data-iqai-google-3d-nav-action]');
+    if (navControl && root.contains(navControl)) {
+      void runNav(navControl.getAttribute('data-iqai-google-3d-nav-action'))
+        .then(() => paint())
+        .catch(() => paint());
     }
   };
+  const onChange = (event) => {
+    const referenceControl = event.target.closest('[data-iqai-google-3d-reference]');
+    if (!referenceControl || !root.contains(referenceControl)) return;
+    void setGoogleMapsJs3dReference(referenceControl.checked).then(() => paint()).catch(() => {
+      paint();
+    });
+  };
   root.addEventListener('click', onClick);
+  root.addEventListener('change', onChange);
   paint();
 
   return Object.freeze({
@@ -261,6 +317,14 @@ export function bindGooglePhotorealistic3dControl(root) {
     open,
     close,
     nudgeHeading: nudgeGoogleMapsJs3dHeading,
+    nudgeTilt: nudgeGoogleMapsJs3dTilt,
+    orbit: orbitGoogleMapsJs3d,
+    resetNorth: resetGoogleMapsJs3dNorth,
+    flyToPoint: flyGoogleMapsJs3dToSelectedPoint,
+    setTop: setGoogleMapsJs3dTopView,
+    setOblique: setGoogleMapsJs3dObliqueView,
+    resetView: resetGoogleMapsJs3dView,
+    setReference: setGoogleMapsJs3dReference,
     snapshot
   });
 }

@@ -376,6 +376,10 @@ body.iqai-v2-body {
   background: #0b0d10;
 }
 
+#iqai-spatial-v2[data-iqai-spatial-view="google-3d"] .iqai-v2-ask {
+  display: none !important;
+}
+
 .iqai-v2-google-3d-stage[hidden],
 .iqai-v2-google-3d-controls [hidden] {
   display: none !important;
@@ -393,6 +397,7 @@ body.iqai-v2-body {
   bottom: 0.85rem;
   z-index: 7;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.45rem;
   max-width: calc(100% - 1.7rem);
@@ -400,6 +405,15 @@ body.iqai-v2-body {
   border-top: 2px solid #14120f;
   background: var(--iqai-v2-surface);
   color: var(--iqai-v2-text);
+}
+
+.iqai-v2-google-3d-controls__row,
+.iqai-v2-google-3d-nav,
+.iqai-v2-google-3d-layers {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
 }
 
 .iqai-v2-google-3d-controls strong,
@@ -431,11 +445,33 @@ body.iqai-v2-body {
   opacity: 0.5;
 }
 
+.iqai-v2-google-3d-layers {
+  padding-left: 0.45rem;
+  border-left: 1px solid rgba(244, 240, 234, 0.28);
+}
+
+.iqai-v2-google-3d-nav {
+  padding-top: 0.15rem;
+}
+
+.iqai-v2-google-3d-layers label {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: var(--iqai-v2-kicker-size);
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+}
+
 .iqai-v2-stage__well[data-iqai-specialist-view="google-3d"] .iqai-v2-google-3d-controls {
   top: 0.85rem;
-  right: 0.85rem;
+  left: 0.85rem;
+  right: auto;
   bottom: auto;
-  left: auto;
+  flex-direction: column;
+  align-items: flex-start;
+  max-width: min(58rem, calc(100% - 1.7rem));
   border-top-color: #f4f0ea;
   background: rgba(15, 17, 21, 0.9);
   color: #f4f0ea;
@@ -449,7 +485,8 @@ body.iqai-v2-body {
 .iqai-v2-stage__well[data-iqai-specialist-view="google-3d"] .iqai-v2-operator-ground,
 .iqai-v2-stage__well[data-iqai-specialist-view="google-3d"] .iqai-v2-begin,
 .iqai-v2-stage__well[data-iqai-specialist-view="google-3d"] .iqai-v2-guided-cue,
-.iqai-v2-stage__well[data-iqai-specialist-view="google-3d"] .iqai-v2-imagery-dock {
+.iqai-v2-stage__well[data-iqai-specialist-view="google-3d"] .iqai-v2-imagery-dock,
+.iqai-v2-stage__well[data-iqai-specialist-view="google-3d"] .iqai-v2-stage__grid {
   display: none !important;
 }
 
@@ -1073,6 +1110,7 @@ body.iqai-v2-body {
 .iqai-v2-ask__send:focus-visible,
 .iqai-v2-mode:focus-visible,
 .iqai-v2-google-3d-controls button:focus-visible,
+.iqai-v2-google-3d-layers input:focus-visible,
 .iqai-v2-imagery-mode:focus-visible,
 .iqai-v2-imagery-btn:focus-visible,
 .iqai-v2-operator-imagery button:focus-visible,
