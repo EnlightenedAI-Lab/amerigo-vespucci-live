@@ -1,4 +1,5 @@
 import { sanitizeError } from '../security.js';
+import { PROVIDER_READINESS_STATE } from '../../public/spatial-v2/imagery/imagery-contract.js';
 
 const NEARMAP_WMS_HOST_PREFIX = 'https://api.nearmap.com/wms/';
 const DEFAULT_LAYER = 'Nearmap';
@@ -90,6 +91,7 @@ export async function proxyNearmapWms(req, res, options = {}) {
     return res.status(503).json({
       ok: false,
       entitlement: 'entitlement-missing',
+      readinessState: PROVIDER_READINESS_STATE.NOT_CONFIGURED,
       error: 'Nearmap latest WMS is not configured on the server.'
     });
   }
@@ -97,7 +99,12 @@ export async function proxyNearmapWms(req, res, options = {}) {
     assertAllowedNearmapWmsUrl(upstream);
   } catch (error) {
     res.set('Cache-Control', 'no-store');
-    return res.status(400).json({ ok: false, entitlement: 'denied', error: error.message });
+    return res.status(400).json({
+      ok: false,
+      entitlement: 'denied',
+      readinessState: PROVIDER_READINESS_STATE.ENTITLEMENT_REQUIRED,
+      error: error.message
+    });
   }
 
   const params = new URLSearchParams();
@@ -120,13 +127,18 @@ export async function proxyNearmapWms(req, res, options = {}) {
     const response = await fetchImpl(target, { cache: 'no-store' });
     if (response.status === 401 || response.status === 403) {
       res.set('Cache-Control', 'no-store');
-      return res.status(403).json({ ok: false, entitlement: 'denied' });
+      return res.status(403).json({
+        ok: false,
+        entitlement: 'denied',
+        readinessState: PROVIDER_READINESS_STATE.ENTITLEMENT_REQUIRED
+      });
     }
     if (!response.ok) {
       res.set('Cache-Control', 'no-store');
       return res.status(502).json({
         ok: false,
         entitlement: 'failed',
+        readinessState: PROVIDER_READINESS_STATE.UNAVAILABLE,
         error: `Nearmap WMS HTTP ${response.status}`
       });
     }
@@ -147,6 +159,7 @@ export async function proxyNearmapWms(req, res, options = {}) {
     return res.status(502).json({
       ok: false,
       entitlement: 'failed',
+      readinessState: PROVIDER_READINESS_STATE.UNAVAILABLE,
       error: sanitizeError(error).error
     });
   }
@@ -161,6 +174,7 @@ export async function nearmapWmsStatus(req, res, options = {}) {
     return res.status(200).json({
       ok: false,
       entitlement: 'entitlement-missing',
+      readinessState: PROVIDER_READINESS_STATE.NOT_CONFIGURED,
       serviceType: 'WMS',
       historical: false,
       layers: [],
@@ -177,6 +191,7 @@ export async function nearmapWmsStatus(req, res, options = {}) {
       return res.status(403).json({
         ok: false,
         entitlement: 'denied',
+        readinessState: PROVIDER_READINESS_STATE.ENTITLEMENT_REQUIRED,
         serviceType: 'WMS',
         historical: false,
         layers: []
@@ -187,6 +202,7 @@ export async function nearmapWmsStatus(req, res, options = {}) {
       return res.status(502).json({
         ok: false,
         entitlement: 'failed',
+        readinessState: PROVIDER_READINESS_STATE.UNAVAILABLE,
         serviceType: 'WMS',
         historical: false,
         layers: []
@@ -199,6 +215,7 @@ export async function nearmapWmsStatus(req, res, options = {}) {
     return res.status(200).json({
       ok: true,
       entitlement: 'ready',
+      readinessState: PROVIDER_READINESS_STATE.READY,
       serviceType: inspected.serviceType,
       version: inspected.version,
       historical,
@@ -218,6 +235,7 @@ export async function nearmapWmsStatus(req, res, options = {}) {
     return res.status(502).json({
       ok: false,
       entitlement: 'failed',
+      readinessState: PROVIDER_READINESS_STATE.UNAVAILABLE,
       serviceType: 'WMS',
       historical: false,
       layers: [],

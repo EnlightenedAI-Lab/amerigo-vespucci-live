@@ -35,8 +35,15 @@ const REQUIRED_V2_FILES = [
   'shell/ask-capability-bus.js',
   'shell/command-center-state.js',
   'shell/GooglePhotorealistic3dControl.js',
+  'shell/Street360Control.js',
+  'shell/ViewSwitcher.js',
+  'shell/DropPinControl.js',
+  'map/spatial-focus.js',
   'shell/OperatorImageryExperience.js',
-  'shell/WhatAmILookingAt.js'
+  'shell/WhatAmILookingAt.js',
+  'shell/guided-next-action.js',
+  'shell/imagery-display-truth.js',
+  'shell/OperatorGroundControl.js'
 ];
 
 const REQUIRED_SLOTS = [
@@ -158,6 +165,9 @@ test('V2 CSS is namespaced and does not restyle V1 classes', () => {
   const css = readV2('iqai-spatial-v2.css');
   assert.match(css, /#iqai-spatial-v2/);
   assert.match(css, /\.iqai-v2-/);
+  assert.match(css, /--iqai-v2-next/);
+  assert.match(css, /\.iqai-v2-launcher/);
+  assert.match(css, /grid-template-columns: minmax\(0, 1fr\)/);
   assert.equal(css.includes('.spatial-app'), false);
   assert.equal(css.includes('iqai-spatial-shell'), false);
 });
@@ -186,6 +196,30 @@ test('V2 shell does not migrate V1 capabilities or fake live connections', () =>
   assert.ok(values.includes('RESERVED'));
   assert.ok(values.includes('SHELL ONLY'));
   assert.equal(INSPECTOR_REGIONS.length, 5);
+});
+
+test('operator chrome consumes Time Engine display-truth instead of selectedId', () => {
+  const operator = readV2('shell', 'OperatorImageryExperience.js');
+  const explanation = readV2('shell', 'WhatAmILookingAt.js');
+  const guided = readV2('shell', 'guided-next-action.js');
+  const app = readV2('shell', 'AppShell.js');
+  const truth = readV2('shell', 'command-center-state.js');
+  const display = readV2('shell', 'imagery-display-truth.js');
+  const css = readV2('iqai-spatial-v2.css');
+  assert.match(display, /DISPLAY NOT CONFIRMED/);
+  assert.match(display, /DISPLAY_CONFIRMED/);
+  assert.match(operator, />ACTIVATED</);
+  assert.match(operator, /projectImageryDisplayTruth/);
+  assert.doesNotMatch(operator, /OBSERVED \/ DISPLAYED/);
+  assert.match(explanation, /explanationField\('DISPLAY'/);
+  assert.match(explanation, /pixel proof remains PARTIAL \/ ArcGIS-owned/);
+  assert.match(guided, /displayConfirmed === true/);
+  assert.doesNotMatch(guided, /if \(selectedId\) completedSteps\.push\(GUIDED_STEP\.SHOW_BEST_IMAGE\)/);
+  assert.match(app, /displayConfirmed: time\.displayConfirmed === true/);
+  assert.match(truth, /displayConfirmed: time\?\.displayConfirmed === true/);
+  assert.match(truth, /displayState: time\?\.displayState \?\? null/);
+  assert.match(css, /data-iqai-display-confirmed/);
+  assert.equal(SHELL_SLOT_IDS.length, REQUIRED_SLOTS.length);
 });
 
 test('V1 spatial index remains a separate surface', () => {

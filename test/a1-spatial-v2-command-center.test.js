@@ -14,6 +14,14 @@ import {
   EXPERIENCE_MODE,
   IMAGERY_VIEW
 } from '../public/spatial-v2/shell/command-center-state.js';
+import {
+  GUIDED_ACTION,
+  GUIDED_STEP,
+  GUIDED_WORKFLOW,
+  deriveGuidedNextAction,
+  identityOfGuided
+} from '../public/spatial-v2/shell/guided-next-action.js';
+import { projectImageryDisplayTruth } from '../public/spatial-v2/shell/imagery-display-truth.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '..');
@@ -183,6 +191,8 @@ test('experience is absent from the canonical truth snapshot', () => {
       requestedDate: '2026-08-17',
       selectedId: 'scene-1',
       activeId: null,
+      displayConfirmed: false,
+      displayState: 'SELECTED',
       matchKind: 'nearest',
       deltaDays: -2,
       selected: {
@@ -196,21 +206,28 @@ test('experience is absent from the canonical truth snapshot', () => {
   };
   const truth = createCommandCenterTruthSnapshot(input);
   assert.equal('experience' in truth, false);
+  assert.equal('systemStatusOpen' in truth, false);
   assert.equal(truth.mapViewCreateCount, 1);
   assert.equal(truth.imageryCaptureDate, '2026-08-15');
   assert.equal(truth.imageryReleaseDate, '2026-08-16');
   assert.equal(truth.imageryRequestedDate, '2026-08-17');
+  assert.equal(truth.displayConfirmed, false);
+  assert.equal(truth.groundDisplayConfirmed, false);
+  assert.equal(truth.displayState, 'SELECTED');
+  assert.equal(truth.imagerySelectedId, 'scene-1');
 });
 
 test('operator imagery surface keeps clocks and future controls honest', () => {
   const source = read('shell', 'OperatorImageryExperience.js');
+  const display = read('shell', 'imagery-display-truth.js');
   for (const field of [
     'LATEST',
     'HISTORY',
     'ALL IMAGERY',
     'REQUESTED',
     'SELECTED',
-    'OBSERVED / DISPLAYED',
+    'ACTIVATED',
+    'DISPLAY',
     'CAPTURE DATE',
     'RELEASE DATE',
     'SOURCE',
@@ -226,8 +243,14 @@ test('operator imagery surface keeps clocks and future controls honest', () => {
   assert.match(source, /COMING LATER/);
   assert.match(source, /ENTITLEMENT REQUIRED/);
   assert.match(source, /NOT AVAILABLE/);
-  assert.match(source, /selected\?\.acquisitionDate \|\| 'UNKNOWN'/);
-  assert.match(source, /selected\?\.releaseDate \|\| 'UNKNOWN'/);
+  assert.match(source, /formatCaptureLine/);
+  assert.match(source, /formatReleaseLine/);
+  assert.doesNotMatch(source, /matchDate \|\| observation\.acquisitionDate \|\| observation\.releaseDate/);
+  assert.match(source, /projectImageryDisplayTruth/);
+  assert.match(display, /DISPLAY_CONFIRMED/);
+  assert.match(display, /DISPLAY NOT CONFIRMED/);
+  assert.doesNotMatch(source, /OBSERVED \/ DISPLAYED/);
+  assert.doesNotMatch(source, /NOT DISPLAYED/);
   assert.doesNotMatch(source, /releaseDate\s*\|\|\s*selected\?\.acquisitionDate/);
 });
 
@@ -238,6 +261,7 @@ test('source-grounded explanation remains explicit about disconnected AI and lim
     'QUESTION',
     'IQAI SELECTED',
     'WHY',
+    'DISPLAY',
     'WHAT IT SHOWS',
     'WHAT IT DOES NOT PROVE',
     'SOURCE',
@@ -249,7 +273,12 @@ test('source-grounded explanation remains explicit about disconnected AI and lim
   }
   assert.match(source, /AI EXPLANATION · NOT CONNECTED/);
   assert.match(source, /pixel proof remains PARTIAL/);
+  assert.match(source, /ArcGIS-owned/);
   assert.match(source, /No AI rationale was generated/);
+  assert.match(source, /displayConfirmed/);
+  assert.match(source, /projectImageryDisplayTruth/);
+  assert.match(read('shell', 'imagery-display-truth.js'), /DISPLAY NOT CONFIRMED/);
+  assert.match(read('shell', 'imagery-display-truth.js'), /DISPLAY_CONFIRMED/);
 });
 
 test('command-center wiring preserves the ArcGIS subsystem and diagnostic harness', () => {
@@ -265,5 +294,197 @@ test('command-center wiring preserves the ArcGIS subsystem and diagnostic harnes
   assert.match(imagery, /data-iqai-imagery-panel/);
   assert.match(imagery, /bootImageryGround/);
   assert.match(operator, /ENGINEERING DIAGNOSTICS/);
+  assert.match(operator, /data-iqai-guided-next-action/);
+  assert.match(operator, /formatBestImageActionLabel/);
+  assert.match(read('imagery', 'imagery-capture-receipt.js'), /SHOW BEST IMAGE/);
+  assert.match(operator, /EXPERT DEPTH/);
+  assert.match(operator, /data-iqai-display-label/);
   assert.match(app, /EXPERIENCE_MODE\.EXPERT && state\.diagnosticsOpen/);
+  assert.match(app, /displayConfirmed: time\.displayConfirmed === true/);
+  assert.match(app, /bindOperatorGroundControl/);
+  assert.match(app, /bindSystemStatusControl/);
+  assert.match(app, /onChange: \(modeId\) => setGroundMode\(modeId\)/);
+  assert.match(read('shell', 'guided-next-action.js'), /displayConfirmed === true/);
+});
+
+test('Guided Next Action is derived once and ignores experience', () => {
+  const input = {
+    activeCapability: 'imagery',
+    imageryView: IMAGERY_VIEW.HISTORY,
+    observationCount: 0,
+    selectedId: null,
+    historyDateCommitted: false
+  };
+  const normal = deriveGuidedNextAction(input);
+  const expert = deriveGuidedNextAction(input);
+  assert.equal(normal.workflowId, GUIDED_WORKFLOW.IMAGERY_HISTORY);
+  assert.equal(normal.currentStep, GUIDED_STEP.CHOOSE_DATE);
+  assert.equal(normal.recommendedAction, GUIDED_ACTION.CHOOSE_DATE);
+  assert.deepEqual(identityOfGuided(normal), identityOfGuided(expert));
+});
+
+test('Normal and Expert keep the same History next action across mode changes', () => {
+  const state = createCommandCenterState();
+  state.setImageryView(IMAGERY_VIEW.HISTORY);
+  const before = deriveGuidedNextAction(state.getSnapshot());
+  state.setExperience(EXPERIENCE_MODE.EXPERT);
+  state.setDiagnosticsOpen(true);
+  const expert = deriveGuidedNextAction(state.getSnapshot());
+  state.setExperience(EXPERIENCE_MODE.NORMAL);
+  const after = deriveGuidedNextAction(state.getSnapshot());
+  assert.equal(before.currentStep, GUIDED_STEP.CHOOSE_DATE);
+  assert.deepEqual(identityOfGuided(expert), identityOfGuided(before));
+  assert.deepEqual(identityOfGuided(after), identityOfGuided(before));
+  assert.equal(state.getSnapshot().diagnosticsOpen, false);
+});
+
+test('canonical truth includes guided identity and excludes experience', () => {
+  const guided = deriveGuidedNextAction({
+    activeCapability: 'imagery',
+    imageryView: IMAGERY_VIEW.HISTORY
+  });
+  const truth = createCommandCenterTruthSnapshot({
+    map: { state: 'READY', mapViewCreateCount: 1 },
+    command: {
+      activeCapability: 'imagery',
+      imageryView: IMAGERY_VIEW.HISTORY,
+      historyDateCommitted: false
+    },
+    time: {
+      selectedId: 'scene-1',
+      displayConfirmed: false,
+      displayState: 'SELECTED'
+    },
+    guided: identityOfGuided(guided)
+  });
+  assert.equal('experience' in truth, false);
+  assert.equal('systemStatusOpen' in truth, false);
+  assert.equal(truth.guidedWorkflowId, GUIDED_WORKFLOW.IMAGERY_HISTORY);
+  assert.equal(truth.guidedCurrentStep, GUIDED_STEP.CHOOSE_DATE);
+  assert.equal(truth.guidedRecommendedAction, GUIDED_ACTION.CHOOSE_DATE);
+  assert.equal(truth.displayConfirmed, false);
+  assert.equal(truth.displayState, 'SELECTED');
+});
+
+test('SHOW_BEST_IMAGE completes only when displayConfirmed is true', () => {
+  const selectedOnly = {
+    activeCapability: 'imagery',
+    imageryView: IMAGERY_VIEW.HISTORY,
+    observationCount: 3,
+    selectedId: 'scene-1',
+    historyDateCommitted: true,
+    displayConfirmed: false
+  };
+  const selected = deriveGuidedNextAction(selectedOnly);
+  assert.equal(selected.currentStep, GUIDED_STEP.SHOW_BEST_IMAGE);
+  assert.equal(selected.recommendedAction, GUIDED_ACTION.SHOW_BEST_IMAGE);
+  assert.equal(selected.completedSteps.includes(GUIDED_STEP.SHOW_BEST_IMAGE), false);
+
+  const confirmedInput = { ...selectedOnly, displayConfirmed: true };
+  const confirmed = deriveGuidedNextAction(confirmedInput);
+  assert.equal(confirmed.currentStep, GUIDED_STEP.REVIEW_OBSERVATIONS);
+  assert.equal(confirmed.completedSteps.includes(GUIDED_STEP.SHOW_BEST_IMAGE), true);
+  assert.deepEqual(identityOfGuided(confirmed), identityOfGuided(deriveGuidedNextAction(confirmedInput)));
+});
+
+test('Normal and Expert keep the same guided identity when display is unconfirmed', () => {
+  const input = {
+    activeCapability: 'imagery',
+    imageryView: IMAGERY_VIEW.LATEST,
+    selectedId: 'scene-1',
+    displayConfirmed: false
+  };
+  const normal = deriveGuidedNextAction(input);
+  const expert = deriveGuidedNextAction(input);
+  assert.equal(normal.currentStep, GUIDED_STEP.SHOW_BEST_IMAGE);
+  assert.deepEqual(identityOfGuided(normal), identityOfGuided(expert));
+});
+
+test('missing display-truth stays missing in the canonical snapshot', () => {
+  const truth = createCommandCenterTruthSnapshot({
+    time: { selectedId: 'scene-1' }
+  });
+  assert.equal(truth.displayConfirmed, false);
+  assert.equal(truth.displayState, null);
+  assert.equal(truth.imagerySelectedId, 'scene-1');
+  assert.equal('experience' in truth, false);
+});
+
+test('operator display chrome distinguishes SELECTED, ACTIVATED, and DISPLAY_CONFIRMED', () => {
+  const none = projectImageryDisplayTruth({});
+  assert.equal(none.displayLabel, 'NONE');
+  assert.equal(none.displayConfirmed, false);
+  assert.equal(none.selectedLabel, 'NO OBSERVATION SELECTED');
+  assert.equal(none.activatedLabel, 'NOT ACTIVATED');
+
+  const selected = projectImageryDisplayTruth({
+    selectedId: 'scene-1',
+    selected: { id: 'scene-1', productName: 'Wayback 2024' },
+    displayConfirmed: false,
+    displayState: 'SELECTED'
+  });
+  assert.equal(selected.displayLabel, 'DISPLAY NOT CONFIRMED');
+  assert.equal(selected.selectedLabel, 'Wayback 2024');
+  assert.equal(selected.displayedLabel, null);
+  assert.notEqual(selected.displayLabel, 'DISPLAYED');
+
+  const activated = projectImageryDisplayTruth({
+    selectedId: 'scene-1',
+    activeId: 'scene-1',
+    activatedId: 'scene-1',
+    selected: { id: 'scene-1', productName: 'Wayback 2024' },
+    activated: { id: 'scene-1', productName: 'Wayback 2024' },
+    displayConfirmed: false,
+    displayState: 'ACTIVATED'
+  });
+  assert.equal(activated.displayLabel, 'DISPLAY NOT CONFIRMED');
+  assert.equal(activated.activatedLabel, 'Wayback 2024');
+  assert.equal(activated.displayedLabel, null);
+
+  const confirmed = projectImageryDisplayTruth({
+    selectedId: 'scene-1',
+    activeId: 'scene-1',
+    activatedId: 'scene-1',
+    selected: { id: 'scene-1', productName: 'Wayback 2024' },
+    activated: { id: 'scene-1', productName: 'Wayback 2024' },
+    displayConfirmed: true,
+    displayState: 'DISPLAY_CONFIRMED'
+  });
+  assert.equal(confirmed.displayLabel, 'DISPLAY_CONFIRMED');
+  assert.equal(confirmed.displayedLabel, 'Wayback 2024');
+
+  const stateWithoutFlag = projectImageryDisplayTruth({
+    selectedId: 'scene-1',
+    displayConfirmed: false,
+    displayState: 'DISPLAY_CONFIRMED'
+  });
+  assert.equal(stateWithoutFlag.displayLabel, 'DISPLAY NOT CONFIRMED');
+  assert.equal(stateWithoutFlag.displayedLabel, null);
+
+  const noPin = projectImageryDisplayTruth({ pool: 'LATEST' }, {
+    imageryView: 'LATEST',
+    ground: { currentMode: 'AUTHORED_WEBMAP' },
+    focus: null
+  });
+  assert.equal(noPin.selectedLabel, 'NO PLACE SELECTED');
+  assert.match(noPin.operatorMessage, /DROP PIN/);
+
+  const latestNearmap = projectImageryDisplayTruth({ pool: 'LATEST' }, {
+    imageryView: 'LATEST',
+    focus: { longitude: -73.5673, latitude: 45.5017, sourceType: 'DROP_PIN' },
+    ground: {
+      currentMode: 'NEARMAP',
+      applyState: 'READY',
+      displayConfirmed: true,
+      receipt: { observation: { id: 'nearmap-wms-latest', providerId: 'nearmap-wms-latest' } }
+    }
+  });
+  assert.equal(latestNearmap.selectedLabel, 'NEARMAP · CURRENT');
+  assert.equal(latestNearmap.activatedLabel, 'NEARMAP · CURRENT');
+  assert.equal(latestNearmap.displayLabel, 'DISPLAY_CONFIRMED');
+
+  const historyIdle = projectImageryDisplayTruth({ pool: 'HISTORY', selectedId: null }, {
+    imageryView: 'HISTORY'
+  });
+  assert.match(historyIdle.operatorMessage, /Click a row to activate/);
 });

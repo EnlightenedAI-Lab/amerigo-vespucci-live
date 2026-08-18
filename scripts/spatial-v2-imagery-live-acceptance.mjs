@@ -150,6 +150,7 @@ async function waitForJson(url, attempts = 50) {
 async function withCdpPage(browserPath, debugPort, fn) {
   fs.mkdirSync(OUT, { recursive: true });
   const userDataDir = fs.mkdtempSync(path.join(OUT, 'browser-'));
+  const networkUrls = [];
   const child = spawn(browserPath, [
     `--remote-debugging-port=${debugPort}`,
     `--user-data-dir=${userDataDir}`,
@@ -158,11 +159,9 @@ async function withCdpPage(browserPath, debugPort, fn) {
     '--no-first-run',
     '--no-default-browser-check',
     '--force-device-scale-factor=1',
-    '--disable-background-timer-throttling',
     '--disable-renderer-backgrounding',
     '--disable-backgrounding-occluded-windows',
     '--enable-webgl',
-    '--use-angle=swiftshader',
     '--ignore-gpu-blocklist',
     'about:blank'
   ], { stdio: 'ignore' });
@@ -171,8 +170,15 @@ async function withCdpPage(browserPath, debugPort, fn) {
     const version = await waitForJson(`http://127.0.0.1:${debugPort}/json/version`);
     const ws = new WebSocket(version.webSocketDebuggerUrl);
     await new Promise((resolve, reject) => {
-      ws.once('open', resolve);
-      ws.once('error', reject);
+      const timer = setTimeout(() => reject(new Error('CDP websocket timed out')), 8000);
+      ws.once('open', () => {
+        clearTimeout(timer);
+        resolve();
+      });
+      ws.once('error', (error) => {
+        clearTimeout(timer);
+        reject(error);
+      });
     });
 
     const { targetId } = await new Promise((resolve, reject) => {
@@ -206,15 +212,31 @@ async function withCdpPage(browserPath, debugPort, fn) {
       }));
     });
 
+    ws.on('message', (raw) => {
+      try {
+        const msg = JSON.parse(raw.toString());
+        if (msg.method === 'Network.requestWillBeSent' && msg.params?.request?.url) {
+          networkUrls.push(msg.params.request.url);
+        }
+      } catch {
+        // ignore non-JSON
+      }
+    });
+
     let nextId = 10;
-    const send = (method, params = {}) => {
+    const send = (method, params = {}, timeoutMs = 40000) => {
       nextId += 1;
       const id = nextId;
       return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+          ws.off('message', onMessage);
+          reject(new Error(`${method} timed out`));
+        }, timeoutMs);
         const onMessage = (raw) => {
           const msg = JSON.parse(raw.toString());
           if (msg.id !== id) return;
           ws.off('message', onMessage);
+          clearTimeout(timer);
           if (msg.error) reject(new Error(`${method}: ${JSON.stringify(msg.error)}`));
           else resolve(msg.result);
         };
@@ -230,11 +252,27 @@ async function withCdpPage(browserPath, debugPort, fn) {
 
     await send('Page.enable');
     await send('Runtime.enable');
-    const result = await fn(send);
+    await send('Network.enable');
+    const result = await fn(send, { networkUrls });
+    if (result && typeof result === 'object') {
+      result.networkUrls = networkUrls.slice();
+    }
     ws.close();
     return result;
   } finally {
-    child.kill();
+    try {
+      child.kill();
+    } catch {
+      // already exited
+    }
+    if (child.pid) {
+      spawn('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' });
+    }
+    try {
+      fs.rmSync(userDataDir, { recursive: true, force: true });
+    } catch {
+      // browser profile may still be locked briefly
+    }
   }
 }
 
@@ -264,6 +302,75 @@ async function shot(send, name) {
   fs.writeFileSync(file, Buffer.from(captured.data, 'base64'));
   return { name, file, bytes: Buffer.from(captured.data, 'base64').length };
 }
+
+async function shotMap(send, name) {
+  try {
+    const dataUrl = await evaluateJson(send, `(() => {
+      const view = window.__iqaiSpatialV2?.mapFoundation?.getView?.();
+      if (!view?.takeScreenshot) return Promise.resolve(null);
+      return Promise.race([
+        view.takeScreenshot({ format: 'jpg', quality: 70 }).then((captured) => captured?.dataUrl || null),
+        new Promise((resolve) => setTimeout(() => resolve(null), 10000))
+      ]);
+    })()`, true);
+    if (typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image')) {
+      return { name: `${name}-map`, file: null, bytes: 0, error: 'no-map-screenshot' };
+    }
+    const file = path.join(OUT, `${name}-map.jpg`);
+    const buf = Buffer.from(dataUrl.replace(/^data:image\/jpeg;base64,/, '').replace(/^data:image\/jpg;base64,/, ''), 'base64');
+    fs.writeFileSync(file, buf);
+    return { name: `${name}-map`, file, bytes: buf.length };
+  } catch (error) {
+    return { name: `${name}-map`, file: null, bytes: 0, error: String(error?.message || error) };
+  }
+}
+
+const PIXEL_STATS = `(() => {
+  const view = window.__iqaiSpatialV2?.mapFoundation?.getView?.();
+  if (!view?.takeScreenshot) return Promise.resolve(null);
+  return Promise.race([
+    view.takeScreenshot({ format: 'jpg', quality: 60 }),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('pixel stats timed out')), 10000))
+  ]).then((captured) => {
+    const dataUrl = captured?.dataUrl || '';
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.min(img.width, 480);
+        canvas.height = Math.min(img.height, 270);
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+        let r = 0;
+        let g = 0;
+        let b = 0;
+        let count = 0;
+        let min = 255;
+        let max = 0;
+        for (let i = 0; i < pixels.length; i += 16) {
+          const lum = (pixels[i] + pixels[i + 1] + pixels[i + 2]) / 3;
+          r += pixels[i];
+          g += pixels[i + 1];
+          b += pixels[i + 2];
+          min = Math.min(min, lum);
+          max = Math.max(max, lum);
+          count += 1;
+        }
+        resolve({
+          width: img.width,
+          height: img.height,
+          mean: [Math.round(r / count), Math.round(g / count), Math.round(b / count)],
+          lumMin: Math.round(min),
+          lumMax: Math.round(max),
+          contrast: Math.round(max - min)
+        });
+      };
+      img.onerror = () => reject(new Error('pixel stats image failed'));
+      img.src = dataUrl;
+    });
+  }).catch((error) => ({ error: String(error?.message || error) }));
+})()`;
 
 const DIAGNOSTICS = `(() => {
   const api = window.__iqaiSpatialV2;
@@ -383,12 +490,25 @@ const browserPath = findBrowser();
 if (!browserPath) throw new Error('Edge/Chrome not found for live visual acceptance.');
 const preauth = await fetchPreauthToken();
 
-const live = await withCdpPage(browserPath, 9251, async (send) => {
+const live = await withCdpPage(browserPath, 9253, async (send) => {
+  const log = (message) => console.error(`[live] ${message}`);
+  log('browser attached');
   if (preauth) {
     await send('Page.addScriptToEvaluateOnNewDocument', {
       source: `window.__MONTREAL_PREAUTH_TOKEN = ${JSON.stringify(preauth)};`
     });
   }
+  await send('Page.addScriptToEvaluateOnNewDocument', {
+    source: `(function() {
+      const orig = HTMLCanvasElement.prototype.getContext;
+      HTMLCanvasElement.prototype.getContext = function(type, attrs) {
+        if (type === 'webgl' || type === 'webgl2' || type === 'experimental-webgl') {
+          attrs = Object.assign({}, attrs || {}, { preserveDrawingBuffer: true });
+        }
+        return orig.call(this, type, attrs);
+      };
+    })();`
+  });
   await send('Emulation.setDeviceMetricsOverride', {
     width: 1920,
     height: 1080,
@@ -396,6 +516,7 @@ const live = await withCdpPage(browserPath, 9251, async (send) => {
     mobile: false
   });
   await send('Page.navigate', { url: `${BASE}/spatial-v2/?imagery=live` });
+  log('navigated');
 
   let state = 'INITIALIZING';
   for (let i = 0; i < 60; i += 1) {
@@ -406,22 +527,41 @@ const live = await withCdpPage(browserPath, 9251, async (send) => {
   if (state !== 'READY') {
     return { state, error: 'Map foundation did not become READY' };
   }
+  log(`map ${state}`);
   for (let i = 0; i < 40; i += 1) {
     const painted = await evaluateJson(send, `(() => {
       const view = window.__iqaiSpatialV2?.mapFoundation?.getView?.();
       const canvas = document.querySelector('.iqai-v2-map-host canvas, .esri-view-surface canvas');
-      return Boolean(view?.ready && canvas && canvas.width > 8 && view.stationary !== false);
+      return Boolean(view?.ready && canvas && canvas.width > 8);
     })()`);
     if (painted) break;
     await sleep(500);
   }
-  await evaluateJson(send, `(() => {
-    const api = window.__iqaiSpatialV2;
-    return Promise.race([
-      api.mapFoundation.goHome(),
-      new Promise((resolve) => setTimeout(resolve, 8000))
-    ]).then(() => true);
-  })()`, true);
+  let home = null;
+  for (let i = 0; i < 12; i += 1) {
+    try {
+      home = await evaluateJson(send, `(() => {
+        const api = window.__iqaiSpatialV2;
+        const view = api?.mapFoundation?.getView?.();
+        if (!view) return Promise.resolve({ ok: false });
+        return api.mapFoundation.goHome().then(() => {
+          const lon = view.center?.longitude;
+          const lat = view.center?.latitude;
+          return {
+            ok: lon >= -74.3 && lon <= -73.2 && lat >= 45.2 && lat <= 45.9,
+            lon,
+            lat,
+            scale: view.scale
+          };
+        });
+      })()`, true);
+    } catch (error) {
+      home = { ok: false, error: String(error?.message || error) };
+    }
+    if (home?.ok) break;
+    await sleep(750);
+  }
+  log(`home ${home?.ok ? 'ok' : 'miss'} ${home?.lon || ''} ${home?.lat || ''}`);
   await sleep(2500);
   for (let i = 0; i < 20; i += 1) {
     const booted = await evaluateJson(send, 'Boolean(window.__iqaiSpatialV2?.setGroundMode && document.querySelector("[data-iqai-plugin=imagery]"))');
@@ -436,7 +576,10 @@ const live = await withCdpPage(browserPath, 9251, async (send) => {
   await sleep(400);
 
   const before = await evaluateJson(send, DIAGNOSTICS);
+  log('authored diagnostics');
   const authoredShot = await shot(send, '00-authored-home');
+  const authoredMapShot = await shotMap(send, '00-authored-home');
+  const authoredPixels = await evaluateJson(send, PIXEL_STATS, true).catch((error) => ({ error: String(error?.message || error) }));
   const nearmap = await evaluateJson(send, `(() => {
     const api = window.__iqaiSpatialV2;
     return api.setGroundMode('NEARMAP').then(() => api.ground()).catch((error) => ({
@@ -444,9 +587,22 @@ const live = await withCdpPage(browserPath, 9251, async (send) => {
       error: String(error?.message || error)
     }));
   })()`, true);
-  await sleep(4000);
+  for (let i = 0; i < 20; i += 1) {
+    const wms = await evaluateJson(send, `(() => {
+      const view = window.__iqaiSpatialV2?.mapFoundation?.getView?.();
+      const list = view?.allLayerViews?.toArray ? view.allLayerViews.toArray() : [];
+      const lv = list.find((item) => item.layer?.id === 'iqai-ground-nearmap-wms');
+      return lv ? { suspended: lv.suspended === true, updating: lv.updating === true } : null;
+    })()`);
+    if (wms && wms.suspended !== true && wms.updating !== true) break;
+    await sleep(500);
+  }
+  await sleep(2000);
   const afterNearmap = await evaluateJson(send, DIAGNOSTICS);
   const nearmapShot = await shot(send, '01-nearmap-ground');
+  const nearmapMapShot = await shotMap(send, '01-nearmap-ground');
+  const nearmapPixels = await evaluateJson(send, PIXEL_STATS, true).catch((error) => ({ error: String(error?.message || error) }));
+  log(`nearmap ${nearmap?.applyState || nearmapPixels?.error || 'done'}`);
 
   const pageSecrets = await evaluateJson(send, `(() => {
     const html = document.documentElement?.innerHTML || '';
@@ -482,9 +638,22 @@ const live = await withCdpPage(browserPath, 9251, async (send) => {
       activeId: api.time()?.activeId
     }));
   })()`, true);
-  await sleep(4000);
+  for (let i = 0; i < 20; i += 1) {
+    const timeLv = await evaluateJson(send, `(() => {
+      const view = window.__iqaiSpatialV2?.mapFoundation?.getView?.();
+      const list = view?.allLayerViews?.toArray ? view.allLayerViews.toArray() : [];
+      const lv = list.find((item) => item.layer?.id === 'iqai-v2-imagery-time-observation');
+      return lv ? { suspended: lv.suspended === true, updating: lv.updating === true } : null;
+    })()`);
+    if (timeLv && timeLv.suspended !== true && timeLv.updating !== true) break;
+    await sleep(500);
+  }
+  await sleep(1500);
   const afterActivate = await evaluateJson(send, DIAGNOSTICS);
   const activateShot = await shot(send, '02-wayback-activate');
+  const activateMapShot = await shotMap(send, '02-wayback-activate');
+  const activatePixels = await evaluateJson(send, PIXEL_STATS, true).catch((error) => ({ error: String(error?.message || error) }));
+  log(`activate ${picked?.activeId || picked?.error || 'done'}`);
 
   const prev = await evaluateJson(send, `(() => {
     const api = window.__iqaiSpatialV2;
@@ -497,6 +666,8 @@ const live = await withCdpPage(browserPath, 9251, async (send) => {
   await sleep(2500);
   const afterPrev = await evaluateJson(send, DIAGNOSTICS);
   const prevShot = await shot(send, '03-wayback-prev');
+  const prevMapShot = await shotMap(send, '03-wayback-prev');
+  const prevPixels = await evaluateJson(send, PIXEL_STATS, true).catch((error) => ({ error: String(error?.message || error) }));
 
   const next = await evaluateJson(send, `(() => {
     const api = window.__iqaiSpatialV2;
@@ -509,25 +680,38 @@ const live = await withCdpPage(browserPath, 9251, async (send) => {
   await sleep(2500);
   const afterNext = await evaluateJson(send, DIAGNOSTICS);
   const nextShot = await shot(send, '04-wayback-next');
+  const nextMapShot = await shotMap(send, '04-wayback-next');
+  const nextPixels = await evaluateJson(send, PIXEL_STATS, true).catch((error) => ({ error: String(error?.message || error) }));
 
   return {
     state,
+    home,
     before,
     authoredShot,
+    authoredMapShot,
+    authoredPixels,
     nearmap,
     afterNearmap,
     nearmapShot,
+    nearmapMapShot,
+    nearmapPixels,
     pageSecrets,
     discover,
     picked,
     afterActivate,
     activateShot,
+    activateMapShot,
+    activatePixels,
     prev,
     afterPrev,
     prevShot,
+    prevMapShot,
+    prevPixels,
     next,
     afterNext,
-    nextShot
+    nextShot,
+    nextMapShot,
+    nextPixels
   };
 });
 
@@ -551,8 +735,17 @@ const secretScan = {
   resources: secretHits(live?.pageSecrets?.resources),
   readout: secretHits(live?.pageSecrets?.readout),
   provenance: secretHits(live?.pageSecrets?.provenance),
-  wmsStatusBody: secretHits(JSON.stringify(wmsStatusBody))
+  wmsStatusBody: secretHits(JSON.stringify(wmsStatusBody)),
+  network: secretHits((live?.networkUrls || []).join('\n'))
 };
+
+const networkHosts = [...new Set((live?.networkUrls || []).map((url) => {
+  try {
+    return new URL(url).host;
+  } catch {
+    return 'invalid';
+  }
+}))];
 
 const report = {
   generatedAt: new Date().toISOString(),
@@ -570,6 +763,14 @@ const report = {
   secretScan,
   live: live && {
     mapState: live.state,
+    home: live.home || null,
+    pixels: {
+      authored: live.authoredPixels || null,
+      nearmap: live.nearmapPixels || null,
+      activate: live.activatePixels || null,
+      previous: live.prevPixels || null,
+      next: live.nextPixels || null
+    },
     nearmapApply: {
       applyState: live.nearmap?.applyState || live.afterNearmap?.ground?.applyState,
       error: live.nearmap?.error || live.afterNearmap?.ground?.error || null,
@@ -596,13 +797,25 @@ const report = {
     canvas: live.afterNearmap?.canvas || live.before?.canvas,
     viewReady: live.afterNearmap?.viewReady,
     tileHosts: live.afterNearmap?.secrets?.tileResourceHosts || live.afterActivate?.secrets?.tileResourceHosts,
+    networkHosts,
     layerViews: live.afterActivate?.layerViews || live.afterNearmap?.layerViews,
     cameraBefore: live.before?.center,
     cameraAfterNearmap: live.afterNearmap?.center,
     cameraAfterActivate: live.afterActivate?.center,
     imageryPlane: live.afterActivate?.imageryPlane,
     authoredLayerCount: live.afterActivate?.authored?.length || null,
-    screenshots: [live.authoredShot, live.nearmapShot, live.activateShot, live.prevShot, live.nextShot].filter(Boolean),
+    screenshots: [
+      live.authoredShot,
+      live.authoredMapShot,
+      live.nearmapShot,
+      live.nearmapMapShot,
+      live.activateShot,
+      live.activateMapShot,
+      live.prevShot,
+      live.prevMapShot,
+      live.nextShot,
+      live.nextMapShot
+    ].filter(Boolean),
     errors: {
       discover: live.discover?.error || null,
       activate: live.picked?.error || live.afterActivate?.time?.error || null,

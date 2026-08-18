@@ -50,6 +50,7 @@ export function renderMapStage() {
         </div>
         <p class="iqai-v2-pointer-coords" data-iqai-pointer-coords hidden></p>
         <div class="iqai-v2-spatial-focus-receipt" data-iqai-spatial-focus-receipt hidden></div>
+        <div class="iqai-v2-imagery-receipt" data-iqai-imagery-receipt hidden></div>
         <p class="iqai-v2-view-notice" data-iqai-view-notice hidden></p>
         <span data-iqai-street-360-date hidden></span>
         <div class="iqai-v2-google-3d-controls" data-iqai-google-3d-controls hidden>

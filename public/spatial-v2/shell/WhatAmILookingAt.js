@@ -1,4 +1,12 @@
 import { EXPERIENCE_MODE } from './command-center-state.js';
+import { projectImageryDisplayTruth } from './imagery-display-truth.js';
+import {
+  formatCaptureLine,
+  formatReleaseLine,
+  formatRetrievedLine,
+  imageryProviderLabel
+} from '../imagery/imagery-capture-receipt.js';
+import { formatKnownResolution } from '../imagery/imagery-contract.js';
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -10,9 +18,7 @@ function escapeHtml(value) {
 }
 
 function sourceLabel(observation, ground) {
-  if (observation?.providerId === 'esri-wayback') return 'Esri World Imagery Wayback';
-  if (observation?.providerId === 'nearmap') return 'Nearmap';
-  return observation?.productName || ground?.label || 'UNKNOWN';
+  return imageryProviderLabel(observation, ground);
 }
 
 function selectedLabel(state, observation) {
@@ -37,46 +43,64 @@ function whyLabel(state) {
 }
 
 function explanationField(label, value) {
+  const valueAttr = label === 'DISPLAY' ? ' data-iqai-display-label' : '';
   return `
     <div class="iqai-v2-explanation__field">
       <dt>${label}</dt>
-      <dd>${escapeHtml(value)}</dd>
+      <dd${valueAttr}>${escapeHtml(value)}</dd>
     </div>
   `;
 }
 
-function renderExplanation({ state, ground, time }) {
-  const observation = time?.selected || ground?.receipt?.observation || null;
+function renderExplanation({ state, ground, time, focus }) {
+  const latestShown = state.imageryView === 'LATEST'
+    && time?.pool === 'LATEST'
+    && (ground?.currentMode === 'NEARMAP'
+      || ground?.currentMode === 'ESRI_WORLD_IMAGERY'
+      || ground?.currentMode === 'GOOGLE_SATELLITE');
+  const observation = latestShown
+    ? (ground?.receipt?.observation || null)
+    : (time?.selected || null);
+  const displayTruth = projectImageryDisplayTruth(time, {
+    ground,
+    focus,
+    imageryView: state.imageryView
+  });
   const question = state.lastAskReceipt?.input || 'No question submitted.';
-  const shows = observation?.establishes
-    || (state.activeCapability === 'map'
-      ? 'The accepted operational map canvas.'
-      : 'No accepted imagery observation or scientific result.');
+  const shows = displayTruth.displayConfirmed
+    ? (observation?.establishes
+      || 'Display-confirmed imagery on the operational map. Wayback/Nearmap pixel proof remains PARTIAL / ArcGIS-owned.')
+    : (state.activeCapability === 'map'
+      ? 'The accepted operational map canvas. Map presence is not imagery display confirmation.'
+      : 'No display-confirmed imagery. A selected or activated observation is not a displayed image.');
   const doesNotProve = observation?.doesNotEstablish
     || 'Map presence does not confirm a claim, event, condition, or pixel-level imagery acceptance.';
-  const resolution = Number.isFinite(observation?.gsdMeters)
-    ? `${observation.gsdMeters} m`
-    : 'UNKNOWN';
+  const resolution = formatKnownResolution(observation?.gsdMeters) || 'UNKNOWN';
   const quality = [
     resolution !== 'UNKNOWN' ? `Resolution ${resolution}` : 'Resolution unknown',
     observation?.limitation || time?.limitation || 'Quality metadata unknown',
-    'Wayback/Nearmap pixel proof remains PARTIAL'
+    'Wayback/Nearmap pixel proof remains PARTIAL / ArcGIS-owned'
   ].join(' · ');
   const date = [
-    `Requested ${time?.requestedDate || 'NONE'}`,
-    `Capture ${observation?.acquisitionDate || 'UNKNOWN'}`,
-    `Release ${observation?.releaseDate || 'UNKNOWN'}`,
-    `Online ${observation?.firstPublicDate || 'UNKNOWN'}`,
-    `Vintage ${observation?.vintageLabel || observation?.vintageYear || 'UNKNOWN'}`
+    `REQUESTED ${time?.requestedDate || 'NONE'}`,
+    formatCaptureLine(observation, { includeResolution: false }),
+    formatReleaseLine(observation) || 'RELEASE NONE',
+    formatRetrievedLine(observation) || 'RETRIEVED NONE'
   ].join(' · ');
 
   return `
-    <div class="iqai-v2-explanation" data-iqai-explanation>
+    <div
+      class="iqai-v2-explanation"
+      data-iqai-explanation
+      data-iqai-display-state="${escapeHtml(displayTruth.displayState || 'NONE')}"
+      data-iqai-display-confirmed="${displayTruth.displayConfirmed ? 'true' : 'false'}"
+    >
       <p class="iqai-v2-explanation__connection">AI EXPLANATION · NOT CONNECTED</p>
       <dl>
         ${explanationField('QUESTION', question)}
         ${explanationField('IQAI SELECTED', selectedLabel(state, observation))}
         ${explanationField('WHY', whyLabel(state))}
+        ${explanationField('DISPLAY', displayTruth.displayLabel)}
         ${explanationField('WHAT IT SHOWS', shows)}
         ${explanationField('WHAT IT DOES NOT PROVE', doesNotProve)}
         ${explanationField('SOURCE', sourceLabel(observation, ground))}
@@ -92,6 +116,8 @@ function renderExplanation({ state, ground, time }) {
           `match: ${time?.matchKind || 'none'}`,
           `deltaDays: ${time?.deltaDays == null ? 'null' : time.deltaDays}`,
           `timeEngine: ${time?.engineState || 'IDLE'}`,
+          `displayState: ${displayTruth.displayState || 'NONE'}`,
+          `displayConfirmed: ${displayTruth.displayConfirmed}`,
           `waybackEntitlement: ${time?.entitlements?.wayback || 'unknown'}`,
           `nearmapEntitlement: ${time?.entitlements?.nearmap || 'unknown'}`,
           `askReceipt: ${state.lastAskReceipt?.receiptId || 'none'}`

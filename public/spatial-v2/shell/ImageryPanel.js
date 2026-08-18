@@ -1,4 +1,6 @@
 import {
+  DATE_KIND,
+  DISPLAY_STATE,
   GROUND_APPLY_STATE,
   GROUND_MODE
 } from '../imagery/imagery-contract.js';
@@ -89,7 +91,13 @@ function timeReadout(snapshot) {
     selected ? `acquisitionDate: ${selected.acquisitionDate || 'null'}` : null,
     selected ? `firstPublicDate: ${selected.firstPublicDate || 'null'}` : null,
     selected ? `dateKindUsed: ${selected.dateKindUsed}` : null,
-    snapshot.activeId ? `Active: ${snapshot.activeId}` : 'Active: none',
+    snapshot.activeId ? `Activated: ${snapshot.activeId}` : 'Activated: none',
+    `Attached: ${snapshot.layerAttached ? 'yes' : 'no'}`,
+    `Loaded: ${snapshot.layerLoaded ? 'yes' : 'no'}`,
+    `LayerView: ${snapshot.layerViewReady ? 'yes' : 'no'}`,
+    `Network: ${snapshot.networkConfirmed ? 'yes' : 'no'}`,
+    `Display: ${snapshot.displayState || DISPLAY_STATE.NONE}`,
+    snapshot.displayConfirmed ? 'DISPLAY_CONFIRMED' : 'IMAGE SELECTED — DISPLAY NOT CONFIRMED',
     snapshot.error || snapshot.limitation || null
   ];
   return lines.filter(Boolean).join('\n');

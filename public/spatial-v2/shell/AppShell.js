@@ -16,13 +16,15 @@ import { bindGooglePhotorealistic3dControl } from './GooglePhotorealistic3dContr
 import { bindStreet360Control } from './Street360Control.js';
 import { bindViewSwitcher } from './ViewSwitcher.js';
 import { bindDropPinControl } from './DropPinControl.js';
-import { getActiveSpatialFocus } from '../map/spatial-focus.js';
+import { getActiveSpatialFocus, isDropPinFocus } from '../map/spatial-focus.js';
 import { bindOperatorGroundControl, paintOperatorGroundControl } from './OperatorGroundControl.js';
 import { getMapFoundationController, initMapFoundation, subscribeMapFoundation } from '../map/map-foundation.js';
 import { getGroundSnapshot, setGroundMode, subscribeGroundController } from '../imagery/ground-controller.js';
-import { TIME_PROVIDER_FILTER } from '../imagery/imagery-contract.js';
+import { IMAGERY_POOL, TIME_PROVIDER_FILTER } from '../imagery/imagery-contract.js';
+import { formatImageryStageReceipt } from '../imagery/imagery-capture-receipt.js';
 import {
   activateObservation,
+  applyLatestCurrentImagery,
   discoverImageryTime,
   getTimeEngineSnapshot,
   nextObservation,
@@ -82,6 +84,57 @@ export function measureShellComposition(root = document.getElementById('iqai-spa
     regions: { app, header, rail, stage, inspector, ask },
     mapStageShare: appArea ? Number((stageArea / appArea).toFixed(4)) : 0
   };
+}
+
+const CURRENT_GROUND_MODES = new Set(['NEARMAP', 'ESRI_WORLD_IMAGERY', 'GOOGLE_SATELLITE']);
+
+function paintImageryStageReceipt(root, { ground, time, command, focus }) {
+  const host = root.querySelector('[data-iqai-imagery-receipt]');
+  if (!host) return;
+  const specialist = root.querySelector('.iqai-v2-stage__well')?.getAttribute('data-iqai-specialist-view');
+  if (specialist === 'street-360' || specialist === 'google-3d') {
+    host.hidden = true;
+    host.replaceChildren();
+    return;
+  }
+  const imageryOpen = command?.activeCapability === 'imagery';
+  const latestView = command?.imageryView === 'LATEST';
+  if (imageryOpen && latestView && !isDropPinFocus(focus)) {
+    host.hidden = false;
+    host.replaceChildren();
+    const provider = document.createElement('p');
+    provider.setAttribute('data-iqai-imagery-receipt-provider', '');
+    provider.textContent = 'DROP PIN ON THE MAP';
+    const capture = document.createElement('p');
+    capture.setAttribute('data-iqai-imagery-receipt-capture', '');
+    capture.textContent = 'THEN CLICK LATEST';
+    host.append(provider, capture);
+    return;
+  }
+  const latest = time?.pool === IMAGERY_POOL.LATEST;
+  const observation = latest
+    ? (ground?.receipt?.observation || null)
+    : (time?.displayed || time?.activated || time?.selected || null);
+  const imageryActive = Boolean(
+    (latest && CURRENT_GROUND_MODES.has(ground?.currentMode))
+    || (!latest && observation)
+  );
+  if (!imageryActive) {
+    host.hidden = true;
+    host.replaceChildren();
+    return;
+  }
+  const receipt = formatImageryStageReceipt(observation, ground);
+  host.hidden = false;
+  host.replaceChildren();
+  for (const line of receipt?.lines || []) {
+    const item = document.createElement('p');
+    if (line.startsWith('RELEASED ')) item.setAttribute('data-iqai-imagery-receipt-release', '');
+    else if (line === receipt.provider) item.setAttribute('data-iqai-imagery-receipt-provider', '');
+    else item.setAttribute('data-iqai-imagery-receipt-capture', '');
+    item.textContent = line;
+    host.appendChild(item);
+  }
 }
 
 function unavailableCapability(id, label, aliases, quickActionIds, unavailableReason) {
@@ -219,6 +272,10 @@ export function mountCommandCenter(root) {
       street360.selectPoint(point.longitude, point.latitude, 'drop-pin');
       google3d.selectPoint(point.longitude, point.latitude, 'drop-pin');
       specialists.view?.onMapPointSelected(point);
+      const command = commandState.getSnapshot();
+      if (command.activeCapability === 'imagery' && command.imageryView === IMAGERY_VIEW.LATEST) {
+        void applyLatestCurrentImagery().catch(() => {});
+      }
     }
   });
   specialists.street360 = street360;
@@ -235,12 +292,20 @@ export function mountCommandCenter(root) {
     const state = commandState.getSnapshot();
     const ground = getGroundSnapshot();
     const time = getTimeEngineSnapshot();
-    const observation = time.selected || ground.receipt?.observation;
+    const focus = getActiveSpatialFocus();
+    const latestShown = state.imageryView === IMAGERY_VIEW.LATEST
+      && time.pool === IMAGERY_POOL.LATEST
+      && CURRENT_GROUND_MODES.has(ground.currentMode);
+    const observation = latestShown
+      ? (ground.receipt?.observation || null)
+      : (time.selected || null);
     const guided = deriveGuidedNextAction({
       activeCapability: state.activeCapability,
       imageryView: state.imageryView,
       observationCount: time.observations?.length || 0,
-      displayConfirmed: time.displayConfirmed === true,
+      displayConfirmed: latestShown
+        ? (ground.displayConfirmed === true || ground.applyState === 'READY')
+        : time.displayConfirmed === true,
       historyDateCommitted: state.historyDateCommitted
     });
     const sheetOpen = state.activeCapability !== 'map' || Boolean(state.lastAskReceipt);
@@ -264,11 +329,13 @@ export function mountCommandCenter(root) {
       state,
       ground,
       time,
+      focus,
       mapState: mapSnapshot.state,
       guided
     });
-    paintWhatAmILookingAt(root, { state, ground, time });
+    paintWhatAmILookingAt(root, { state, ground, time, focus });
     paintGuidedNextAction(root, guided, state.experience);
+    paintImageryStageReceipt(root, { ground, time, command: state, focus });
 
     const provenanceLines = [
       `Ground: ${ground.label || ground.currentMode}`,
@@ -276,9 +343,10 @@ export function mountCommandCenter(root) {
       `Imagery time state: ${time.engineState}`,
       observation?.productName ? `Product: ${observation.productName}` : null,
       observation?.dateKindUsed ? `Date kind: ${observation.dateKindUsed}` : null,
-      `requestedDate: ${time.requestedDate || 'null'}`,
-      `acquisitionDate: ${observation?.acquisitionDate || 'null'}`,
-      `releaseDate: ${observation?.releaseDate || 'null'}`,
+      `REQUESTED DATE: ${time.requestedDate || 'null'}`,
+      `CAPTURE / ACQUISITION DATE: ${observation?.acquisitionDate || 'null'}`,
+      `RELEASE / PUBLICATION DATE: ${observation?.releaseDate || 'null'}`,
+      `RETRIEVED DATE: ${observation?.retrievedDate || 'null'}`,
       `onlineDate: ${observation?.firstPublicDate || 'null'}`,
       `vintage: ${observation?.vintageLabel || observation?.vintageYear || 'null'}`,
       `match: ${time.matchKind} deltaDays=${time.deltaDays == null ? 'null' : time.deltaDays}`,
@@ -350,7 +418,12 @@ export function mountCommandCenter(root) {
   });
   bindCapabilityRail(root, {
     onCapability: (capabilityId) => commandState.setActiveCapability(capabilityId),
-    onPlugin: (pluginId) => commandState.setActiveCapability(pluginId)
+    onPlugin: (pluginId) => {
+      commandState.setActiveCapability(pluginId);
+      if (pluginId === 'imagery' && commandState.getSnapshot().imageryView === IMAGERY_VIEW.LATEST) {
+        void applyLatestCurrentImagery().catch(() => {});
+      }
+    }
   });
   bindExperienceControls(root, {
     onChange: (experience) => commandState.setExperience(experience)
@@ -365,27 +438,44 @@ export function mountCommandCenter(root) {
     onChange: (modeId) => setGroundMode(modeId)
   });
   bindOperatorImageryExperience(root, {
-    onView: (imageryView) => commandState.setImageryView(imageryView),
+    onView: (imageryView) => {
+      commandState.setImageryView(imageryView);
+      if (imageryView === IMAGERY_VIEW.LATEST) {
+        void applyLatestCurrentImagery().catch(() => {});
+        return;
+      }
+      if (imageryView === IMAGERY_VIEW.HISTORY || imageryView === IMAGERY_VIEW.ALL) {
+        void discoverImageryTime({
+          pool: IMAGERY_POOL.HISTORY,
+          providerFilter: TIME_PROVIDER_FILTER.ALL
+        }).catch(() => {});
+      }
+    },
     onRequestedDate: (requestedDate) => {
       commandState.commitHistoryDate();
-      setTimeEngineOptions({ requestedDate });
+      setTimeEngineOptions({ requestedDate: requestedDate || null });
     },
     onDiscover: () => {
-      const state = commandState.getSnapshot();
       commandState.commitHistoryDate();
-      const options = {
-        providerFilter: TIME_PROVIDER_FILTER.ALL
-      };
-      if (state.imageryView === IMAGERY_VIEW.LATEST) {
-        options.requestedDate = new Date().toISOString().slice(0, 10);
+      const requested = getTimeEngineSnapshot().requestedDate;
+      if (!requested) {
+        void applyLatestCurrentImagery().catch(() => {});
+        return;
       }
-      setTimeEngineOptions(options);
-      void discoverImageryTime(options).catch(() => {});
+      void discoverImageryTime({
+        requestedDate: requested,
+        pool: IMAGERY_POOL.BEST_FOR_DATE,
+        providerFilter: TIME_PROVIDER_FILTER.ALL
+      }).catch(() => {});
     },
     onActivate: () => void activateObservation().catch(() => {}),
     onPrevious: () => void previousObservation().catch(() => {}),
     onNext: () => void nextObservation().catch(() => {}),
-    onSelect: (observationId) => void selectObservation(observationId).catch(() => {}),
+    onSelect: (observationId) => {
+      void selectObservation(observationId)
+        .then(() => activateObservation(observationId))
+        .catch(() => {});
+    },
     onDiagnostics: () => commandState.setDiagnosticsOpen(!isImageryDockOpen(root))
   });
   bindAskIqaiDock(root, {
@@ -490,6 +580,7 @@ export function mountCommandCenter(root) {
     time: () => getTimeEngineSnapshot(),
     setGroundMode,
     setTimeEngineOptions,
+    applyLatestCurrentImagery,
     discoverImageryTime,
     activateObservation,
     previousObservation,

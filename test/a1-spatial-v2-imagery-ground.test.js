@@ -12,9 +12,14 @@ import {
   GROUND_MODE,
   IMAGERY_PLANE_ID,
   MATCH_KIND,
+  PROVIDER_READINESS_STATE,
   deltaDays,
   nearestByIsoDate
 } from '../public/spatial-v2/imagery/imagery-contract.js';
+import {
+  buildNearmapWmsGetMapUrl,
+  isAuthoredNearmapWmsLayer
+} from '../public/spatial-v2/imagery/providers/nearmap-wms-ground-provider.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '..');
@@ -23,9 +28,11 @@ const IMAGERY = path.join(V2, 'imagery');
 
 const REQUIRED_FILES = [
   'imagery/imagery-contract.js',
+  'imagery/imagery-plane.js',
   'imagery/ground-controller.js',
   'imagery/providers/canvas-provider.js',
   'imagery/providers/esri-world-imagery-provider.js',
+  'imagery/providers/google-map-tiles-provider.js',
   'imagery/providers/legacy-google-satellite-demo-provider.js',
   'imagery/providers/nearmap-wms-ground-provider.js',
   'shell/ImageryPanel.js'
@@ -65,15 +72,18 @@ test('Ground Controller V1 files exist', () => {
   }
 });
 
-test('Ground Controller V1 enables working modes and keeps future modes disabled', () => {
+test('Ground Controller keeps only the required initial set statically enabled', () => {
   assert.deepEqual([...ENABLED_GROUND_MODES], [
     GROUND_MODE.AUTHORED_WEBMAP,
     GROUND_MODE.PURE_BLACK,
     GROUND_MODE.PURE_WHITE,
-    GROUND_MODE.ESRI_WORLD_IMAGERY,
-    GROUND_MODE.LEGACY_GOOGLE_SATELLITE_DEMO,
-    GROUND_MODE.NEARMAP
+    GROUND_MODE.ESRI_WORLD_IMAGERY
   ]);
+  assert.equal(PROVIDER_READINESS_STATE.READY, 'READY');
+  assert.equal(PROVIDER_READINESS_STATE.NOT_CONFIGURED, 'NOT_CONFIGURED');
+  assert.equal(PROVIDER_READINESS_STATE.ENTITLEMENT_REQUIRED, 'ENTITLEMENT_REQUIRED');
+  assert.equal(PROVIDER_READINESS_STATE.NO_COVERAGE, 'NO_COVERAGE');
+  assert.equal(PROVIDER_READINESS_STATE.UNAVAILABLE, 'UNAVAILABLE');
   const panel = read('shell', 'ImageryPanel.js');
   const contract = read('imagery', 'imagery-contract.js');
   for (const mode of [
@@ -91,29 +101,98 @@ test('Ground Controller V1 enables working modes and keeps future modes disabled
   }
   const ground = read('imagery', 'ground-controller.js');
   const nearmap = read('imagery', 'providers', 'nearmap-wms-ground-provider.js');
-  assert.match(ground, /Official Google Map Tiles API entitlement is not configured/);
+  const google = read('imagery', 'providers', 'google-map-tiles-provider.js');
+  assert.match(ground, /refreshProviderReadiness/);
+  assert.match(ground, /readinessState/);
+  assert.match(ground, /googleMapTilesProvider/);
   assert.match(ground, /nearmapWmsGroundProvider/);
   assert.match(ground, /No verified local WMS\/WMTS is configured/);
+  assert.match(google, /\/api\/spatial-v2\/imagery\/google\/status/);
+  assert.match(google, /currentGroundOnly: true/);
+  assert.match(google, /analysis: RIGHTS\.PROHIBITED/);
   assert.match(nearmap, /\/api\/spatial-v2\/imagery\/nearmap\/wms/);
-  assert.match(nearmap, /imageFormat: 'png'/);
+  assert.match(nearmap, /findAuthoredNearmapWmsLayer/);
+  assert.match(nearmap, /ensureAuthoredNearmapGroundSlot/);
+  assert.match(nearmap, /applyAuthoredNearmapGround/);
+  assert.match(nearmap, /Nearmap\/Nearmap\/Canada/);
+  assert.match(nearmap, /Aerial 3.5cm/);
+  assert.match(nearmap, /layer\.refresh/);
+  assert.match(nearmap, /webmap\.layers\.add\(layer, 0\)/);
+  assert.match(nearmap, /BaseTileLayer/);
+  assert.match(nearmap, /fetchTile\(level, row, col, options\)/);
+  assert.match(nearmap, /set\('FORMAT', NEARMAP_WMS_FORMAT\)/);
+  assert.match(nearmap, /set\('SRS', NEARMAP_WMS_SRS\)/);
   assert.match(nearmap, /request\.interceptors/);
   assert.match(nearmap, /NEARMAP_WMS_PATH/);
   assert.match(nearmap, /HTMLImageElement/);
+  assert.match(ground, /applyAuthoredNearmapGround/);
+  assert.doesNotMatch(nearmap, /new WMSLayer/);
   const foundation = read('map', 'map-foundation.js');
   assert.match(foundation, /ensureNearmapWmsInterceptor/);
+  assert.match(foundation, /ensureAuthoredNearmapGroundSlot/);
   assert.match(foundation, /applyOperationalHome/);
+  assert.ok(
+    foundation.indexOf('ensureAuthoredNearmapGroundSlot') < foundation.indexOf('new MapView('),
+    'Nearmap current-ground tile layer must exist before MapView construction'
+  );
   assert.doesNotMatch(nearmap, /api\.nearmap\.com/);
   assert.doesNotMatch(nearmap, /NEARMAP_API_KEY/);
   assert.doesNotMatch(nearmap, /NEARMAP_WMS_URL/);
   assert.doesNotMatch(ground, /Nearmap as a ground canvas is not this milestone/);
 });
 
+test('Nearmap current ground identifies the authored Canada WMS layer', () => {
+  assert.equal(isAuthoredNearmapWmsLayer({
+    title: 'Aerial 3.5cm',
+    type: 'wms',
+    url: 'https://example.invalid/wms/v1/latest/apikey/redacted',
+    visibleLayers: ['Nearmap/Nearmap/Canada']
+  }), true);
+  assert.equal(isAuthoredNearmapWmsLayer({
+    title: 'Satelite',
+    type: 'web-tile',
+    url: ''
+  }), false);
+});
+
+test('Nearmap current ground GetMap uses the authored Canada WMS parameters', () => {
+  const url = buildNearmapWmsGetMapUrl({
+    bbox: '-8250000,5680000,-8240000,5690000',
+    origin: 'http://127.0.0.1'
+  });
+  assert.match(url, /\/api\/spatial-v2\/imagery\/nearmap\/wms/);
+  assert.match(url, /REQUEST=GetMap/);
+  assert.match(url, /VERSION=1\.1\.1/);
+  assert.match(url, /LAYERS=Nearmap%2FNearmap%2FCanada/);
+  assert.match(url, /FORMAT=image%2Fjpeg/);
+  assert.match(url, /SRS=EPSG%3A3857/);
+  assert.doesNotMatch(url, /api\.nearmap\.com/);
+  assert.doesNotMatch(url, /TIME=/);
+});
+
+test('Nearmap display proof samples bounded isolated pixels, not the full 4K framebuffer', () => {
+  const ground = read('imagery', 'ground-controller.js');
+  assert.match(ground, /mapview-ground-layer-isolated-screenshot-v1/);
+  assert.match(ground, /GROUND_PROOF_SAMPLE_PX = 512/);
+  assert.match(ground, /groundProofSampleArea/);
+  assert.match(ground, /layers: \[layer\]/);
+  assert.match(ground, /area: \{ x: sample\.x, y: sample\.y, width: sample\.width, height: sample\.height \}/);
+  assert.match(ground, /opaquePixelCount >= 256/);
+  assert.match(ground, /opaqueShare >= 0\.05/);
+  assert.match(ground, /contrast >= 16/);
+  assert.match(ground, /waitGroundFrames/);
+  assert.doesNotMatch(ground, /displayConfirmed = layerView/);
+  assert.doesNotMatch(ground, /confirmed: layer\.loaded/);
+  assert.doesNotMatch(ground, /confirmed: evidence\.network/);
+});
+
 test('Ground Controller V1 is session-only hybrid overlay architecture', () => {
   const ground = read('imagery', 'ground-controller.js');
+  const plane = read('imagery', 'imagery-plane.js');
   const foundation = read('map', 'map-foundation.js');
   assert.equal(IMAGERY_PLANE_ID, 'iqai-v2-imagery-plane');
-  assert.match(ground, /id: IMAGERY_PLANE_ID/);
-  assert.match(ground, /webmap\.layers\.add\(imageryPlane, 0\)/);
+  assert.match(ground, /ensureImageryObservationSlot/);
+  assert.match(plane, /webmap\.layers\.add\(imageryPlane, 0\)/);
   assert.match(ground, /authoredBasemap = webmap\.basemap/);
   assert.match(ground, /webmap\.basemap = authoredBasemap/);
   assert.match(ground, /new ColorBackground/);
@@ -153,6 +232,7 @@ test('Ground Controller V1 Google demo is isolated, unofficial, and not an analy
   assert.match(demo, /copyright: 'Google'/);
   assert.match(demo, /analysis: RIGHTS\.PROHIBITED/);
   assert.match(demo, /Not Google Map Tiles API/);
+  assert.equal(ENABLED_GROUND_MODES.includes(GROUND_MODE.LEGACY_GOOGLE_SATELLITE_DEMO), false);
   assert.doesNotMatch(demo, /GOOGLE_MAPS_BROWSER_API_KEY/);
   for (const file of imageryFiles) {
     const text = fs.readFileSync(file, 'utf8');

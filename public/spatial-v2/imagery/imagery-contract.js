@@ -20,12 +20,37 @@ export const TIME_PROVIDER_FILTER = Object.freeze({
   NEARMAP: 'nearmap'
 });
 
+export const IMAGERY_POOL = Object.freeze({
+  LATEST: 'LATEST',
+  HISTORY: 'HISTORY',
+  BEST_FOR_DATE: 'BEST_FOR_DATE'
+});
+
+export const DROP_PIN_THEN_LATEST = 'DROP PIN on the map to choose a place, then click LATEST.';
+
+export const CAPTURE_PRECISION = Object.freeze({
+  DAY: 'DAY',
+  MONTH: 'MONTH',
+  YEAR: 'YEAR',
+  UNKNOWN: 'UNKNOWN'
+});
+
 export const TIME_ENGINE_STATE = Object.freeze({
   IDLE: 'IDLE',
   DISCOVERING: 'DISCOVERING',
   READY: 'READY',
   APPLYING: 'APPLYING',
   ERROR: 'ERROR'
+});
+
+export const DISPLAY_STATE = Object.freeze({
+  NONE: 'NONE',
+  SELECTED: 'SELECTED',
+  ACTIVATED: 'ACTIVATED',
+  LAYER_ATTACHED: 'LAYER_ATTACHED',
+  LAYER_LOADED: 'LAYER_LOADED',
+  DISPLAY_NOT_CONFIRMED: 'DISPLAY_NOT_CONFIRMED',
+  DISPLAY_CONFIRMED: 'DISPLAY_CONFIRMED'
 });
 
 export const GROUND_MODE = Object.freeze({
@@ -54,9 +79,7 @@ export const ENABLED_GROUND_MODES = Object.freeze([
   GROUND_MODE.AUTHORED_WEBMAP,
   GROUND_MODE.PURE_BLACK,
   GROUND_MODE.PURE_WHITE,
-  GROUND_MODE.ESRI_WORLD_IMAGERY,
-  GROUND_MODE.LEGACY_GOOGLE_SATELLITE_DEMO,
-  GROUND_MODE.NEARMAP
+  GROUND_MODE.ESRI_WORLD_IMAGERY
 ]);
 
 export const PROVIDER_KIND = Object.freeze({
@@ -71,6 +94,14 @@ export const ENTITLEMENT_STATE = Object.freeze({
   ENTITLEMENT_MISSING: 'entitlement-missing',
   DENIED: 'denied',
   FAILED: 'failed'
+});
+
+export const PROVIDER_READINESS_STATE = Object.freeze({
+  READY: 'READY',
+  NOT_CONFIGURED: 'NOT_CONFIGURED',
+  ENTITLEMENT_REQUIRED: 'ENTITLEMENT_REQUIRED',
+  NO_COVERAGE: 'NO_COVERAGE',
+  UNAVAILABLE: 'UNAVAILABLE'
 });
 
 export const DATE_KIND = Object.freeze({
@@ -145,6 +176,7 @@ export function emptyObservation(partial = {}) {
     surveyInterval: null,
     releaseDate: null,
     firstPublicDate: null,
+    retrievedDate: null,
     serviceUpdateDate: null,
     vintageYear: null,
     vintageLabel: null,
@@ -205,6 +237,139 @@ export function deltaDays(requestedIso, selectedIso) {
   const b = Date.parse(`${selectedIso}T00:00:00Z`);
   if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
   return Math.round((b - a) / 86400000);
+}
+
+export function captureClock(observation) {
+  const acquisition = isoDateOnly(observation?.acquisitionDate || observation?.captureDate);
+  if (acquisition) {
+    return {
+      date: acquisition,
+      display: acquisition,
+      precision: CAPTURE_PRECISION.DAY,
+      kind: DATE_KIND.ACQUISITION
+    };
+  }
+  const vintageLabel = String(observation?.vintageLabel || '').trim();
+  if (/^\d{4}-\d{2}$/.test(vintageLabel)) {
+    return {
+      date: `${vintageLabel}-01`,
+      display: vintageLabel,
+      precision: CAPTURE_PRECISION.MONTH,
+      kind: DATE_KIND.VINTAGE
+    };
+  }
+  const year = vintageYearFrom(observation?.vintageYear || vintageLabel);
+  if (year) {
+    return {
+      date: `${year}-01-01`,
+      display: String(year),
+      precision: CAPTURE_PRECISION.YEAR,
+      kind: DATE_KIND.VINTAGE
+    };
+  }
+  return {
+    date: null,
+    display: null,
+    precision: CAPTURE_PRECISION.UNKNOWN,
+    kind: DATE_KIND.NONE
+  };
+}
+
+export function isCaptureClassObservation(observation) {
+  return captureClock(observation).precision !== CAPTURE_PRECISION.UNKNOWN;
+}
+
+export function isWaybackObservation(observation) {
+  return observation?.providerId === 'esri-wayback';
+}
+
+export function isCurrentMosaicObservation(observation) {
+  return observation?.dateKindUsed === DATE_KIND.SERVICE_CURRENT
+    || observation?.providerId === 'nearmap-wms-latest'
+    || observation?.providerId === 'esri-world-imagery'
+    || observation?.providerId === 'google-map-tiles';
+}
+
+export function formatKnownResolution(gsdMeters) {
+  const gsd = Number(gsdMeters);
+  if (!Number.isFinite(gsd) || gsd <= 0) return null;
+  if (gsd < 1) {
+    const cm = Number((gsd * 100).toFixed(1));
+    const text = Number.isInteger(cm) ? String(cm) : String(cm);
+    return `${text} CM`;
+  }
+  const meters = Number(gsd.toFixed(2));
+  const text = Number.isInteger(meters) ? String(meters) : String(meters);
+  return `${text} M`;
+}
+
+function authorityScore(observation) {
+  if (observation?.providerId === 'nearmap') return 3;
+  if (observation?.providerId === 'esri-wayback' && isCaptureClassObservation(observation)) return 2;
+  return 1;
+}
+
+function displayScore(observation) {
+  return observation?.accessState === ACCESS_STATE.STREAMABLE ? 1 : 0;
+}
+
+function coverageScore(observation) {
+  const coverage = Number(observation?.aoiCoverage);
+  return Number.isFinite(coverage) ? coverage : null;
+}
+
+export function rankBestForDate(records, requestedIso) {
+  const eligible = (Array.isArray(records) ? records : []).filter((item) => (
+    isCaptureClassObservation(item)
+    && !isCurrentMosaicObservation(item)
+  ));
+  if (!requestedIso || !eligible.length) {
+    return { match: MATCH_KIND.NONE, record: null, deltaDays: null };
+  }
+  const ranked = eligible.map((record) => {
+    const clock = captureClock(record);
+    const delta = deltaDays(requestedIso, clock.date);
+    const abs = delta == null ? Number.POSITIVE_INFINITY : Math.abs(delta);
+    const gsd = Number(record.gsdMeters);
+    const coverage = coverageScore(record);
+    return {
+      record,
+      abs,
+      delta,
+      gsdRank: Number.isFinite(gsd) && gsd > 0 ? gsd : Number.POSITIVE_INFINITY,
+      coverageRank: coverage == null ? -1 : coverage,
+      authority: authorityScore(record),
+      display: displayScore(record)
+    };
+  }).sort((a, b) => (
+    a.abs - b.abs
+    || a.gsdRank - b.gsdRank
+    || b.coverageRank - a.coverageRank
+    || b.authority - a.authority
+    || b.display - a.display
+  ));
+  const best = ranked[0];
+  if (!best || !Number.isFinite(best.abs)) {
+    return { match: MATCH_KIND.NONE, record: null, deltaDays: null };
+  }
+  return {
+    match: best.abs === 0 ? MATCH_KIND.EXACT : MATCH_KIND.NEAREST,
+    record: best.record,
+    deltaDays: best.delta
+  };
+}
+
+export function sortHistoryObservations(records) {
+  return [...(records || [])].sort((a, b) => {
+    const clockA = captureClock(a);
+    const clockB = captureClock(b);
+    const knownA = clockA.precision === CAPTURE_PRECISION.UNKNOWN ? 1 : 0;
+    const knownB = clockB.precision === CAPTURE_PRECISION.UNKNOWN ? 1 : 0;
+    if (knownA !== knownB) return knownA - knownB;
+    const captureCmp = String(clockB.date || '').localeCompare(String(clockA.date || ''));
+    if (captureCmp) return captureCmp;
+    return String(b.releaseDate || '').localeCompare(String(a.releaseDate || ''));
+  });
 }
 
 export function nearestByIsoDate(records, requestedIso, dateField) {

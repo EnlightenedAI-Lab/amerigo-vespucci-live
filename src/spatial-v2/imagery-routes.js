@@ -1,14 +1,26 @@
 import { sanitizeError } from '../security.js';
-import { isoDateOnly } from '../../public/spatial-v2/imagery/imagery-contract.js';
+import {
+  PROVIDER_READINESS_STATE,
+  isoDateOnly
+} from '../../public/spatial-v2/imagery/imagery-contract.js';
 import { nearmapWmsStatus, proxyNearmapWms } from './nearmap-wms.js';
 
 const WAYBACK_CONFIG_URL = 'https://s3-us-west-2.amazonaws.com/config.maptiles.arcgis.com/waybackconfig.json';
 const WAYBACK_METADATA_HOST = 'https://metadata.maptiles.arcgis.com/';
 const NEARMAP_COVERAGE_BASE = 'https://api.nearmap.com/coverage/v2';
 const NEARMAP_TILE_BASE = 'https://api.nearmap.com/tiles/v3/surveys';
+const GOOGLE_MAP_TILES_SESSION_URL = 'https://tile.googleapis.com/v1/createSession';
+const MONTREAL_READINESS_POINT = Object.freeze({
+  longitude: -73.5673,
+  latitude: 45.5017
+});
 
 function envKey(env) {
   return String(env?.NEARMAP_API_KEY || '').trim();
+}
+
+function googleMapTilesKey(env) {
+  return String(env?.GOOGLE_MAP_TILES_API_KEY || '').trim();
 }
 
 function json(res, status, body) {
@@ -53,6 +65,86 @@ function mapNearmapSurvey(survey) {
     firstPhotoTime: survey?.firstPhotoTime || null,
     lastPhotoTime: survey?.lastPhotoTime || null
   };
+}
+
+async function googleMapTilesStatus(env, fetchImpl) {
+  const key = googleMapTilesKey(env);
+  if (!key) {
+    return {
+      ok: false,
+      providerId: 'google-map-tiles',
+      readinessState: PROVIDER_READINESS_STATE.NOT_CONFIGURED,
+      entitlement: 'entitlement-missing',
+      configured: false,
+      credentialUsable: false,
+      runtimeIntegrated: false,
+      limitation: 'GOOGLE_MAP_TILES_API_KEY is not configured on the server. The Street View browser key is not an authorized substitute.'
+    };
+  }
+  try {
+    const response = await fetchImpl(
+      `${GOOGLE_MAP_TILES_SESSION_URL}?key=${encodeURIComponent(key)}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mapType: 'satellite',
+          language: 'en-US',
+          region: 'CA'
+        }),
+        cache: 'no-store'
+      }
+    );
+    if (response.status === 401 || response.status === 403) {
+      return {
+        ok: false,
+        providerId: 'google-map-tiles',
+        readinessState: PROVIDER_READINESS_STATE.ENTITLEMENT_REQUIRED,
+        entitlement: 'denied',
+        configured: true,
+        credentialUsable: false,
+        runtimeIntegrated: false,
+        limitation: 'Google Map Tiles API denied the configured server credential or project entitlement.'
+      };
+    }
+    if (!response.ok) {
+      return {
+        ok: false,
+        providerId: 'google-map-tiles',
+        readinessState: PROVIDER_READINESS_STATE.UNAVAILABLE,
+        entitlement: 'failed',
+        configured: true,
+        credentialUsable: false,
+        runtimeIntegrated: false,
+        limitation: `Google Map Tiles createSession HTTP ${response.status}.`
+      };
+    }
+    const payload = await response.json().catch(() => ({}));
+    const credentialUsable = Boolean(payload.session);
+    return {
+      ok: false,
+      providerId: 'google-map-tiles',
+      readinessState: PROVIDER_READINESS_STATE.UNAVAILABLE,
+      entitlement: credentialUsable ? 'ready' : 'failed',
+      configured: true,
+      credentialUsable,
+      runtimeIntegrated: false,
+      limitation: credentialUsable
+        ? 'Official Google credentials were accepted, but the ArcGIS tile proxy and dynamic viewport attribution runtime are not implemented. Ground activation remains disabled.'
+        : 'Google Map Tiles createSession returned no session token.'
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      providerId: 'google-map-tiles',
+      readinessState: PROVIDER_READINESS_STATE.UNAVAILABLE,
+      entitlement: 'failed',
+      configured: true,
+      credentialUsable: false,
+      runtimeIntegrated: false,
+      limitation: sanitizeError(error).error
+    };
+  }
 }
 
 function pickMetadataLayerId(layers, scale) {
@@ -128,6 +220,11 @@ export function registerImageryV2Routes(app, options = {}) {
     }
   });
 
+  app.get('/api/spatial-v2/imagery/google/status', async (_req, res) => {
+    const status = await googleMapTilesStatus(env, fetchImpl);
+    return json(res, 200, status);
+  });
+
   app.get('/api/spatial-v2/imagery/nearmap/wms/status', (req, res) => {
     return nearmapWmsStatus(req, res, { env, fetchImpl });
   });
@@ -141,27 +238,42 @@ export function registerImageryV2Routes(app, options = {}) {
       return json(res, 200, {
         ok: false,
         entitlement: 'entitlement-missing',
+        readinessState: PROVIDER_READINESS_STATE.NOT_CONFIGURED,
         surveys: [],
         limitation: 'NEARMAP_API_KEY is not configured on the server.'
       });
     }
-    if (String(req.query.probe || '') === '1') {
-      return json(res, 200, { ok: true, entitlement: 'ready', surveys: [] });
-    }
     try {
-      const aoi = String(req.query.aoi || 'point');
+      const probe = String(req.query.probe || '') === '1';
+      const aoi = probe ? 'point' : String(req.query.aoi || 'point');
       let url;
       if (aoi === 'viewport') {
         const extent = extentToWgs84(req.query);
         if (!extent) {
-          return json(res, 400, { ok: false, entitlement: 'failed', surveys: [], error: 'Viewport extent is invalid.' });
+          return json(res, 400, {
+            ok: false,
+            entitlement: 'failed',
+            readinessState: PROVIDER_READINESS_STATE.UNAVAILABLE,
+            surveys: [],
+            error: 'Viewport extent is invalid.'
+          });
         }
         url = `${NEARMAP_COVERAGE_BASE}/poly/${encodeURIComponent(polygonWkt(extent))}?limit=100`;
       } else {
-        const longitude = Number(req.query.longitude);
-        const latitude = Number(req.query.latitude);
+        const longitude = probe
+          ? MONTREAL_READINESS_POINT.longitude
+          : Number(req.query.longitude);
+        const latitude = probe
+          ? MONTREAL_READINESS_POINT.latitude
+          : Number(req.query.latitude);
         if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) {
-          return json(res, 400, { ok: false, entitlement: 'failed', surveys: [], error: 'Point longitude and latitude are required.' });
+          return json(res, 400, {
+            ok: false,
+            entitlement: 'failed',
+            readinessState: PROVIDER_READINESS_STATE.UNAVAILABLE,
+            surveys: [],
+            error: 'Point longitude and latitude are required.'
+          });
         }
         url = `${NEARMAP_COVERAGE_BASE}/point/${longitude},${latitude}?limit=100`;
       }
@@ -172,6 +284,7 @@ export function registerImageryV2Routes(app, options = {}) {
         return json(res, 403, {
           ok: false,
           entitlement: 'denied',
+          readinessState: PROVIDER_READINESS_STATE.ENTITLEMENT_REQUIRED,
           surveys: [],
           limitation: 'Nearmap denied this credential.'
         });
@@ -180,6 +293,7 @@ export function registerImageryV2Routes(app, options = {}) {
         return json(res, 502, {
           ok: false,
           entitlement: 'failed',
+          readinessState: PROVIDER_READINESS_STATE.UNAVAILABLE,
           surveys: [],
           error: `Nearmap coverage HTTP ${response.status}`
         });
@@ -189,6 +303,9 @@ export function registerImageryV2Routes(app, options = {}) {
       return json(res, 200, {
         ok: true,
         entitlement: 'ready',
+        readinessState: surveys.length
+          ? PROVIDER_READINESS_STATE.READY
+          : PROVIDER_READINESS_STATE.NO_COVERAGE,
         surveys,
         total: payload.total ?? surveys.length
       });
@@ -196,6 +313,7 @@ export function registerImageryV2Routes(app, options = {}) {
       return json(res, 502, {
         ok: false,
         entitlement: 'failed',
+        readinessState: PROVIDER_READINESS_STATE.UNAVAILABLE,
         surveys: [],
         error: sanitizeError(error).error
       });

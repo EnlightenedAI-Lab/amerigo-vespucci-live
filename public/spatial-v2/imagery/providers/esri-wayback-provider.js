@@ -57,7 +57,8 @@ function observationFromRelease(release) {
     productName: release.itemTitle || 'Esri World Imagery Wayback',
     acquisitionDate: null,
     releaseDate: release.releaseDate,
-    matchDate: release.releaseDate,
+    matchDate: null,
+    retrievedDate: null,
     dateKindUsed: DATE_KIND.RELEASE,
     sourceIdentity: {
       kind: 'wayback-release',
@@ -151,10 +152,11 @@ export const esriWaybackProvider = {
       return {
         ...observation,
         acquisitionDate,
+        matchDate: acquisitionDate || null,
         gsdMeters: Number.isFinite(Number(payload.attributes?.SRC_RES))
           ? Number(payload.attributes.SRC_RES)
           : observation.gsdMeters,
-        dateKindUsed: acquisitionDate ? DATE_KIND.RELEASE : DATE_KIND.RELEASE,
+        dateKindUsed: acquisitionDate ? DATE_KIND.ACQUISITION : DATE_KIND.RELEASE,
         limitation: acquisitionDate
           ? 'Wayback releaseDate is mosaic publication. acquisitionDate is metadata SRC_DATE/SRC_DATE2 at this AOI and scale.'
           : `${observation.limitation || ''} Metadata returned no capture date.`.trim()
@@ -171,7 +173,7 @@ export const esriWaybackProvider = {
   async createLayer(observation) {
     const { importArc } = await import('../../map/arcgis-sdk.js');
     const WebTileLayer = await importArc('@arcgis/core/layers/WebTileLayer.js');
-    const urlTemplate = observation?.sourceIdentity?.itemURL || observation?.assets?.[0]?.urlTemplate;
+    const urlTemplate = this.urlTemplateFor(observation);
     if (!urlTemplate) throw new Error('Wayback observation is missing a tile template.');
     return new WebTileLayer({
       id: 'iqai-v2-imagery-time-observation',
@@ -183,5 +185,23 @@ export const esriWaybackProvider = {
       popupEnabled: false,
       listMode: 'hide'
     });
+  },
+
+  urlTemplateFor(observation) {
+    return observation?.sourceIdentity?.itemURL || observation?.assets?.[0]?.urlTemplate || null;
+  },
+
+  bindLayer(layer, observation) {
+    const urlTemplate = this.urlTemplateFor(observation);
+    if (!layer || !urlTemplate) throw new Error('Wayback observation is missing a tile template.');
+    layer.urlTemplate = urlTemplate;
+    layer.title = observation.productName || 'Esri World Imagery Wayback';
+    layer.copyright = 'Esri World Imagery Wayback';
+    layer.visible = true;
+    layer.opacity = 1;
+    layer.popupEnabled = false;
+    layer.listMode = 'hide';
+    if (typeof layer.refresh === 'function') layer.refresh();
+    return layer;
   }
 };

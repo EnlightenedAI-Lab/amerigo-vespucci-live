@@ -51,6 +51,20 @@ test('V2 map foundation keeps authored and runtime planes distinct', () => {
   assert.match(foundation, /new GroupLayer/);
   assert.match(foundation, /layers:\s*\[\]/);
   assert.match(foundation, /collectAuthoredLayerIds/);
+  assert.match(foundation, /ensureImageryObservationSlot/);
+  assert.match(foundation, /ensureAuthoredNearmapGroundSlot/);
+  assert.match(foundation, /installMapViewHostCss/);
+  assert.match(foundation, /box-sizing: content-box/);
+  assert.match(foundation, /preserveMapViewDrawingBuffer/);
+  assert.match(foundation, /preserveDrawingBuffer: true/);
+  assert.ok(
+    foundation.indexOf('ensureImageryObservationSlot') < foundation.indexOf('new MapView('),
+    'observation WebTileLayer slot must exist before MapView construction'
+  );
+  assert.ok(
+    foundation.indexOf('ensureAuthoredNearmapGroundSlot') < foundation.indexOf('new MapView('),
+    'authored Nearmap WMS must be top-level before MapView construction'
+  );
 });
 
 test('V2 map UI is shell-native and does not import V1 GIS chrome', () => {

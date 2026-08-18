@@ -3,7 +3,7 @@
  * Stable identifiers only. Not a runtime capability registry.
  */
 
-export const IQAI_SPATIAL_V2_SHELL_VERSION = 'shell-v1';
+export const IQAI_SPATIAL_V2_SHELL_VERSION = 'next-gen-v1';
 
 export const SHELL_SLOTS = Object.freeze({
   commandHeader: Object.freeze({ id: 'iqai-v2-command-header', slot: 'command-header' }),
@@ -158,14 +158,14 @@ export const INSPECTOR_REGIONS = Object.freeze([
   Object.freeze({
     slot: 'situation-slot',
     id: 'iqai-v2-situation-slot',
-    title: 'CURRENT SITUATION',
+    title: 'WORKFLOW',
     stateLabel: 'RESERVED',
-    body: 'No situation is loaded. This region is the governed current-situation surface.'
+    body: 'No workflow is active. Ask IQAI what you want to know or do.'
   }),
   Object.freeze({
     slot: 'selected-object-slot',
     id: 'iqai-v2-selected-object-slot',
-    title: 'SELECTED OBJECT',
+    title: 'OBJECT',
     stateLabel: 'RESERVED',
     body: 'No object selected.'
   }),
@@ -179,14 +179,14 @@ export const INSPECTOR_REGIONS = Object.freeze([
   Object.freeze({
     slot: 'provenance-slot',
     id: 'iqai-v2-provenance-slot',
-    title: 'PROVENANCE',
+    title: 'SOURCE',
     stateLabel: 'RESERVED',
-    body: 'No provenance.'
+    body: 'No source.'
   }),
   Object.freeze({
     slot: 'execution-receipt-slot',
     id: 'iqai-v2-execution-receipt-slot',
-    title: 'EXECUTION / RECEIPTS',
+    title: 'RESULT',
     stateLabel: 'RESERVED',
     body: 'No receipts.'
   })

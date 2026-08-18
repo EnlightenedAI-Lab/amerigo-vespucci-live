@@ -15,6 +15,7 @@ import {
   isGreaterMontrealLongitudeLatitude
 } from '../../spatial/montreal-operational-config.js';
 import { importArc, loadArcgisSdk } from './arcgis-sdk.js';
+import { ensureImageryObservationSlot } from '../imagery/imagery-plane.js';
 import {
   fetchOperationalMapOAuthConfig,
   getAgolSession,
@@ -24,7 +25,10 @@ import {
   signInToAgol
 } from './agol-session.js';
 import { mountMapNavControls } from './map-nav-controls.js';
-import { ensureNearmapWmsInterceptor } from '../imagery/providers/nearmap-wms-ground-provider.js';
+import {
+  ensureAuthoredNearmapGroundSlot,
+  ensureNearmapWmsInterceptor
+} from '../imagery/providers/nearmap-wms-ground-provider.js';
 
 export const MAP_FOUNDATION_STATES = Object.freeze({
   INITIALIZING: 'INITIALIZING',
@@ -161,6 +165,75 @@ function applyOperationalHome(view) {
   view.scale = MONTREAL_OPERATIONAL_SCALE;
 }
 
+const MAP_HOST_SURFACE_STYLE_ID = 'iqai-v2-map-foundation-surface';
+
+function preserveMapViewDrawingBuffer() {
+  if (typeof HTMLCanvasElement === 'undefined') return;
+  const original = HTMLCanvasElement.prototype.getContext;
+  if (original.__iqaiMapViewPreserve) return;
+  function patched(type, attrs) {
+    if (type === 'webgl' || type === 'webgl2' || type === 'experimental-webgl') {
+      const host = typeof this.closest === 'function' ? this.closest('.iqai-v2-map-host') : null;
+      if (host) {
+        attrs = Object.assign({}, attrs || {}, { preserveDrawingBuffer: true });
+      }
+    }
+    return original.call(this, type, attrs);
+  }
+  patched.__iqaiMapViewPreserve = true;
+  HTMLCanvasElement.prototype.getContext = patched;
+}
+
+function installMapViewHostCss() {
+  if (typeof document === 'undefined') return;
+  if (document.getElementById(MAP_HOST_SURFACE_STYLE_ID)) return;
+  const style = document.createElement('style');
+  style.id = MAP_HOST_SURFACE_STYLE_ID;
+  style.textContent = `
+    /* Shell * { box-sizing: border-box } is more specific than Esri theme.
+       Restore content-box on compositor nodes so the 2D renderer can present. */
+    #iqai-spatial-v2 .iqai-v2-map-host .esri-view,
+    #iqai-spatial-v2 .iqai-v2-map-host .esri-view-root,
+    #iqai-spatial-v2 .iqai-v2-map-host .esri-view-surface,
+    #iqai-spatial-v2 .iqai-v2-map-host .esri-view-surface canvas,
+    #iqai-spatial-v2 .iqai-v2-map-host .esri-display-object,
+    #iqai-spatial-v2 .iqai-v2-map-host .esri-overlay-surface {
+      box-sizing: content-box !important;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+function waitFrames() {
+  return Promise.race([
+    new Promise((resolve) => {
+      if (typeof requestAnimationFrame !== 'function') {
+        setTimeout(resolve, 16);
+        return;
+      }
+      requestAnimationFrame(() => requestAnimationFrame(resolve));
+    }),
+    new Promise((resolve) => setTimeout(resolve, 250))
+  ]);
+}
+
+async function waitForMapHostLayout(container) {
+  const started = Date.now();
+  while (Date.now() - started < 4000) {
+    if (container.clientWidth >= 64 && container.clientHeight >= 64) {
+      await waitFrames();
+      if (container.clientWidth >= 64 && container.clientHeight >= 64) return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 40));
+  }
+}
+
+export function suspendEmptyIqaiPlanes() {
+  if (runtimePlane && !(runtimePlane.layers?.length)) {
+    runtimePlane.visible = false;
+  }
+}
+
 async function ensureMontrealViewpoint(view) {
   await Promise.race([
     view.when(),
@@ -228,6 +301,7 @@ async function bootstrap(container, options) {
 
   await loadArcgisSdk();
   await ensureNearmapWmsInterceptor();
+  installMapViewHostCss();
   const oauthConfig = await fetchOperationalMapOAuthConfig();
   if (!oauthConfig.oauthAppIdConfigured) {
     throw new Error('ArcGIS OAuth App ID is not configured.');
@@ -272,6 +346,12 @@ async function bootstrap(container, options) {
     throw new Error('Map stage container is not an HTMLElement.');
   }
 
+  await waitForMapHostLayout(container);
+  installMapViewHostCss();
+  preserveMapViewDrawingBuffer();
+  await ensureImageryObservationSlot(map);
+  await ensureAuthoredNearmapGroundSlot(map);
+
   webMap = map;
   webMapCreateCount += 1;
   const view = new MapView({
@@ -299,9 +379,11 @@ async function bootstrap(container, options) {
     title: RUNTIME_PLANE_TITLE,
     listMode: 'hide',
     visibilityMode: 'independent',
-    layers: []
+    layers: [],
+    visible: false
   });
   webMap.add(runtimePlane);
+  suspendEmptyIqaiPlanes();
   authoredLayerIds = collectAuthoredLayerIds(webMap, RUNTIME_PLANE_ID);
   disablePopups(webMap);
 
@@ -314,6 +396,22 @@ async function bootstrap(container, options) {
   });
   resizeObserver.observe(container);
 
+  await withTimeout(mapView.when(), 20000, 'MapView when').catch((error) => {
+    console.warn('[IQAI V2] MapView when() did not settle', sanitizeError(error));
+  });
+  if (typeof mapView.resize === 'function') mapView.resize();
+  await waitFrames();
+  suspendEmptyIqaiPlanes();
+  try {
+    mapView.ui.components = ['attribution'];
+  } catch {
+    // CSS also hides leftover Esri chrome.
+  }
+  await ensureMontrealViewpoint(mapView);
+  if (isGreaterMontrealLongitudeLatitude(mapView.center?.longitude, mapView.center?.latitude)) {
+    homeViewpoint = mapView.viewpoint?.clone?.() || null;
+  }
+
   lastDiagnostics = {
     webmapItemId,
     webmapTitle: webMap.portalItem?.title || oauthConfig.webmapName || 'Montreal 1',
@@ -322,20 +420,6 @@ async function bootstrap(container, options) {
   };
   state = MAP_FOUNDATION_STATES.READY;
   emit();
-
-  void mapView.when().then(async () => {
-    try {
-      mapView.ui.components = ['attribution'];
-    } catch {
-      // CSS also hides leftover Esri chrome.
-    }
-    await ensureMontrealViewpoint(mapView);
-    if (isGreaterMontrealLongitudeLatitude(mapView.center?.longitude, mapView.center?.latitude)) {
-      homeViewpoint = mapView.viewpoint?.clone?.() || null;
-    }
-  }).catch((error) => {
-    console.warn('[IQAI V2] MapView when() did not settle', sanitizeError(error));
-  });
 
   return getMapFoundationController();
 }

@@ -550,11 +550,11 @@ try {
       const operatorReady = await waitFor(
         send,
         `window.__iqaiSpatialV2.mapFoundation.getSnapshot().state === 'READY'
-          && document.querySelector('[data-iqai-google-3d-open]')?.disabled === false`,
+          && Boolean(document.querySelector('[data-iqai-view="3d-visual"]'))`,
         160,
         500
       );
-      if (!operatorReady) throw new Error('Spatial V2 map stage did not enable OPEN 3D.');
+      if (!operatorReady) throw new Error('Spatial V2 map stage did not expose 3D VISUAL.');
       const mapRect = await evaluateJson(send, `(() => {
         const rect = document.querySelector('[data-iqai-map-host]')?.getBoundingClientRect();
         return rect ? {
@@ -598,9 +598,9 @@ try {
     const uiBefore = SHELL_INTEGRATION
       ? await evaluateJson(send, `(() => {
           const visible = (el) => Boolean(el && !el.hidden && el.getBoundingClientRect().width > 0);
-          const open = document.querySelector('[data-iqai-google-3d-open]');
-          const returned = document.querySelector('[data-iqai-google-3d-return]');
-          const title = document.querySelector('[data-iqai-google-3d-title]');
+          const open = document.querySelector('[data-iqai-view="3d-visual"]');
+          const returned = document.querySelector('[data-iqai-view="map"]');
+          const title = document.querySelector('[data-iqai-view-switcher]');
           return {
             openVisible: visible(open),
             openEnabled: Boolean(open && !open.disabled),
@@ -616,7 +616,7 @@ try {
     let openedWait;
     if (SHELL_INTEGRATION) {
       await evaluate(send, `(() => {
-        document.querySelector('[data-iqai-google-3d-open]')?.click();
+        document.querySelector('[data-iqai-view="3d-visual"]')?.click();
         return true;
       })()`);
       const openedFromUi = await waitFor(
@@ -626,7 +626,7 @@ try {
         500
       );
       openedWait = await evaluateJson(send, `${apiExpression}.snapshot()`);
-      if (!openedFromUi) log(`OPEN 3D settled as ${openedWait?.stageState || 'UNKNOWN'}: ${openedWait?.error || 'not steady'}`);
+      if (!openedFromUi) log(`3D VISUAL settled as ${openedWait?.stageState || 'UNKNOWN'}: ${openedWait?.error || 'not steady'}`);
     } else {
       openedWait = await evaluateJson(send, `(async () => {
         return ${apiExpression}.open();
@@ -643,8 +643,8 @@ try {
     const uiOpened = SHELL_INTEGRATION
       ? await evaluateJson(send, `(() => {
           const visible = (el) => Boolean(el && !el.hidden && el.getBoundingClientRect().width > 0);
-          const returned = document.querySelector('[data-iqai-google-3d-return]');
-          const title = document.querySelector('[data-iqai-google-3d-title]');
+          const returned = document.querySelector('[data-iqai-view="map"]');
+          const title = document.querySelector('[data-iqai-view="3d-visual"]');
           const layers = document.querySelector('[data-iqai-google-3d-layers]');
           const reference = document.querySelector('[data-iqai-google-3d-reference]');
           const nav = document.querySelector('[data-iqai-google-3d-nav]');
@@ -652,7 +652,7 @@ try {
             .map((button) => button.textContent.trim());
           return {
             returnVisible: visible(returned),
-            titleVisible: visible(title),
+            titleVisible: visible(title) && title?.getAttribute('aria-pressed') === 'true',
             title: title?.textContent?.trim() || null,
             navVisible: visible(nav),
             navLabel: nav?.querySelector('span')?.textContent?.trim() || null,
@@ -819,7 +819,7 @@ try {
     let returned;
     if (SHELL_INTEGRATION && opened?.stageState === 'OPEN') {
       await evaluate(send, `(() => {
-        document.querySelector('[data-iqai-google-3d-return]')?.click();
+        document.querySelector('[data-iqai-view="map"]')?.click();
         return true;
       })()`);
       const returnedFromUi = await waitFor(
@@ -828,7 +828,7 @@ try {
         80,
         250
       );
-      if (!returnedFromUi) throw new Error('RETURN TO 2D did not restore the product map stage.');
+      if (!returnedFromUi) throw new Error('MAP did not restore the product map stage.');
       returned = await evaluateJson(send, `${apiExpression}.snapshot()`);
     } else if (SHELL_INTEGRATION) {
       returned = await evaluateJson(send, `(async () => {
@@ -852,8 +852,8 @@ try {
     const uiAfter = SHELL_INTEGRATION
       ? await evaluateJson(send, `(() => {
           const visible = (el) => Boolean(el && !el.hidden && el.getBoundingClientRect().width > 0);
-          const open = document.querySelector('[data-iqai-google-3d-open]');
-          const returned = document.querySelector('[data-iqai-google-3d-return]');
+          const open = document.querySelector('[data-iqai-view="3d-visual"]');
+          const returned = document.querySelector('[data-iqai-view="map"]');
           return {
             openVisible: visible(open),
             returnVisible: visible(returned),
@@ -1048,7 +1048,7 @@ const checks = {
   productLabelVisible: !SHELL_INTEGRATION
     || (
       live?.uiOpened?.titleVisible === true
-      && live?.uiOpened?.title === 'GOOGLE PHOTOREALISTIC 3D'
+      && live?.uiOpened?.title === '3D VISUAL'
     ),
   returnActionVisible: !SHELL_INTEGRATION || live?.uiOpened?.returnVisible === true,
   pixelsHaveContrast: Number(pixels?.contrast || 0) >= 24 && Number(pixels?.lumMax || 0) >= 40,

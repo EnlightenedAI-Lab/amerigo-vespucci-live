@@ -466,6 +466,7 @@ body.iqai-v2-body {
 .iqai-v2-stage__well[data-iqai-specialist-view="google-3d"] [data-iqai-street-360-open],
 .iqai-v2-stage__well[data-iqai-specialist-view="google-3d"] [data-iqai-street-360-idle-status],
 .iqai-v2-stage__well[data-iqai-specialist-view="google-3d"] .iqai-v2-spatial-focus-receipt,
+.iqai-v2-stage__well[data-iqai-specialist-view="google-3d"] .iqai-v2-imagery-receipt,
 .iqai-v2-stage__well[data-iqai-specialist-view="google-3d"] .iqai-v2-pointer-coords {
   display: none !important;
 }
@@ -532,6 +533,7 @@ body.iqai-v2-body {
 .iqai-v2-stage__well[data-iqai-specialist-view="street-360"] .iqai-v2-imagery-dock,
 .iqai-v2-stage__well[data-iqai-specialist-view="street-360"] .iqai-v2-stage__grid,
 .iqai-v2-stage__well[data-iqai-specialist-view="street-360"] .iqai-v2-spatial-focus-receipt,
+.iqai-v2-stage__well[data-iqai-specialist-view="street-360"] .iqai-v2-imagery-receipt,
 .iqai-v2-stage__well[data-iqai-specialist-view="street-360"] .iqai-v2-pointer-coords {
   display: none !important;
 }
@@ -797,8 +799,35 @@ body.iqai-v2-body {
   display: none !important;
 }
 
+.iqai-v2-imagery-receipt {
+  position: absolute;
+  top: 7.35rem;
+  right: 0.85rem;
+  left: auto;
+  bottom: auto;
+  z-index: 9;
+  max-width: 22rem;
+  padding: 0.45rem 0.6rem;
+  border-top: 3px solid #14120f;
+  background: var(--iqai-v2-surface);
+  color: var(--iqai-v2-text);
+}
+
+.iqai-v2-imagery-receipt p {
+  margin: 0;
+  font-size: var(--iqai-v2-kicker-size);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.iqai-v2-imagery-receipt p + p {
+  margin-top: 0.12rem;
+  font-variant-numeric: tabular-nums;
+}
+
 .iqai-v2-pointer-coords[hidden],
-.iqai-v2-spatial-focus-receipt[hidden] {
+.iqai-v2-spatial-focus-receipt[hidden],
+.iqai-v2-imagery-receipt[hidden] {
   display: none !important;
 }
 

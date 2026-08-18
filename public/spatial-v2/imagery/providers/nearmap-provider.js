@@ -3,6 +3,7 @@ import {
   DATE_KIND,
   ENTITLEMENT_STATE,
   PROVIDER_KIND,
+  PROVIDER_READINESS_STATE,
   RIGHTS,
   emptyObservation,
   emptyRights,
@@ -48,15 +49,55 @@ export function observationFromNearmapSurvey(survey) {
   });
 }
 
+export function eligibleNearmapObservations(surveys) {
+  return (Array.isArray(surveys) ? surveys : [])
+    .map(observationFromNearmapSurvey)
+    .filter((observation) => Boolean(
+      observation.sourceIdentity?.surveyId
+      && observation.acquisitionDate
+      && observation.matchDate
+      && observation.accessState === ACCESS_STATE.STREAMABLE
+    ));
+}
+
+function readinessFromEntitlement(entitlement, eligibleCount) {
+  if (entitlement === ENTITLEMENT_STATE.READY) {
+    return eligibleCount > 0
+      ? PROVIDER_READINESS_STATE.READY
+      : PROVIDER_READINESS_STATE.NO_COVERAGE;
+  }
+  if (entitlement === ENTITLEMENT_STATE.ENTITLEMENT_MISSING) {
+    return PROVIDER_READINESS_STATE.NOT_CONFIGURED;
+  }
+  if (entitlement === ENTITLEMENT_STATE.DENIED || entitlement === ENTITLEMENT_STATE.AUTH_REQUIRED) {
+    return PROVIDER_READINESS_STATE.ENTITLEMENT_REQUIRED;
+  }
+  return PROVIDER_READINESS_STATE.UNAVAILABLE;
+}
+
 export const nearmapProvider = {
   id: 'nearmap',
   title: 'Nearmap',
   kind: PROVIDER_KIND.ARCHIVE,
 
-  async probeEntitlement() {
+  async probeStatus() {
     const response = await fetch(`${NEARMAP_COVERAGE_PROXY}?probe=1`, { cache: 'no-store' });
     const payload = await response.json().catch(() => ({}));
-    return payload.entitlement || ENTITLEMENT_STATE.FAILED;
+    const entitlement = payload.entitlement || ENTITLEMENT_STATE.FAILED;
+    const observationCount = Array.isArray(payload.surveys)
+      ? eligibleNearmapObservations(payload.surveys).length
+      : 0;
+    return {
+      entitlement,
+      readinessState: payload.readinessState
+        || readinessFromEntitlement(entitlement, observationCount),
+      limitation: payload.limitation || payload.error || null,
+      observationCount
+    };
+  },
+
+  async probeEntitlement() {
+    return (await this.probeStatus()).entitlement;
   },
 
   async discover(aoi) {
@@ -73,11 +114,14 @@ export const nearmapProvider = {
     const payload = await response.json().catch(() => ({}));
     const entitlement = payload.entitlement || ENTITLEMENT_STATE.FAILED;
     const surveys = Array.isArray(payload.surveys) ? payload.surveys : [];
+    const eligible = entitlement === ENTITLEMENT_STATE.READY
+      ? eligibleNearmapObservations(surveys)
+      : [];
     return {
       entitlement,
-      observations: entitlement === ENTITLEMENT_STATE.READY
-        ? surveys.map(observationFromNearmapSurvey)
-        : [],
+      readinessState: payload.readinessState
+        || readinessFromEntitlement(entitlement, eligible.length),
+      observations: eligible,
       limitation: payload.limitation || null,
       error: payload.error || null
     };
@@ -86,15 +130,34 @@ export const nearmapProvider = {
   async createLayer(observation) {
     const { importArc } = await import('../../map/arcgis-sdk.js');
     const WebTileLayer = await importArc('@arcgis/core/layers/WebTileLayer.js');
-    const surveyId = observation?.sourceIdentity?.surveyId;
-    if (!surveyId) throw new Error('Nearmap observation is missing surveyId.');
+    const urlTemplate = this.urlTemplateFor(observation);
+    if (!urlTemplate) throw new Error('Nearmap observation is missing surveyId.');
     return new WebTileLayer({
       id: 'iqai-v2-imagery-time-observation',
-      title: `Nearmap ${observation.acquisitionDate || surveyId}`,
-      urlTemplate: tileTemplateFor(surveyId),
+      title: `Nearmap ${observation.acquisitionDate || observation.sourceIdentity?.surveyId}`,
+      urlTemplate,
       copyright: 'Nearmap',
       popupEnabled: false,
       listMode: 'hide'
     });
+  },
+
+  urlTemplateFor(observation) {
+    const surveyId = observation?.sourceIdentity?.surveyId;
+    return surveyId ? tileTemplateFor(surveyId) : null;
+  },
+
+  bindLayer(layer, observation) {
+    const urlTemplate = this.urlTemplateFor(observation);
+    if (!layer || !urlTemplate) throw new Error('Nearmap observation is missing surveyId.');
+    layer.urlTemplate = urlTemplate;
+    layer.title = `Nearmap ${observation.acquisitionDate || observation.sourceIdentity?.surveyId}`;
+    layer.copyright = 'Nearmap';
+    layer.visible = true;
+    layer.opacity = 1;
+    layer.popupEnabled = false;
+    layer.listMode = 'hide';
+    if (typeof layer.refresh === 'function') layer.refresh();
+    return layer;
   }
 };

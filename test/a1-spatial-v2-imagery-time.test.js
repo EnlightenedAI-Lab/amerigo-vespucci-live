@@ -10,7 +10,9 @@ import { createPreviewConfig, createPreviewState } from '../src/demo-map-api.js'
 import { registerImageryV2Routes } from '../src/spatial-v2/imagery-routes.js';
 import {
   DATE_KIND,
+  DISPLAY_STATE,
   MATCH_KIND,
+  PROVIDER_READINESS_STATE,
   TIME_ENGINE_LAYER_ID,
   isoDateFromCompact,
   nearestByIsoDate
@@ -20,7 +22,15 @@ import {
   parseWaybackConfig,
   releaseDateFromWaybackTitle
 } from '../public/spatial-v2/imagery/providers/esri-wayback-provider.js';
-import { observationFromNearmapSurvey } from '../public/spatial-v2/imagery/providers/nearmap-provider.js';
+import {
+  isObservationDisplayEvidenceConfirmed,
+  summarizeScreenshotImageData
+} from '../public/spatial-v2/imagery/time-engine.js';
+import { observationTileReceipt } from '../public/spatial-v2/imagery/imagery-tile-receipt.js';
+import {
+  eligibleNearmapObservations,
+  observationFromNearmapSurvey
+} from '../public/spatial-v2/imagery/providers/nearmap-provider.js';
 import {
   inspectWmsCapabilities,
   resolveNearmapWmsUrl,
@@ -72,6 +82,8 @@ function listen(app) {
 test('Time Engine V1 files exist and keep one MapView', () => {
   for (const rel of [
     'imagery/time-engine.js',
+    'imagery/imagery-plane.js',
+    'imagery/imagery-tile-receipt.js',
     'imagery/providers/esri-wayback-provider.js',
     'imagery/providers/nearmap-provider.js'
   ]) {
@@ -99,13 +111,130 @@ test('Time Engine V1 does not use TimeSlider, view.timeExtent, or Portal writes'
   assert.match(engine, /discoverImageryTime/);
   assert.match(engine, /activateObservation/);
   assert.match(engine, /deactivateObservation/);
+  assert.match(engine, /IMAGERY_POOL\.HISTORY && collected.length/);
+  assert.match(engine, /GROUND_MODE\.AUTHORED_WEBMAP/);
   assert.match(engine, /previousObservation/);
   assert.match(engine, /nextObservation/);
   assert.match(engine, /TIME_ENGINE_LAYER_ID/);
   assert.match(engine, /replaceTimeLayer\(previous\)/);
   assert.match(engine, /layers\.add/);
   assert.match(engine, /Time observation was not attached to the imagery plane/);
+  assert.match(engine, /DISPLAY_CONFIRMED/);
+  assert.match(engine, /displayConfirmed/);
+  assert.match(engine, /ImageData/);
+  assert.match(engine, /bindLayer/);
+  assert.match(engine, /suspendEmptyIqaiPlanes/);
+  assert.match(engine, /observationTileReceipt/);
+  assert.match(engine, /layers: \[layer\]/);
+  assert.match(engine, /mapview-layer-isolated-screenshot-v1/);
   assert.doesNotMatch(engine, /Time observation settlement timed out/);
+  assert.equal(DISPLAY_STATE.SELECTED, 'SELECTED');
+  assert.equal(DISPLAY_STATE.ACTIVATED, 'ACTIVATED');
+  assert.equal(DISPLAY_STATE.LAYER_ATTACHED, 'LAYER_ATTACHED');
+  assert.equal(DISPLAY_STATE.LAYER_LOADED, 'LAYER_LOADED');
+  assert.equal(DISPLAY_STATE.DISPLAY_CONFIRMED, 'DISPLAY_CONFIRMED');
+  const plane = read('imagery', 'imagery-plane.js');
+  assert.match(plane, /TIME_ENGINE_LAYER_ID/);
+  assert.match(plane, /WebTileLayer/);
+  assert.match(plane, /webmap\.layers\.add\(observationLayer\)/);
+  assert.doesNotMatch(plane, /layers: \[observationLayer\]/);
+});
+
+test('Wayback display confirmation requires release-specific network and isolated painted pixels', () => {
+  const width = 40;
+  const height = 40;
+  const data = new Uint8ClampedArray(width * height * 4);
+  for (let i = 0; i < data.length; i += 4) {
+    const value = Math.floor((i / 4) / 4) % 2 === 0 ? 20 : 220;
+    data[i] = value;
+    data[i + 1] = value;
+    data[i + 2] = value;
+    data[i + 3] = 255;
+  }
+  const screenshot = summarizeScreenshotImageData({ width, height, data });
+  assert.equal(screenshot.opaquePixelCount, 400);
+  assert.equal(screenshot.opaqueShare, 1);
+  assert.equal(screenshot.contrast, 200);
+
+  const observation = {
+    id: 'wayback:26334',
+    providerId: 'esri-wayback',
+    sourceIdentity: { releaseNum: 26334 }
+  };
+  const network = observationTileReceipt(observation, {
+    sinceStartTime: 5,
+    entries: [
+      {
+        name: 'https://wayback.maptiles.arcgis.com/x/tile/26334/12/1/2',
+        startTime: 10,
+        responseStatus: 200,
+        transferSize: 2048,
+        encodedBodySize: 1800
+      },
+      {
+        name: 'https://wayback.maptiles.arcgis.com/x/tile/8249/12/1/2',
+        startTime: 11,
+        responseStatus: 200
+      },
+      {
+        name: 'https://wayback.maptiles.arcgis.com/x/tile/26334/12/1/3',
+        startTime: 1,
+        responseStatus: 200
+      }
+    ]
+  });
+  assert.equal(network.resourceTimingEntryCount, 1);
+  assert.deepEqual(network.responseStatuses, { 200: 1 });
+
+  const evidence = {
+    observationActive: true,
+    layerAttached: true,
+    layer: {
+      visible: true,
+      opacity: 1,
+      parentChainVisible: true,
+      urlMatchesObservation: true
+    },
+    layerView: {
+      ready: true,
+      visible: true,
+      visibleAtCurrentScale: true,
+      suspended: false,
+      updating: false
+    },
+    view: { ready: true, stationary: true },
+    network,
+    screenshot
+  };
+  assert.equal(isObservationDisplayEvidenceConfirmed(evidence), true);
+  assert.equal(
+    isObservationDisplayEvidenceConfirmed({
+      ...evidence,
+      network: { ...network, resourceTimingEntryCount: 0 }
+    }),
+    false
+  );
+  assert.equal(
+    isObservationDisplayEvidenceConfirmed({
+      ...evidence,
+      layerView: { ...evidence.layerView, updating: true }
+    }),
+    true
+  );
+  assert.equal(
+    isObservationDisplayEvidenceConfirmed({
+      ...evidence,
+      layerView: { ...evidence.layerView, suspended: true }
+    }),
+    false
+  );
+  assert.equal(
+    isObservationDisplayEvidenceConfirmed({
+      ...evidence,
+      screenshot: { ...screenshot, opaquePixelCount: 0, opaqueShare: 0 }
+    }),
+    false
+  );
 });
 
 test('Wayback releaseDate is not copied onto acquisitionDate', () => {
@@ -123,7 +252,8 @@ test('Wayback releaseDate is not copied onto acquisitionDate', () => {
   assert.equal(releaseDateFromWaybackTitle(config['26334'].itemTitle), '2026-08-05');
   const wayback = read('imagery', 'providers', 'esri-wayback-provider.js');
   assert.match(wayback, /acquisitionDate: null/);
-  assert.match(wayback, /matchDate: release\.releaseDate/);
+  assert.match(wayback, /matchDate: null/);
+  assert.doesNotMatch(wayback, /matchDate: release\.releaseDate/);
   assert.doesNotMatch(wayback, /acquisitionDate:\s*releaseDate/);
   assert.doesNotMatch(wayback, /acquisitionDate:\s*release\.releaseDate/);
   assert.equal(acquisitionFromWaybackMetadata({ SRC_DATE: 20140520 }), '2014-05-20');
@@ -155,6 +285,11 @@ test('Nearmap client never embeds the key or upstream tile host', () => {
   assert.equal(observation.matchDate, '2022-06-15');
   assert.equal(observation.firstPublicDate, '2022-06-20');
   assert.equal(observation.dateKindUsed, DATE_KIND.ACQUISITION);
+  assert.equal(eligibleNearmapObservations([
+    { id: 'survey-1', captureDate: '2022-06-15' },
+    { id: 'undated-survey' },
+    { captureDate: '2022-06-16' }
+  ]).length, 1);
   const matched = nearestByIsoDate([observation], '2022-06-18', 'matchDate');
   assert.equal(matched.match, MATCH_KIND.NEAREST);
   assert.equal(matched.deltaDays, -3);
@@ -169,6 +304,7 @@ test('Nearmap proxy is entitlement-gated and does not leak the key', async () =>
     assert.equal(res.status, 200);
     const body = JSON.parse(res.body);
     assert.equal(body.entitlement, 'entitlement-missing');
+    assert.equal(body.readinessState, PROVIDER_READINESS_STATE.NOT_CONFIGURED);
     assert.deepEqual(body.surveys, []);
     assert.equal(JSON.stringify(body).includes('secret-key'), false);
   } finally {
@@ -198,6 +334,7 @@ test('Nearmap proxy is entitlement-gated and does not leak the key', async () =>
     assert.equal(empty.status, 200);
     const emptyBody = JSON.parse(empty.body);
     assert.equal(emptyBody.entitlement, 'ready');
+    assert.equal(emptyBody.readinessState, PROVIDER_READINESS_STATE.NO_COVERAGE);
     assert.deepEqual(emptyBody.surveys, []);
     assert.equal(empty.body.includes('secret-key'), false);
     assert.equal(calls.length, 1);
@@ -216,8 +353,69 @@ test('Nearmap proxy is entitlement-gated and does not leak the key', async () =>
     assert.equal(res.status, 403);
     const body = JSON.parse(res.body);
     assert.equal(body.entitlement, 'denied');
+    assert.equal(body.readinessState, PROVIDER_READINESS_STATE.ENTITLEMENT_REQUIRED);
     assert.deepEqual(body.surveys, []);
     assert.equal(res.body.includes('secret-key'), false);
+  } finally {
+    await denied.close();
+  }
+});
+
+test('official Google Map Tiles readiness is server-side and never overstates runtime readiness', async () => {
+  const missingApp = express();
+  registerImageryV2Routes(missingApp, { env: {} });
+  const missing = listen(missingApp);
+  try {
+    const response = await request(missing.port, '/api/spatial-v2/imagery/google/status');
+    assert.equal(response.status, 200);
+    const body = JSON.parse(response.body);
+    assert.equal(body.readinessState, PROVIDER_READINESS_STATE.NOT_CONFIGURED);
+    assert.equal(body.configured, false);
+    assert.equal(body.runtimeIntegrated, false);
+  } finally {
+    await missing.close();
+  }
+
+  const acceptedApp = express();
+  registerImageryV2Routes(acceptedApp, {
+    env: { GOOGLE_MAP_TILES_API_KEY: 'server-secret' },
+    fetchImpl: async (url, init) => {
+      assert.match(String(url), /^https:\/\/tile\.googleapis\.com\/v1\/createSession\?key=/);
+      assert.equal(init?.method, 'POST');
+      assert.equal(JSON.parse(init?.body || '{}').mapType, 'satellite');
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ session: 'session-token', expiry: '9999999999' })
+      };
+    }
+  });
+  const accepted = listen(acceptedApp);
+  try {
+    const response = await request(accepted.port, '/api/spatial-v2/imagery/google/status');
+    assert.equal(response.status, 200);
+    const body = JSON.parse(response.body);
+    assert.equal(body.entitlement, 'ready');
+    assert.equal(body.credentialUsable, true);
+    assert.equal(body.runtimeIntegrated, false);
+    assert.equal(body.readinessState, PROVIDER_READINESS_STATE.UNAVAILABLE);
+    assert.equal(response.body.includes('server-secret'), false);
+    assert.equal(response.body.includes('session-token'), false);
+  } finally {
+    await accepted.close();
+  }
+
+  const deniedApp = express();
+  registerImageryV2Routes(deniedApp, {
+    env: { GOOGLE_MAP_TILES_API_KEY: 'server-secret' },
+    fetchImpl: async () => ({ ok: false, status: 403, json: async () => ({}) })
+  });
+  const denied = listen(deniedApp);
+  try {
+    const response = await request(denied.port, '/api/spatial-v2/imagery/google/status');
+    const body = JSON.parse(response.body);
+    assert.equal(body.readinessState, PROVIDER_READINESS_STATE.ENTITLEMENT_REQUIRED);
+    assert.equal(body.credentialUsable, false);
   } finally {
     await denied.close();
   }
@@ -313,7 +511,9 @@ test('Nearmap latest WMS proxy rewrites capabilities and does not require NEARMA
   try {
     const status = await request(missing.port, '/api/spatial-v2/imagery/nearmap/wms/status');
     assert.equal(status.status, 200);
-    assert.equal(JSON.parse(status.body).entitlement, 'entitlement-missing');
+    const statusBody = JSON.parse(status.body);
+    assert.equal(statusBody.entitlement, 'entitlement-missing');
+    assert.equal(statusBody.readinessState, PROVIDER_READINESS_STATE.NOT_CONFIGURED);
     const proxied = await request(missing.port, '/api/spatial-v2/imagery/nearmap/wms?SERVICE=WMS&REQUEST=GetCapabilities');
     assert.equal(proxied.status, 503);
   } finally {
@@ -337,6 +537,7 @@ test('Nearmap latest WMS proxy rewrites capabilities and does not require NEARMA
     assert.equal(status.status, 200);
     const statusBody = JSON.parse(status.body);
     assert.equal(statusBody.entitlement, 'ready');
+    assert.equal(statusBody.readinessState, PROVIDER_READINESS_STATE.READY);
     assert.equal(statusBody.historical, false);
     assert.equal(statusBody.timeDimension, false);
     assert.equal(statusBody.defaultLayer, 'Nearmap');
@@ -380,6 +581,7 @@ test('Time Engine HUD and .env.example keep Nearmap server-side', () => {
   assert.match(panel, /data-iqai-time-action="discover"/);
   assert.match(panel, /data-iqai-time-action="activate"/);
   assert.match(panel, /data-iqai-time-action="previous"/);
+  assert.match(example, /^GOOGLE_MAP_TILES_API_KEY=$/m);
   assert.match(example, /^NEARMAP_API_KEY=$/m);
   assert.match(example, /^NEARMAP_WMS_URL=$/m);
   assert.match(example, /server-side only/);
