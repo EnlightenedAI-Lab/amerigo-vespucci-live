@@ -90,7 +90,7 @@ test('Street 360 refuses an unreasonable panorama offset and does not invent ava
 });
 
 test('real V2 map stage exposes a bounded STREET 360 operator lifecycle', () => {
-  const app = read('shell', 'AppShell.js');
+  const app = read('shell', 'operator-session.js');
   const stage = read('shell', 'MapStage.js');
   const control = read('shell', 'Street360Control.js');
   const css = read('iqai-spatial-v2.css');

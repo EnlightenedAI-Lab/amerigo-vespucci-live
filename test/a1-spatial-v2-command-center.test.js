@@ -282,7 +282,7 @@ test('source-grounded explanation remains explicit about disconnected AI and lim
 });
 
 test('command-center wiring preserves the ArcGIS subsystem and diagnostic harness', () => {
-  const app = read('shell', 'AppShell.js');
+  const app = read('shell', 'operator-session.js');
   const map = read('map', 'map-foundation.js');
   const imagery = read('shell', 'ImageryPanel.js');
   const operator = read('shell', 'OperatorImageryExperience.js');

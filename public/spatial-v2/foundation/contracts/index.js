@@ -102,3 +102,50 @@ export {
   createSessionContext,
   applyWorldStateFields
 } from './world-state.js';
+export {
+  EXECUTION_MODE,
+  MIGRATION_STATE,
+  createCapabilityDescriptor,
+  validateCapabilityDescriptor,
+  isCapabilityExecutable,
+  isChassisExecutionState,
+  isMigratedExecutionState
+} from './capability.js';
+export {
+  LAYER_FAMILY,
+  createLayerDefinition,
+  validateLayerDefinition
+} from './layer-definition.js';
+export {
+  VIEW_AVAILABILITY,
+  createViewDescriptor,
+  validateViewDescriptor
+} from './view-descriptor.js';
+export {
+  POLICY_ACTION,
+  POLICY_OUTCOME,
+  RIGHTS_AXIS,
+  createActorContext,
+  createPolicyRequest,
+  createPolicyDecision,
+  verifyPolicyDecision,
+  createAuthorizationGrant,
+  createOperatorConfirmation,
+  createOperatorConfirmationEvidence,
+  createOperatorConfirmationEvent
+} from './policy.js';
+export {
+  JOB_STATUS,
+  JOB_TARGET,
+  TERMINAL_JOB_STATUSES,
+  createJob,
+  createJobProgress,
+  validateJob
+} from './job.js';
+export {
+  MODEL_KIND,
+  MODEL_LOCALITY,
+  MODEL_HEALTH,
+  MODEL_PROVIDER_ADAPTER_METHODS,
+  createModelProviderDescriptor
+} from './model-provider.js';

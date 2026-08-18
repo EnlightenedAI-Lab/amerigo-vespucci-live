@@ -61,7 +61,7 @@ test('Google Maps JS 3D uses Map3DElement and not ArcGIS SceneView', () => {
 });
 
 test('real V2 map stage exposes a bounded Google 3D operator lifecycle', () => {
-  const app = read('shell', 'AppShell.js');
+  const app = read('shell', 'operator-session.js');
   const stage = read('shell', 'MapStage.js');
   const control = read('shell', 'GooglePhotorealistic3dControl.js');
   const css = read('iqai-spatial-v2.css');

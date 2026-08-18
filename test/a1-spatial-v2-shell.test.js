@@ -202,7 +202,7 @@ test('operator chrome consumes Time Engine display-truth instead of selectedId',
   const operator = readV2('shell', 'OperatorImageryExperience.js');
   const explanation = readV2('shell', 'WhatAmILookingAt.js');
   const guided = readV2('shell', 'guided-next-action.js');
-  const app = readV2('shell', 'AppShell.js');
+  const app = readV2('shell', 'operator-session.js');
   const truth = readV2('shell', 'command-center-state.js');
   const display = readV2('shell', 'imagery-display-truth.js');
   const css = readV2('iqai-spatial-v2.css');

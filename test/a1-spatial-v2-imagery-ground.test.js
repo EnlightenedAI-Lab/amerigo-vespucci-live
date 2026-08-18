@@ -225,7 +225,8 @@ test('Ground Controller V1 Google demo is isolated, unofficial, and not an analy
   const demo = read('imagery', 'providers', 'legacy-google-satellite-demo-provider.js');
   const imageryFiles = walkFiles(IMAGERY).concat([
     path.join(V2, 'shell', 'ImageryPanel.js'),
-    path.join(V2, 'shell', 'AppShell.js')
+    path.join(V2, 'shell', 'AppShell.js'),
+    path.join(V2, 'shell', 'operator-session.js')
   ]);
   assert.match(demo, /mt\{subDomain\}\.google\.com\/vt\/lyrs=s/);
   assert.match(demo, /subDomains: \['0', '1', '2', '3'\]/);
@@ -257,7 +258,7 @@ test('Ground Controller V1 canvas modes are empty basemaps plus ColorBackground'
 test('Ground Controller V1 HUD and provenance are shell-native', () => {
   const panel = read('shell', 'ImageryPanel.js');
   const stage = read('shell', 'MapStage.js');
-  const app = read('shell', 'AppShell.js');
+  const app = read('shell', 'operator-session.js');
   const css = read('iqai-spatial-v2.css');
   assert.match(stage, /data-iqai-imagery-dock/);
   assert.match(panel, /data-iqai-imagery-panel/);

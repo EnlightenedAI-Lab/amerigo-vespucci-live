@@ -97,7 +97,8 @@ test('Time Engine V1 files exist and keep one MapView', () => {
 test('Time Engine V1 does not use TimeSlider, view.timeExtent, or Portal writes', () => {
   const files = walkFiles(path.join(V2, 'imagery')).concat([
     path.join(V2, 'shell', 'ImageryPanel.js'),
-    path.join(V2, 'shell', 'AppShell.js')
+    path.join(V2, 'shell', 'AppShell.js'),
+    path.join(V2, 'shell', 'operator-session.js')
   ]);
   for (const file of files) {
     const text = fs.readFileSync(file, 'utf8');

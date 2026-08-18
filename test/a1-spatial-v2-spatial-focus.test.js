@@ -43,7 +43,7 @@ test('decimal-degree readout uses hemisphere and does not invent an address', ()
 
 test('DROP PIN is a map-stage spatial action and specialists consume spatial focus', () => {
   const stage = read('shell', 'MapStage.js');
-  const app = read('shell', 'AppShell.js');
+  const app = read('shell', 'operator-session.js');
   const drop = read('shell', 'DropPinControl.js');
   const street = read('shell', 'Street360Control.js');
   const visual = read('shell', 'GooglePhotorealistic3dControl.js');

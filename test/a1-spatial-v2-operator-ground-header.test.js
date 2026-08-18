@@ -31,6 +31,7 @@ const ALLOWLIST = [
   'public/spatial-v2/shell/CommandHeader.js',
   'public/spatial-v2/shell/layout-registry.js',
   'public/spatial-v2/shell/AppShell.js',
+  'public/spatial-v2/shell/operator-session.js',
   'public/spatial-v2/shell/MapStage.js',
   'public/spatial-v2/shell/command-center-state.js',
   'public/spatial-v2/shell/OperatorGroundControl.js',
@@ -167,7 +168,7 @@ test('operator GROUND status uses ground snapshot truth only', () => {
 });
 
 test('operator GROUND overlay is hosted on MapStage and bound through AppShell', () => {
-  const app = readV2('shell', 'AppShell.js');
+  const app = readV2('shell', 'operator-session.js');
   const stage = readV2('shell', 'MapStage.js');
   const ground = readV2('shell', 'OperatorGroundControl.js');
   assert.match(stage, /renderOperatorGroundControl/);
@@ -238,6 +239,7 @@ test('allowlist chrome does not write Portal items or invent CONNECTED', () => {
   const shellFiles = [
     'shell/CommandHeader.js',
     'shell/AppShell.js',
+    'shell/operator-session.js',
     'shell/MapStage.js',
     'shell/command-center-state.js',
     'shell/OperatorGroundControl.js'
@@ -246,7 +248,7 @@ test('allowlist chrome does not write Portal items or invent CONNECTED', () => {
     const text = readV2(...rel.split('/'));
     assert.equal(/\bCONNECTED\b/.test(text.replaceAll('NOT CONNECTED', '')), false, rel);
   }
-  const app = readV2('shell', 'AppShell.js');
+  const app = readV2('shell', 'operator-session.js');
   assert.match(app, /updateHeaderStatus\([\s\S]*agol-portal[\s\S]*snapshot\.portalUser/);
   assert.match(app, /paintSystemStatus/);
   assert.match(readRepo('public', 'spatial-v2', 'shell', 'layout-registry.js'), /HEADER_STATUS_SLOTS/);

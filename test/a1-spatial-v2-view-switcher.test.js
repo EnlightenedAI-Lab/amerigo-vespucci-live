@@ -14,7 +14,7 @@ function read(...parts) {
 
 test('VIEW switcher is the persistent operator control for MAP / STREET 360 / 3D VISUAL', () => {
   const stage = read('shell', 'MapStage.js');
-  const app = read('shell', 'AppShell.js');
+  const app = read('shell', 'operator-session.js');
   const switcher = read('shell', 'ViewSwitcher.js');
   const css = read('iqai-spatial-v2.css');
 

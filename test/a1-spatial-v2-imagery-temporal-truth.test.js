@@ -33,7 +33,7 @@ function read(...parts) {
 
 test('LATEST is a current mosaic pool and never Wayback', () => {
   const engine = read('imagery', 'time-engine.js');
-  const app = read('shell', 'AppShell.js');
+  const app = read('shell', 'operator-session.js');
   assert.match(engine, /export async function applyLatestCurrentImagery/);
   assert.match(engine, /IMAGERY_POOL\.LATEST/);
   assert.match(engine, /GROUND_MODE\.NEARMAP/);
@@ -160,7 +160,7 @@ test('map-stage receipt names provider and capture truth', () => {
 test('operator chrome keeps LATEST HISTORY ALL IMAGERY and four clocks', () => {
   const operator = read('shell', 'OperatorImageryExperience.js');
   const stage = read('shell', 'MapStage.js');
-  const app = read('shell', 'AppShell.js');
+  const app = read('shell', 'operator-session.js');
   assert.match(operator, /LATEST/);
   assert.match(operator, /HISTORY/);
   assert.match(operator, /ALL IMAGERY/);

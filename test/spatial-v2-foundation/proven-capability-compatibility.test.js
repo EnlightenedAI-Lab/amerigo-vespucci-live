@@ -104,14 +104,17 @@ test('preview serves foundation modules on /spatial-v2 without changing shell be
 });
 
 test('existing proven product files outside Mission 1 remain the checkpoint copies', () => {
+  const session = read('shell/operator-session.js');
   const app = read('shell/AppShell.js');
   const map = read('map/map-foundation.js');
   const ask = read('shell/ask-capability-bus.js');
   const focus = read('map/spatial-focus.js');
-  assert.match(app, /mountCommandCenter/);
+  assert.match(session, /mountCommandCenter/);
+  assert.match(app, /mountAppShell/);
   assert.match(map, /new MapView\(/);
   assert.match(ask, /NO_CAPABILITY_MATCH/);
   assert.match(focus, /DROP_PIN/);
   assert.doesNotMatch(app, /createStateStore/);
+  assert.doesNotMatch(app, /initMapFoundation/);
   assert.doesNotMatch(map, /createWorldState/);
 });
