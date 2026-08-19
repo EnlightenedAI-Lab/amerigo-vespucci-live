@@ -1,5 +1,5 @@
 /**
- * Capture V4.4 bright lock, collection contract, CSV, and visibility proofs.
+ * Capture V4.6 contact edges, lock seal, and single identity plate.
  */
 
 import puppeteer from 'puppeteer-core';
@@ -58,7 +58,7 @@ const browser = await puppeteer.launch({
 const page = await browser.newPage();
 await page.setViewport({ width: 1920, height: 1080, deviceScaleFactor: 1 });
 await page.goto(BASE, { waitUntil: 'domcontentloaded', timeout: 60000 });
-await page.waitForFunction(() => window.IQAIFocusInstrument?.version === '4.4', { timeout: 30000 });
+await page.waitForFunction(() => window.IQAIFocusInstrument?.version === '4.6', { timeout: 30000 });
 await page.waitForSelector('.leaflet-tile-loaded', { timeout: 30000 });
 await new Promise((r) => setTimeout(r, 2000));
 
@@ -107,10 +107,18 @@ function sensing() {
     const visible = [];
     for (const pathEl of paths) {
       const cls = pathEl.getAttribute('class') || '';
-      if (cls.includes('casing') || cls.includes('shadow') || cls.includes('inner') || cls.includes('pulse') || cls.includes('travel')) continue;
+      if (cls.includes('casing') || cls.includes('shadow') || cls.includes('inner') || cls.includes('pulse') || cls.includes('travel') || cls.includes('release') || cls.includes('collected') || cls.includes('approach') || cls.includes('contact-ink')) continue;
       const opacity = Number(pathEl.getAttribute('stroke-opacity') ?? 1);
       const d = pathEl.getAttribute('d') || '';
       if (opacity < 0.2 || d.length < 8) continue;
+      if (cls.includes('contact')) {
+        visible.push({ role: 'contact', family: family(pathEl.getAttribute('stroke')), stroke: pathEl.getAttribute('stroke'), className: cls });
+        continue;
+      }
+      if (cls.includes('seal')) {
+        visible.push({ role: 'seal', family: family(pathEl.getAttribute('stroke')), stroke: pathEl.getAttribute('stroke'), className: cls });
+        continue;
+      }
       const role = cls.includes('selected') || cls.includes('acquire')
         ? 'acquired'
         : cls.includes('hover') || cls.includes('targeted') || cls.includes('candidate')
@@ -119,10 +127,12 @@ function sensing() {
       const stroke = pathEl.getAttribute('stroke');
       visible.push({ role, family: family(stroke), stroke, className: cls });
     }
-    const chip = document.querySelector('.fi-cand-id:not([hidden]) [data-role="text"]');
+    const plate = document.querySelector('.fi-id-plate:not([hidden])');
     return {
-      green: visible.filter((row) => row.family === 'green').length,
-      red: visible.filter((row) => row.family === 'red').length,
+      green: visible.filter((row) => row.family === 'green' && row.role !== 'contact').length,
+      red: visible.filter((row) => row.family === 'red' && row.role !== 'seal').length,
+      contact: visible.filter((row) => row.role === 'contact').length,
+      seal: visible.filter((row) => row.role === 'seal').length,
       candidateGreen: visible.some((row) => row.role === 'candidate' && row.family === 'green'),
       acquiredRed: visible.some((row) => row.role === 'acquired' && row.family === 'red'),
       brightRed: visible.some((row) => {
@@ -133,44 +143,154 @@ function sensing() {
         const g = parseInt(hex.slice(2, 4), 16);
         return r >= 220 && g <= 80;
       }),
-      candidateIdentity: chip?.textContent || null,
+      candidateIdentity: plate?.querySelector('[data-role="text"]')?.textContent || null,
+      plateText: (plate?.innerText || '').replace(/\s+/g, ' ').trim(),
+      plateCount: document.querySelectorAll('.fi-id-plate:not([hidden])').length,
+      extraLabels: document.querySelectorAll('.fi-foot-label__card:not([hidden])').length,
       visible
     };
   });
 }
 
-function pulseOnce() {
+function sealOnce() {
   return page.evaluate(() => {
-    const pulse = document.querySelector('.leaflet-pane path.fi-footprint--pulse');
-    if (!pulse) return { present: false };
-    const anim = getComputedStyle(pulse).animationIterationCount;
-    return { present: true, iteration: anim };
+    const seals = [...document.querySelectorAll('.leaflet-pane path.fi-footprint--seal')]
+      .filter((el) => (el.getAttribute('d') || '').length > 4);
+    if (!seals.length) return { present: false, count: 0, iteration: null };
+    const anim = getComputedStyle(seals[0]).animationIterationCount;
+    return { present: true, count: seals.length, iteration: anim };
   });
 }
 
+function pointerChip() {
+  return page.evaluate(() => {
+    const chip = document.querySelector('.fi-pointer .fi-chip');
+    const sense = chip?.querySelector('[data-role="sense"]');
+    return {
+      text: (chip?.innerText || '').trim(),
+      sense: sense && !sense.hidden ? (sense.textContent || '') : '',
+      coordsPresent: Boolean(chip?.querySelector('[data-role="coords"]'))
+    };
+  });
+}
+
+function approachTickCount() {
+  return page.evaluate(() => (
+    [...document.querySelectorAll('.leaflet-pane path.fi-footprint--approach-tick')]
+      .filter((el) => (el.getAttribute('d') || '').length > 4).length
+  ));
+}
+
+function collectedHairlineCount() {
+  return page.evaluate(() => (
+    [...document.querySelectorAll('.leaflet-pane path.fi-footprint--collected')]
+      .filter((el) => (el.getAttribute('d') || '').length > 8).length
+  ));
+}
+
+async function findApproachPoint() {
+  const origin = PVM;
+  const cos = Math.cos(origin.lat * Math.PI / 180);
+  const dirs = [
+    { lat: -1, lng: 0 },
+    { lat: 1, lng: 0 },
+    { lat: 0, lng: -1 },
+    { lat: 0, lng: 1 },
+    { lat: -1, lng: -1 }
+  ];
+  for (const dir of dirs) {
+    for (let meters = 20; meters <= 120; meters += 3) {
+      const point = {
+        lat: origin.lat + dir.lat * meters / 111320,
+        lng: origin.lng + dir.lng * meters / (111320 * cos)
+      };
+      await page.evaluate(async ({ lat, lng }) => {
+        await window.IQAIFocusInstrument.hoverAt(lat, lng);
+      }, point);
+      const hover = await page.evaluate(() => window.IQAIFocusInstrument.getState().hover);
+      if (hover?.relation === 'near' && hover.range > 1 && hover.range <= 16) {
+        return { point, hover, ticks: await approachTickCount() };
+      }
+    }
+  }
+  return { point: null, hover: null, ticks: 0 };
+}
+
 await page.evaluate(() => window.IQAIFocusInstrument.rest());
+const quietProbes = [
+  STREET,
+  { lat: 45.5034, lng: -73.5715 },
+  { lat: 45.4994, lng: -73.5712 },
+  { lat: 45.5026, lng: -73.5640 }
+];
+let quietPoint = STREET;
+for (const point of quietProbes) {
+  await page.evaluate(({ lat, lng }) => window.IQAIFocusInstrument.setView(lat, lng, 18), point);
+  await new Promise((r) => setTimeout(r, 200));
+  await page.evaluate(async ({ lat, lng }) => {
+    await window.IQAIFocusInstrument.moveTo(lat, lng);
+  }, point);
+  const hover = await page.evaluate(() => window.IQAIFocusInstrument.getState().hover);
+  if (!hover) {
+    quietPoint = point;
+    break;
+  }
+}
+await page.evaluate(({ lat, lng }) => window.IQAIFocusInstrument.setView(lat, lng, 18), quietPoint);
+await new Promise((r) => setTimeout(r, 250));
+await page.evaluate(async ({ lat, lng }) => {
+  await window.IQAIFocusInstrument.moveTo(lat, lng);
+}, quietPoint);
+await new Promise((r) => setTimeout(r, 120));
+const silentMove = { chip: await pointerChip(), hover: await page.evaluate(() => window.IQAIFocusInstrument.getState().hover) };
+await shot('v46-move-silent');
+
 await page.evaluate(({ lat, lng }) => window.IQAIFocusInstrument.setView(lat, lng, 18), PVM);
-await new Promise((r) => setTimeout(r, 350));
+await new Promise((r) => setTimeout(r, 250));
+const approach = await findApproachPoint();
+await shot('v46-approach-ticks');
+
+await page.evaluate(({ lat, lng }) => window.IQAIFocusInstrument.setView(lat, lng, 18), PVM);
+await new Promise((r) => setTimeout(r, 250));
 await page.evaluate(async ({ lat, lng }) => {
   await window.IQAIFocusInstrument.hoverAt(lat, lng);
 }, PVM);
 await new Promise((r) => setTimeout(r, 180));
-const hoverPvm = { sourceId: await sourceId(), sensing: await sensing() };
-await shot('v44-hover-pvm-green');
+const hoverPvm = {
+  sourceId: await sourceId(),
+  sensing: await sensing()
+};
+await shot('v46-hover-contact');
 
+const beforeDwell = await page.evaluate(() => window.IQAIFocusInstrument.getState().pointer);
 await page.evaluate(async ({ lat, lng }) => {
+  await window.IQAIFocusInstrument.dwellAt(lat, lng);
+}, PVM);
+await new Promise((r) => setTimeout(r, 80));
+const dwellPvm = {
+  pointer: await page.evaluate(() => window.IQAIFocusInstrument.getState().pointer),
+  before: beforeDwell,
+  hover: await page.evaluate(() => window.IQAIFocusInstrument.getState().hover),
+  sensing: await sensing()
+};
+await shot('v46-dwell-contact');
+
+const acquirePromise = page.evaluate(async ({ lat, lng }) => {
   await window.IQAIFocusInstrument.acquireAt(lat, lng);
 }, PVM);
-const pulse = await pulseOnce();
-await new Promise((r) => setTimeout(r, 500));
+await new Promise((r) => setTimeout(r, 90));
+const seal = await sealOnce();
+const sealSense = await sensing();
+await shot('v46-lock-seal');
+await acquirePromise;
 const acquirePvm = { sourceId: await sourceId(), sensing: await sensing() };
-await shot('v44-acquired-pvm-red');
+await shot('v46-acquired-pvm-red');
 
 await page.evaluate(() => window.IQAIFocusInstrument.openInspector());
 await new Promise((r) => setTimeout(r, 150));
 const firstAdd = await page.evaluate(() => window.IQAIFocusInstrument.addToSet());
 const dupAdd = await page.evaluate(() => window.IQAIFocusInstrument.addToSet());
-await shot('v44-inspector-set');
+await shot('v46-inspector-set');
 
 await page.evaluate(({ lat, lng }) => window.IQAIFocusInstrument.setView(lat, lng, 17), BOTH);
 await new Promise((r) => setTimeout(r, 300));
@@ -179,14 +299,16 @@ await page.evaluate(async ({ lat, lng }) => {
 }, GARE);
 await new Promise((r) => setTimeout(r, 200));
 const dual = { sourceId: await sourceId(), sensing: await sensing() };
-await shot('v44-pvm-red-gare-green');
+await shot('v46-pvm-red-gare-green');
 
 await page.evaluate(async ({ lat, lng }) => {
   await window.IQAIFocusInstrument.acquireAt(lat, lng);
 }, GARE);
-await new Promise((r) => setTimeout(r, 500));
+await new Promise((r) => setTimeout(r, 180));
+await shot('v46-handoff-release');
+await new Promise((r) => setTimeout(r, 700));
 const handoff = { sourceId: await sourceId(), sensing: await sensing() };
-await shot('v44-handoff-gare-red');
+await shot('v46-handoff-gare-red');
 const secondAdd = await page.evaluate(() => window.IQAIFocusInstrument.addToSet());
 await page.evaluate(() => window.IQAIFocusInstrument.openInspector());
 await new Promise((r) => setTimeout(r, 150));
@@ -202,10 +324,23 @@ const csv = await page.evaluate(() => {
   const lines = set.objectRefs.map((item) => header.map((key) => item.row?.[key] ?? '').join(','));
   return [header.join(','), ...lines].join('\n');
 });
-writeFileSync(path.join(OUT, 'v44-collected.csv'), csv);
-await shot('v44-set-two-rows');
+writeFileSync(path.join(OUT, 'v46-collected.csv'), csv);
+await shot('v46-set-two-rows');
+
+await page.evaluate(async ({ lat, lng }) => {
+  window.IQAIFocusInstrument.setView(lat, lng, 18);
+  await window.IQAIFocusInstrument.acquireAt(lat, lng);
+  window.IQAIFocusInstrument.addToSet();
+}, TOUR1000);
+await new Promise((r) => setTimeout(r, 200));
+const triple = { sourceId: await sourceId(), sensing: await sensing(), set: await setState() };
+await shot('v46-collected-quiet-field');
 
 await page.evaluate(() => window.IQAIFocusInstrument.clear());
+await new Promise((r) => setTimeout(r, 400));
+const hairlinesAfterClear = await collectedHairlineCount();
+await shot('v46-hairlines-after-clear');
+
 await page.evaluate(() => window.IQAIFocusInstrument.setBasemap('dark'));
 await new Promise((r) => setTimeout(r, 800));
 await page.evaluate(({ lat, lng }) => window.IQAIFocusInstrument.setView(lat, lng, 18), PVM);
@@ -215,13 +350,13 @@ await page.evaluate(async ({ lat, lng }) => {
 }, PVM);
 await new Promise((r) => setTimeout(r, 200));
 const darkHover = { sensing: await sensing() };
-await shot('v44-dark-hover-green');
+await shot('v46-dark-hover-green');
 await page.evaluate(async ({ lat, lng }) => {
   await window.IQAIFocusInstrument.acquireAt(lat, lng);
 }, PVM);
 await new Promise((r) => setTimeout(r, 500));
 const darkAcquired = { sensing: await sensing() };
-await shot('v44-dark-acquired-red');
+await shot('v46-dark-acquired-red');
 await page.evaluate(() => window.IQAIFocusInstrument.setBasemap('imagery'));
 
 await page.evaluate(() => window.IQAIFocusInstrument.clear());
@@ -245,14 +380,20 @@ const csvIds = csvLines.slice(1).map((line) => line.split(',')[3]);
 
 const report = {
   version: await page.evaluate(() => window.IQAIFocusInstrument.version),
+  silentMove,
+  approach,
   hoverPvm,
-  pulse,
+  dwellPvm,
+  seal,
+  sealSense,
   acquirePvm,
   firstAdd,
   dupAdd,
   dual,
   handoff,
   secondAdd,
+  triple,
+  hairlinesAfterClear,
   collected,
   csvHeader,
   csvIds,
@@ -262,19 +403,39 @@ const report = {
   nrcanFeatureCount: featureCount
 };
 
-writeFileSync(path.join(OUT, 'v44-report.json'), JSON.stringify(report, null, 2));
+writeFileSync(path.join(OUT, 'v46-report.json'), JSON.stringify(report, null, 2));
 await browser.close();
 
+const snapped = dwellPvm.pointer
+  && dwellPvm.before
+  && (Math.abs(dwellPvm.pointer.lat - dwellPvm.before.lat) > 1e-6
+    || Math.abs(dwellPvm.pointer.lng - dwellPvm.before.lng) > 1e-6
+    || dwellPvm.hover?.relation === 'inside');
+
 const ok = (
-  hoverPvm.sourceId == null
+  report.version === '4.6'
+  && silentMove.chip.coordsPresent === false
+  && !/EL|SNAP|BUILDING|coords/i.test(silentMove.chip.text)
+  && approach.hover?.relation === 'near'
+  && approach.ticks >= 2
+  && hoverPvm.sourceId == null
   && hoverPvm.sensing.candidateGreen
+  && hoverPvm.sensing.contact >= 2
   && hoverPvm.sensing.green === 1
   && hoverPvm.sensing.candidateIdentity
+  && hoverPvm.sensing.plateCount === 1
+  && hoverPvm.sensing.extraLabels === 0
+  && !/OBJECT ACQUIRED/i.test(hoverPvm.sensing.plateText || '')
+  && snapped
+  && dwellPvm.sensing.contact >= 2
+  && (seal.iteration === '1' || seal.count >= 4)
+  && sealSense.seal >= 4
   && acquirePvm.sourceId === PVM_ID
   && acquirePvm.sensing.acquiredRed
   && acquirePvm.sensing.brightRed
   && acquirePvm.sensing.red === 1
-  && (pulse.iteration === '1' || pulse.present === false || pulse.iteration === '1')
+  && acquirePvm.sensing.seal === 0
+  && acquirePvm.sensing.plateCount === 1
   && firstAdd.ok === true
   && dupAdd.ok === false
   && dupAdd.reason === 'duplicate'
@@ -287,7 +448,10 @@ const ok = (
   && handoff.sensing.red === 1
   && handoff.sensing.acquiredRed
   && secondAdd.ok === true
-  && collected.count === 2
+  && triple.set.count === 3
+  && triple.sensing.red === 1
+  && hairlinesAfterClear >= 2
+  && collected.count === 3
   && CSV_COLUMNS.every((col) => csvHeader.includes(col))
   && csvIds.includes(PVM_ID)
   && csvIds.includes(GARE_ID)
@@ -299,7 +463,7 @@ const ok = (
 );
 
 if (!ok) {
-  throw new Error('V4.4 validation failed: ' + JSON.stringify(report, null, 2));
+  throw new Error('V4.6 validation failed: ' + JSON.stringify(report, null, 2));
 }
 
-console.log(JSON.stringify({ ok: true, report, shots, csv: path.join(OUT, 'v44-collected.csv') }, null, 2));
+console.log(JSON.stringify({ ok: true, report, shots, csv: path.join(OUT, 'v46-collected.csv') }, null, 2));

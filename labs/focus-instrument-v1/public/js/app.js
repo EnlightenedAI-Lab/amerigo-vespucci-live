@@ -237,8 +237,11 @@ function bindAcquiredFeature(feature, { path, view = activeView, acquiredAt = ne
   selectionState = createSelectionState(objectRef, { acquiredAt, activeView: view });
   activeView = view;
   footprints.acquire(feature, {
-    name: derived?.name && derived.name !== 'Building' ? derived.name : null
+    name: derived?.name && derived.name !== 'Building' ? derived.name : null,
+    heightMax: derived?.sourceAttributes?.heightMax ?? null
   });
+  quietWorld(true);
+  syncCollectedHairlines();
   return { derived, objectRef };
 }
 
@@ -475,32 +478,31 @@ function enrichContext(geo, resolved) {
 
 function paintPointerReadout(geo, state) {
   if (!geo) return;
-  const ctx = lastContext && state !== 'move' && state !== 'object' ? lastContext : { snap: lastSnap };
-  const formats = formatsFor(geo.lat, geo.lng, {
-    place: ctx.place,
-    elevationMeters: ctx.elevationMeters
-  });
-  const nav = bearingRange(reference, geo);
-  const metaParts = [];
-  if (state !== 'move' && state !== 'object' && formats.elevation) metaParts.push(`EL  ${formats.elevation}`);
-  if (nav.brgText) metaParts.push(`${nav.brgText}  ${nav.rngText}`);
-  const snapText = ctx.snap
-    ? `SNAP  ${ctx.snap.feature.name}  ${formatRange(ctx.snap.range)}`
-    : '';
-  let objectText = '';
-  if (hoverHit) {
-    if (state === 'targeted' || state === 'dwell') objectText = 'BUILDING FOOTPRINT';
-    else if (state === 'acquired' || state === 'inspecting' || state === 'lock') objectText = 'OBJECT ACQUIRED';
-    else objectText = 'BUILDING FOOTPRINT';
-  }
-  paintChip(marks.pointer, {
-    coords: formats.dd,
-    place: state === 'move' || state === 'object' ? '' : (ctx.place || ''),
-    meta: metaParts.join('   ·   '),
-    snap: state === 'move' || state === 'object' ? '' : snapText,
-    object: objectText
-  });
-  marks.pointer.classList.toggle('is-snap', Boolean(ctx.snap) && state !== 'move' && state !== 'object');
+  const near = hoverHit?.relation === 'near' ? hoverHit.range : null;
+  const sense = Number.isFinite(near) && near > 0.4 && near <= 16 ? formatRange(near) : '';
+  paintChip(marks.pointer, { sense });
+  marks.pointer.classList.toggle('is-snap', false);
+  void state;
+}
+
+function quietWorld(on) {
+  if (basemapMode === 'imagery') labelsLayer.setOpacity(on ? 0.12 : 0.38);
+}
+
+function syncCollectedHairlines() {
+  const features = collectedSet.objectRefs
+    .map((item) => buildings.findBySourceId(item.sourceId)?.feature)
+    .filter(Boolean);
+  footprints.setCollected(features, { excludeId: footprints.selectedId() });
+}
+
+function snapPointerToCentroid(feature) {
+  const centroid = deriveObject(feature, reference, catalog.features)?.centroid;
+  if (!centroid) return;
+  pointerGeo = { lat: centroid.lat, lng: centroid.lng };
+  const pt = map.latLngToContainerPoint([centroid.lat, centroid.lng]);
+  pointerPx = { x: pt.x, y: pt.y };
+  setMarkPosition(marks.pointer, pt.x, pt.y);
 }
 
 function syncFocusMark() {
@@ -532,34 +534,39 @@ function onPointerSample(latlng, containerPoint) {
   pointerGeo = { lat: latlng.lat, lng: latlng.lng };
   pointerPx = { x: containerPoint.x, y: containerPoint.y };
   setMarkPosition(marks.pointer, pointerPx.x, pointerPx.y);
-  hoverHit = buildings.findAt(pointerGeo.lat, pointerGeo.lng, 14);
+  hoverHit = buildings.findAt(pointerGeo.lat, pointerGeo.lng, 32);
   lastSnap = nearestFeature(catalog.features, pointerGeo.lat, pointerGeo.lng, snapRadiusMeters(map.getZoom()));
   lastContext = { snap: lastSnap };
   const pointerState = hoverHit ? 'hover' : 'idle';
   if (inspectorOpen && acquiredObject) setMode('inspecting');
   else if (acquiredObject) setMode('acquired');
-  else setMode(hoverHit ? 'hover' : 'idle');
-  setPointerState(marks.pointer, hoverHit ? 'hover' : 'move');
+  else setMode(hoverHit ? (hoverHit.relation === 'inside' ? 'hover' : 'idle') : 'idle');
+  setPointerState(marks.pointer, hoverHit?.relation === 'inside' ? 'hover' : 'move');
   const derived = hoverObject();
   footprints.setHover(hoverHit?.item.feature || null, {
     inside: hoverHit?.relation === 'inside',
     name: derived && derived.name !== 'Building' ? derived.name : null,
-    sourceId: hoverHit?.item.feature.properties?.feature_id || null
+    sourceId: hoverHit?.item.feature.properties?.feature_id || null,
+    from: pointerGeo,
+    heightMax: derived?.sourceAttributes?.heightMax ?? null
   });
   paintPointerReadout(pointerGeo, pointerState);
   paintRange(pointerGeo);
   scheduleDwell(pointerGeo.lng, pointerGeo.lat, (resolved) => {
     if (!pointerGeo) return;
-    hoverHit = buildings.findAt(pointerGeo.lat, pointerGeo.lng, 14);
-    if (!acquiredObject) setMode('targeted');
-    setPointerState(marks.pointer, 'dwell');
+    hoverHit = buildings.findAt(pointerGeo.lat, pointerGeo.lng, 32);
     enrichContext(pointerGeo, resolved);
     const derived = hoverObject();
-    if (hoverHit) {
+    if (hoverHit?.relation === 'inside') {
+      if (!acquiredObject) setMode('targeted');
+      setPointerState(marks.pointer, 'dwell');
       footprints.setDwell(hoverHit.item.feature, {
         name: derived && derived.name !== 'Building' ? derived.name : null,
-        sourceId: hoverHit.item.feature.properties?.feature_id || null
+        sourceId: hoverHit.item.feature.properties?.feature_id || null,
+        heightMax: derived?.sourceAttributes?.heightMax ?? null,
+        from: pointerGeo
       });
+      snapPointerToCentroid(hoverHit.item.feature);
     }
     paintPointerReadout(pointerGeo, 'targeted');
   });
@@ -651,6 +658,8 @@ function clearFocus({ announce = true } = {}) {
   hoverHit = null;
   cancelDwell();
   footprints.clear();
+  quietWorld(false);
+  syncCollectedHairlines();
   syncFocusMark();
   inspectorOpen = false;
   btnInspect.setAttribute('aria-pressed', 'false');
@@ -789,6 +798,7 @@ function addAcquiredToSet() {
   }
   collectedSet = result.set;
   showToast(`ADDED TO SET  ·  ${collectedSet.objectRefs.length}`);
+  syncCollectedHairlines();
   paintInspector();
   return result;
 }
@@ -823,6 +833,7 @@ function setBasemap(mode) {
     if (map.hasLayer(darkLayer)) map.removeLayer(darkLayer);
     if (!map.hasLayer(imageryLayer)) imageryLayer.addTo(map);
     if (!map.hasLayer(labelsLayer)) labelsLayer.addTo(map);
+    labelsLayer.setOpacity(acquiredObject ? 0.12 : 0.38);
     basemapMode = 'imagery';
     btnDark?.setAttribute('aria-pressed', 'false');
   }
@@ -854,7 +865,7 @@ function containerPointOf(lat, lng) {
 }
 
 window.IQAIFocusInstrument = {
-  version: '4.4',
+  version: '4.6',
   origin: ORIGIN,
   geometrySource: buildingCollection.attribution,
   buildingSource: buildingCollection.source,
@@ -965,18 +976,21 @@ window.IQAIFocusInstrument = {
     const latlng = L.latLng(lat, lng);
     onPointerSample(latlng, pt);
     cancelDwell();
-    hoverHit = buildings.findAt(lat, lng, 14);
+    hoverHit = buildings.findAt(lat, lng, 32);
     const resolved = await resolveContext(lat, lng);
     enrichContext({ lat, lng }, resolved);
-    if (acquiredObject) setMode(inspectorOpen ? 'inspecting' : 'acquired');
-    else setMode(hoverHit ? 'targeted' : 'idle');
-    setPointerState(marks.pointer, 'dwell');
     const derived = hoverObject();
-    if (hoverHit) {
+    if (hoverHit?.relation === 'inside') {
+      if (acquiredObject) setMode(inspectorOpen ? 'inspecting' : 'acquired');
+      else setMode('targeted');
+      setPointerState(marks.pointer, 'dwell');
       footprints.setDwell(hoverHit.item.feature, {
         name: derived && derived.name !== 'Building' ? derived.name : null,
-        sourceId: hoverHit.item.feature.properties?.feature_id || null
+        sourceId: hoverHit.item.feature.properties?.feature_id || null,
+        heightMax: derived?.sourceAttributes?.heightMax ?? null,
+        from: { lat, lng }
       });
+      snapPointerToCentroid(hoverHit.item.feature);
     }
     paintPointerReadout({ lat, lng }, 'targeted');
     return this.getState();

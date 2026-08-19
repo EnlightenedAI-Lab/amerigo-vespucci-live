@@ -1,0 +1,708 @@
+{
+  "version": "4.6",
+  "silentMove": {
+    "chip": {
+      "text": "14.9 m",
+      "sense": "14.9 m",
+      "coordsPresent": false
+    },
+    "hover": {
+      "id": "nrcan/79f19e6e-9da7-4f1e-b269-ac2f28aff1d0",
+      "relation": "near",
+      "range": 14.887891657582706
+    }
+  },
+  "approach": {
+    "point": {
+      "lat": 45.501159996406756,
+      "lng": -73.56832
+    },
+    "hover": {
+      "id": "nrcan/79f19e6e-9da7-4f1e-b269-ac2f28aff1d0",
+      "relation": "near",
+      "range": 2.035301677956368
+    },
+    "ticks": 2
+  },
+  "hoverPvm": {
+    "sourceId": null,
+    "sensing": {
+      "green": 1,
+      "red": 0,
+      "contact": 3,
+      "seal": 0,
+      "candidateGreen": true,
+      "acquiredRed": false,
+      "brightRed": false,
+      "candidateIdentity": "Place Ville Marie",
+      "plateText": "Place Ville Marie H 207 m",
+      "plateCount": 1,
+      "extraLabels": 0,
+      "visible": [
+        {
+          "role": "candidate",
+          "family": "green",
+          "stroke": "#3DFF74",
+          "className": "fi-footprint fi-footprint--hover"
+        },
+        {
+          "role": "contact",
+          "family": "green",
+          "stroke": "#3DFF74",
+          "className": "fi-footprint fi-footprint--contact"
+        },
+        {
+          "role": "contact",
+          "family": "green",
+          "stroke": "#3DFF74",
+          "className": "fi-footprint fi-footprint--contact"
+        },
+        {
+          "role": "contact",
+          "family": "green",
+          "stroke": "#3DFF74",
+          "className": "fi-footprint fi-footprint--contact"
+        }
+      ]
+    }
+  },
+  "dwellPvm": {
+    "pointer": {
+      "lat": 45.501622258229766,
+      "lng": -73.56859924723346
+    },
+    "before": {
+      "lat": 45.50169,
+      "lng": -73.56832
+    },
+    "hover": {
+      "id": "nrcan/79f19e6e-9da7-4f1e-b269-ac2f28aff1d0",
+      "relation": "inside",
+      "range": 0
+    },
+    "sensing": {
+      "green": 1,
+      "red": 0,
+      "contact": 3,
+      "seal": 0,
+      "candidateGreen": true,
+      "acquiredRed": false,
+      "brightRed": false,
+      "candidateIdentity": "Place Ville Marie",
+      "plateText": "Place Ville Marie H 207 m",
+      "plateCount": 1,
+      "extraLabels": 0,
+      "visible": [
+        {
+          "role": "candidate",
+          "family": "green",
+          "stroke": "#3DFF74",
+          "className": "fi-footprint fi-footprint--targeted"
+        },
+        {
+          "role": "contact",
+          "family": "green",
+          "stroke": "#6CFF94",
+          "className": "fi-footprint fi-footprint--contact"
+        },
+        {
+          "role": "contact",
+          "family": "green",
+          "stroke": "#6CFF94",
+          "className": "fi-footprint fi-footprint--contact"
+        },
+        {
+          "role": "contact",
+          "family": "green",
+          "stroke": "#6CFF94",
+          "className": "fi-footprint fi-footprint--contact"
+        }
+      ]
+    }
+  },
+  "seal": {
+    "present": true,
+    "count": 8,
+    "iteration": "1"
+  },
+  "sealSense": {
+    "green": 0,
+    "red": 1,
+    "contact": 0,
+    "seal": 8,
+    "candidateGreen": false,
+    "acquiredRed": true,
+    "brightRed": true,
+    "candidateIdentity": "Place Ville Marie",
+    "plateText": "Place Ville Marie H 207 m",
+    "plateCount": 1,
+    "extraLabels": 0,
+    "visible": [
+      {
+        "role": "acquired",
+        "family": "red",
+        "stroke": "#FF0000",
+        "className": "fi-footprint fi-footprint--selected"
+      },
+      {
+        "role": "seal",
+        "family": "red",
+        "stroke": "#FF0000",
+        "className": "fi-footprint fi-footprint--seal"
+      },
+      {
+        "role": "seal",
+        "family": "red",
+        "stroke": "#FF0000",
+        "className": "fi-footprint fi-footprint--seal"
+      },
+      {
+        "role": "seal",
+        "family": "red",
+        "stroke": "#FF0000",
+        "className": "fi-footprint fi-footprint--seal"
+      },
+      {
+        "role": "seal",
+        "family": "red",
+        "stroke": "#FF0000",
+        "className": "fi-footprint fi-footprint--seal"
+      },
+      {
+        "role": "seal",
+        "family": "red",
+        "stroke": "#FF0000",
+        "className": "fi-footprint fi-footprint--seal"
+      },
+      {
+        "role": "seal",
+        "family": "red",
+        "stroke": "#FF0000",
+        "className": "fi-footprint fi-footprint--seal"
+      },
+      {
+        "role": "seal",
+        "family": "red",
+        "stroke": "#FF0000",
+        "className": "fi-footprint fi-footprint--seal"
+      },
+      {
+        "role": "seal",
+        "family": "red",
+        "stroke": "#FF0000",
+        "className": "fi-footprint fi-footprint--seal"
+      }
+    ]
+  },
+  "acquirePvm": {
+    "sourceId": "79f19e6e-9da7-4f1e-b269-ac2f28aff1d0",
+    "sensing": {
+      "green": 0,
+      "red": 1,
+      "contact": 0,
+      "seal": 0,
+      "candidateGreen": false,
+      "acquiredRed": true,
+      "brightRed": true,
+      "candidateIdentity": "Place Ville Marie",
+      "plateText": "Place Ville Marie H 207 m",
+      "plateCount": 1,
+      "extraLabels": 0,
+      "visible": [
+        {
+          "role": "acquired",
+          "family": "red",
+          "stroke": "#FF0000",
+          "className": "fi-footprint fi-footprint--selected"
+        }
+      ]
+    }
+  },
+  "firstAdd": {
+    "ok": true,
+    "reason": "added",
+    "set": {
+      "contract": "iqai.lab.collectedset.v1",
+      "setId": "iqai-set-ec2b76a51ac7",
+      "createdAt": "2026-08-19T14:44:14.496Z",
+      "objectRefs": [
+        {
+          "contract": "iqai.lab.objectref.v1",
+          "objectKey": "nrcan:building:79f19e6e-9da7-4f1e-b269-ac2f28aff1d0",
+          "objectClass": "building",
+          "authority": {
+            "provider": "nrcan",
+            "dataset": "NRCan Automatically Extracted Buildings",
+            "datasetUuid": "7a5cda52-c7df-427f-9ced-26f19a8a64d6",
+            "layer": "Optimized Buildings Layer (auto_building_opti_2)"
+          },
+          "sourceId": "79f19e6e-9da7-4f1e-b269-ac2f28aff1d0",
+          "anchor": {
+            "lat": 45.501622258229766,
+            "lng": -73.56859924723346
+          },
+          "attributesRef": {
+            "kind": "authority-record",
+            "provider": "nrcan",
+            "sourceId": "79f19e6e-9da7-4f1e-b269-ac2f28aff1d0",
+            "featureId": "79f19e6e-9da7-4f1e-b269-ac2f28aff1d0"
+          },
+          "provenance": {
+            "method": "vector-selection",
+            "inference": false,
+            "visualClassEquivalentToIdentity": false
+          },
+          "overlay": {
+            "name": "Place Ville Marie",
+            "kind": "iqai-catalog-overlay"
+          },
+          "collectedAt": "2026-08-19T14:44:22.052Z",
+          "row": {
+            "object_key": "nrcan:building:79f19e6e-9da7-4f1e-b269-ac2f28aff1d0",
+            "object_class": "building",
+            "authority_provider": "nrcan",
+            "source_id": "79f19e6e-9da7-4f1e-b269-ac2f28aff1d0",
+            "name_context": "Place Ville Marie",
+            "latitude": "45.501622",
+            "longitude": "-73.568599",
+            "source_area_m2": "8317.0",
+            "derived_area_m2": "8317.8",
+            "perimeter_m": "388.0",
+            "height_min_m": "0.01",
+            "height_max_m": "206.83",
+            "elev_min_m": "36.27",
+            "elev_max_m": "37.52",
+            "quality": "Good",
+            "acquisition_method": "Lidar",
+            "provider": "Provincial-Territorial",
+            "date_min": "20180907",
+            "date_max": "20181115",
+            "h_accuracy": "2-2",
+            "v_accuracy": "1-1",
+            "dataset": "NRCan Automatically Extracted Buildings",
+            "dataset_uuid": "7a5cda52-c7df-427f-9ced-26f19a8a64d6",
+            "provenance_method": "vector-selection",
+            "attributes_ref": "authority-record"
+          }
+        }
+      ]
+    }
+  },
+  "dupAdd": {
+    "ok": false,
+    "reason": "duplicate",
+    "set": {
+      "contract": "iqai.lab.collectedset.v1",
+      "setId": "iqai-set-ec2b76a51ac7",
+      "createdAt": "2026-08-19T14:44:14.496Z",
+      "objectRefs": [
+        {
+          "contract": "iqai.lab.objectref.v1",
+          "objectKey": "nrcan:building:79f19e6e-9da7-4f1e-b269-ac2f28aff1d0",
+          "objectClass": "building",
+          "authority": {
+            "provider": "nrcan",
+            "dataset": "NRCan Automatically Extracted Buildings",
+            "datasetUuid": "7a5cda52-c7df-427f-9ced-26f19a8a64d6",
+            "layer": "Optimized Buildings Layer (auto_building_opti_2)"
+          },
+          "sourceId": "79f19e6e-9da7-4f1e-b269-ac2f28aff1d0",
+          "anchor": {
+            "lat": 45.501622258229766,
+            "lng": -73.56859924723346
+          },
+          "attributesRef": {
+            "kind": "authority-record",
+            "provider": "nrcan",
+            "sourceId": "79f19e6e-9da7-4f1e-b269-ac2f28aff1d0",
+            "featureId": "79f19e6e-9da7-4f1e-b269-ac2f28aff1d0"
+          },
+          "provenance": {
+            "method": "vector-selection",
+            "inference": false,
+            "visualClassEquivalentToIdentity": false
+          },
+          "overlay": {
+            "name": "Place Ville Marie",
+            "kind": "iqai-catalog-overlay"
+          },
+          "collectedAt": "2026-08-19T14:44:22.052Z",
+          "row": {
+            "object_key": "nrcan:building:79f19e6e-9da7-4f1e-b269-ac2f28aff1d0",
+            "object_class": "building",
+            "authority_provider": "nrcan",
+            "source_id": "79f19e6e-9da7-4f1e-b269-ac2f28aff1d0",
+            "name_context": "Place Ville Marie",
+            "latitude": "45.501622",
+            "longitude": "-73.568599",
+            "source_area_m2": "8317.0",
+            "derived_area_m2": "8317.8",
+            "perimeter_m": "388.0",
+            "height_min_m": "0.01",
+            "height_max_m": "206.83",
+            "elev_min_m": "36.27",
+            "elev_max_m": "37.52",
+            "quality": "Good",
+            "acquisition_method": "Lidar",
+            "provider": "Provincial-Territorial",
+            "date_min": "20180907",
+            "date_max": "20181115",
+            "h_accuracy": "2-2",
+            "v_accuracy": "1-1",
+            "dataset": "NRCan Automatically Extracted Buildings",
+            "dataset_uuid": "7a5cda52-c7df-427f-9ced-26f19a8a64d6",
+            "provenance_method": "vector-selection",
+            "attributes_ref": "authority-record"
+          }
+        }
+      ]
+    }
+  },
+  "dual": {
+    "sourceId": "79f19e6e-9da7-4f1e-b269-ac2f28aff1d0",
+    "sensing": {
+      "green": 1,
+      "red": 1,
+      "contact": 3,
+      "seal": 0,
+      "candidateGreen": true,
+      "acquiredRed": true,
+      "brightRed": true,
+      "candidateIdentity": "Gare Centrale",
+      "plateText": "Gare Centrale H 84 m",
+      "plateCount": 1,
+      "extraLabels": 0,
+      "visible": [
+        {
+          "role": "candidate",
+          "family": "green",
+          "stroke": "#3DFF74",
+          "className": "fi-footprint fi-footprint--hover"
+        },
+        {
+          "role": "acquired",
+          "family": "red",
+          "stroke": "#FF0000",
+          "className": "fi-footprint fi-footprint--selected"
+        },
+        {
+          "role": "contact",
+          "family": "green",
+          "stroke": "#3DFF74",
+          "className": "fi-footprint fi-footprint--contact"
+        },
+        {
+          "role": "contact",
+          "family": "green",
+          "stroke": "#3DFF74",
+          "className": "fi-footprint fi-footprint--contact"
+        },
+        {
+          "role": "contact",
+          "family": "green",
+          "stroke": "#3DFF74",
+          "className": "fi-footprint fi-footprint--contact"
+        }
+      ]
+    }
+  },
+  "handoff": {
+    "sourceId": "ae6980f1-b153-4e75-8f35-ae544279189c",
+    "sensing": {
+      "green": 0,
+      "red": 1,
+      "contact": 0,
+      "seal": 0,
+      "candidateGreen": false,
+      "acquiredRed": true,
+      "brightRed": true,
+      "candidateIdentity": "Gare Centrale",
+      "plateText": "Gare Centrale H 84 m",
+      "plateCount": 1,
+      "extraLabels": 0,
+      "visible": [
+        {
+          "role": "acquired",
+          "family": "red",
+          "stroke": "#FF0000",
+          "className": "fi-footprint fi-footprint--selected"
+        }
+      ]
+    }
+  },
+  "secondAdd": {
+    "ok": true,
+    "reason": "added",
+    "set": {
+      "contract": "iqai.lab.collectedset.v1",
+      "setId": "iqai-set-ec2b76a51ac7",
+      "createdAt": "2026-08-19T14:44:14.496Z",
+      "objectRefs": [
+        {
+          "contract": "iqai.lab.objectref.v1",
+          "objectKey": "nrcan:building:79f19e6e-9da7-4f1e-b269-ac2f28aff1d0",
+          "objectClass": "building",
+          "authority": {
+            "provider": "nrcan",
+            "dataset": "NRCan Automatically Extracted Buildings",
+            "datasetUuid": "7a5cda52-c7df-427f-9ced-26f19a8a64d6",
+            "layer": "Optimized Buildings Layer (auto_building_opti_2)"
+          },
+          "sourceId": "79f19e6e-9da7-4f1e-b269-ac2f28aff1d0",
+          "anchor": {
+            "lat": 45.501622258229766,
+            "lng": -73.56859924723346
+          },
+          "attributesRef": {
+            "kind": "authority-record",
+            "provider": "nrcan",
+            "sourceId": "79f19e6e-9da7-4f1e-b269-ac2f28aff1d0",
+            "featureId": "79f19e6e-9da7-4f1e-b269-ac2f28aff1d0"
+          },
+          "provenance": {
+            "method": "vector-selection",
+            "inference": false,
+            "visualClassEquivalentToIdentity": false
+          },
+          "overlay": {
+            "name": "Place Ville Marie",
+            "kind": "iqai-catalog-overlay"
+          },
+          "collectedAt": "2026-08-19T14:44:22.052Z",
+          "row": {
+            "object_key": "nrcan:building:79f19e6e-9da7-4f1e-b269-ac2f28aff1d0",
+            "object_class": "building",
+            "authority_provider": "nrcan",
+            "source_id": "79f19e6e-9da7-4f1e-b269-ac2f28aff1d0",
+            "name_context": "Place Ville Marie",
+            "latitude": "45.501622",
+            "longitude": "-73.568599",
+            "source_area_m2": "8317.0",
+            "derived_area_m2": "8317.8",
+            "perimeter_m": "388.0",
+            "height_min_m": "0.01",
+            "height_max_m": "206.83",
+            "elev_min_m": "36.27",
+            "elev_max_m": "37.52",
+            "quality": "Good",
+            "acquisition_method": "Lidar",
+            "provider": "Provincial-Territorial",
+            "date_min": "20180907",
+            "date_max": "20181115",
+            "h_accuracy": "2-2",
+            "v_accuracy": "1-1",
+            "dataset": "NRCan Automatically Extracted Buildings",
+            "dataset_uuid": "7a5cda52-c7df-427f-9ced-26f19a8a64d6",
+            "provenance_method": "vector-selection",
+            "attributes_ref": "authority-record"
+          }
+        },
+        {
+          "contract": "iqai.lab.objectref.v1",
+          "objectKey": "nrcan:building:ae6980f1-b153-4e75-8f35-ae544279189c",
+          "objectClass": "building",
+          "authority": {
+            "provider": "nrcan",
+            "dataset": "NRCan Automatically Extracted Buildings",
+            "datasetUuid": "7a5cda52-c7df-427f-9ced-26f19a8a64d6",
+            "layer": "Optimized Buildings Layer (auto_building_opti_2)"
+          },
+          "sourceId": "ae6980f1-b153-4e75-8f35-ae544279189c",
+          "anchor": {
+            "lat": 45.49961674480152,
+            "lng": -73.56680060387943
+          },
+          "attributesRef": {
+            "kind": "authority-record",
+            "provider": "nrcan",
+            "sourceId": "ae6980f1-b153-4e75-8f35-ae544279189c",
+            "featureId": "ae6980f1-b153-4e75-8f35-ae544279189c"
+          },
+          "provenance": {
+            "method": "vector-selection",
+            "inference": false,
+            "visualClassEquivalentToIdentity": false
+          },
+          "overlay": {
+            "name": "Gare Centrale",
+            "kind": "iqai-catalog-overlay"
+          },
+          "collectedAt": "2026-08-19T14:44:25.789Z",
+          "row": {
+            "object_key": "nrcan:building:ae6980f1-b153-4e75-8f35-ae544279189c",
+            "object_class": "building",
+            "authority_provider": "nrcan",
+            "source_id": "ae6980f1-b153-4e75-8f35-ae544279189c",
+            "name_context": "Gare Centrale",
+            "latitude": "45.499617",
+            "longitude": "-73.566801",
+            "source_area_m2": "11718.4",
+            "derived_area_m2": "11719.4",
+            "perimeter_m": "467.3",
+            "height_min_m": "0.19",
+            "height_max_m": "84.31",
+            "elev_min_m": "26.92",
+            "elev_max_m": "34.25",
+            "quality": "Good",
+            "acquisition_method": "Lidar",
+            "provider": "Provincial-Territorial",
+            "date_min": "20180907",
+            "date_max": "20181115",
+            "h_accuracy": "2-2",
+            "v_accuracy": "1-1",
+            "dataset": "NRCan Automatically Extracted Buildings",
+            "dataset_uuid": "7a5cda52-c7df-427f-9ced-26f19a8a64d6",
+            "provenance_method": "vector-selection",
+            "attributes_ref": "authority-record"
+          }
+        }
+      ]
+    }
+  },
+  "triple": {
+    "sourceId": "7aae143c-1218-4ca0-be18-913687208f27",
+    "sensing": {
+      "green": 0,
+      "red": 1,
+      "contact": 0,
+      "seal": 0,
+      "candidateGreen": false,
+      "acquiredRed": true,
+      "brightRed": true,
+      "candidateIdentity": "1000 de La Gauchetière",
+      "plateText": "1000 de La Gauchetière H 214 m",
+      "plateCount": 1,
+      "extraLabels": 0,
+      "visible": [
+        {
+          "role": "acquired",
+          "family": "red",
+          "stroke": "#FF0000",
+          "className": "fi-footprint fi-footprint--selected"
+        }
+      ]
+    },
+    "set": {
+      "contract": "iqai.lab.collectedset.v1",
+      "setId": "iqai-set-ec2b76a51ac7",
+      "count": 3,
+      "sourceIds": [
+        "79f19e6e-9da7-4f1e-b269-ac2f28aff1d0",
+        "ae6980f1-b153-4e75-8f35-ae544279189c",
+        "7aae143c-1218-4ca0-be18-913687208f27"
+      ]
+    }
+  },
+  "hairlinesAfterClear": 2,
+  "collected": {
+    "contract": "iqai.lab.collectedset.v1",
+    "setId": "iqai-set-ec2b76a51ac7",
+    "count": 3,
+    "sourceIds": [
+      "79f19e6e-9da7-4f1e-b269-ac2f28aff1d0",
+      "ae6980f1-b153-4e75-8f35-ae544279189c",
+      "7aae143c-1218-4ca0-be18-913687208f27"
+    ]
+  },
+  "csvHeader": [
+    "object_key",
+    "object_class",
+    "authority_provider",
+    "source_id",
+    "name_context",
+    "latitude",
+    "longitude",
+    "source_area_m2",
+    "derived_area_m2",
+    "perimeter_m",
+    "height_min_m",
+    "height_max_m",
+    "elev_min_m",
+    "elev_max_m",
+    "quality",
+    "acquisition_method",
+    "provider",
+    "date_min",
+    "date_max",
+    "h_accuracy",
+    "v_accuracy",
+    "dataset",
+    "dataset_uuid",
+    "provenance_method",
+    "attributes_ref"
+  ],
+  "csvIds": [
+    "79f19e6e-9da7-4f1e-b269-ac2f28aff1d0",
+    "ae6980f1-b153-4e75-8f35-ae544279189c"
+  ],
+  "darkHover": {
+    "sensing": {
+      "green": 1,
+      "red": 0,
+      "contact": 3,
+      "seal": 0,
+      "candidateGreen": true,
+      "acquiredRed": false,
+      "brightRed": false,
+      "candidateIdentity": "Place Ville Marie",
+      "plateText": "Place Ville Marie H 207 m",
+      "plateCount": 1,
+      "extraLabels": 0,
+      "visible": [
+        {
+          "role": "candidate",
+          "family": "green",
+          "stroke": "#3DFF74",
+          "className": "fi-footprint fi-footprint--targeted"
+        },
+        {
+          "role": "contact",
+          "family": "green",
+          "stroke": "#6CFF94",
+          "className": "fi-footprint fi-footprint--contact"
+        },
+        {
+          "role": "contact",
+          "family": "green",
+          "stroke": "#6CFF94",
+          "className": "fi-footprint fi-footprint--contact"
+        },
+        {
+          "role": "contact",
+          "family": "green",
+          "stroke": "#6CFF94",
+          "className": "fi-footprint fi-footprint--contact"
+        }
+      ]
+    }
+  },
+  "darkAcquired": {
+    "sensing": {
+      "green": 0,
+      "red": 1,
+      "contact": 0,
+      "seal": 0,
+      "candidateGreen": false,
+      "acquiredRed": true,
+      "brightRed": true,
+      "candidateIdentity": "Place Ville Marie",
+      "plateText": "Place Ville Marie H 207 m",
+      "plateCount": 1,
+      "extraLabels": 0,
+      "visible": [
+        {
+          "role": "acquired",
+          "family": "red",
+          "stroke": "#FF0000",
+          "className": "fi-footprint fi-footprint--selected"
+        }
+      ]
+    }
+  },
+  "persist": {
+    "persistId": "7aae143c-1218-4ca0-be18-913687208f27",
+    "persistLeave": "7aae143c-1218-4ca0-be18-913687208f27",
+    "afterClear": null
+  },
+  "nrcanFeatureCount": 571
+}

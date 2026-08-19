@@ -166,34 +166,79 @@ export function featureToLatLngs(feature) {
 function distPointToSegmentMeters(lat, lng, a, b) {
   const steps = 8;
   let best = Infinity;
+  let bestLat = a[1];
+  let bestLng = a[0];
   for (let i = 0; i <= steps; i += 1) {
     const t = i / steps;
     const lngi = a[0] + (b[0] - a[0]) * t;
     const lati = a[1] + (b[1] - a[1]) * t;
     const d = haversineMeters(lat, lng, lati, lngi);
-    if (d < best) best = d;
+    if (d < best) {
+      best = d;
+      bestLat = lati;
+      bestLng = lngi;
+    }
   }
-  return best;
+  return { range: best, lat: bestLat, lng: bestLng };
 }
 
 export function distanceToRingMeters(lat, lng, ring) {
   if (pointInRing(lng, lat, ring)) return 0;
   let best = Infinity;
   for (let i = 0; i < ring.length - 1; i += 1) {
-    const d = distPointToSegmentMeters(lat, lng, ring[i], ring[i + 1]);
-    if (d < best) best = d;
+    const hit = distPointToSegmentMeters(lat, lng, ring[i], ring[i + 1]);
+    if (hit.range < best) best = hit.range;
   }
   return best;
 }
 
-export function distanceToFeatureMeters(lat, lng, feature) {
-  if (featureContainsPoint(feature, lng, lat)) return 0;
-  let best = Infinity;
+export function nearestEdgePoint(lat, lng, feature) {
+  if (!feature) return null;
+  if (featureContainsPoint(feature, lng, lat)) {
+    return { lat, lng, range: 0 };
+  }
+  let best = null;
   for (const ring of featureOuterRings(feature)) {
-    const d = distanceToRingMeters(lat, lng, ring);
-    if (d < best) best = d;
+    for (let i = 0; i < ring.length - 1; i += 1) {
+      const hit = distPointToSegmentMeters(lat, lng, ring[i], ring[i + 1]);
+      if (!best || hit.range < best.range) best = hit;
+    }
   }
   return best;
+}
+
+export function nearestFacadeEdges(lat, lng, feature, count = 3) {
+  if (!feature || !Number.isFinite(lat) || !Number.isFinite(lng)) return [];
+  const edges = [];
+  for (const ring of featureOuterRings(feature)) {
+    for (let i = 0; i < ring.length - 1; i += 1) {
+      const a = ring[i];
+      const b = ring[i + 1];
+      const len = haversineMeters(a[1], a[0], b[1], b[0]);
+      if (len < 4) continue;
+      const hit = distPointToSegmentMeters(lat, lng, a, b);
+      edges.push({
+        range: hit.range,
+        length: len,
+        a: { lng: a[0], lat: a[1] },
+        b: { lng: b[0], lat: b[1] },
+        key: `${a[0].toFixed(7)},${a[1].toFixed(7)}|${b[0].toFixed(7)},${b[1].toFixed(7)}`
+      });
+    }
+  }
+  edges.sort((x, y) => x.range - y.range || y.length - x.length);
+  const picked = [];
+  for (const edge of edges) {
+    if (picked.some((row) => row.key === edge.key)) continue;
+    picked.push(edge);
+    if (picked.length >= count) break;
+  }
+  return picked;
+}
+
+export function distanceToFeatureMeters(lat, lng, feature) {
+  const hit = nearestEdgePoint(lat, lng, feature);
+  return hit ? hit.range : Infinity;
 }
 
 export function formatArea(squareMeters) {

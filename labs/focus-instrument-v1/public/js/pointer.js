@@ -58,11 +58,7 @@ const POINTER_TEMPLATE = (zoom) => `
   <div class="fi-mark fi-pointer" data-state="hidden">
     ${createReticleMarkup(zoom, { seam: false })}
     <div class="fi-chip">
-      <p class="fi-chip__coords" data-role="coords"></p>
-      <p class="fi-chip__place" data-role="place" hidden></p>
-      <p class="fi-chip__meta" data-role="meta" hidden></p>
-      <p class="fi-chip__snap" data-role="snap" hidden></p>
-      <p class="fi-chip__object" data-role="object" hidden></p>
+      <p class="fi-chip__sense" data-role="sense" hidden></p>
     </div>
   </div>
 `;
@@ -97,33 +93,22 @@ export function setPointerState(node, state) {
   node.hidden = state === 'hidden';
 }
 
-export function paintChip(node, { coords, place, meta, snap, object } = {}) {
-  const coordsNode = node.querySelector('[data-role="coords"]');
-  const placeNode = node.querySelector('[data-role="place"]');
-  const metaNode = node.querySelector('[data-role="meta"]');
-  const snapNode = node.querySelector('[data-role="snap"]');
-  const objectNode = node.querySelector('[data-role="object"]');
-  if (coordsNode) coordsNode.textContent = coords || '';
-  if (placeNode) {
-    placeNode.hidden = !place;
-    placeNode.textContent = place || '';
+export function paintChip(node, { sense, coords, place, meta, snap, object } = {}) {
+  const senseNode = node.querySelector('[data-role="sense"]');
+  const text = sense || object || '';
+  if (senseNode) {
+    senseNode.hidden = !text;
+    senseNode.textContent = text;
   }
-  if (metaNode) {
-    metaNode.hidden = !meta;
-    metaNode.textContent = meta || '';
-  }
-  if (snapNode) {
-    snapNode.hidden = !snap;
-    snapNode.textContent = snap || '';
-  }
-  if (objectNode) {
-    objectNode.hidden = !object;
-    objectNode.textContent = object || '';
-  }
+  void coords;
+  void place;
+  void meta;
+  void snap;
 }
 
 export function paintFocusPlate(node, { kicker, place, coords, elev, object = false } = {}) {
   node.classList.toggle('is-object', Boolean(object));
+  node.querySelector('.fi-plate')?.classList.toggle('is-object', Boolean(object));
   const kickerNode = node.querySelector('[data-role="kicker"]');
   const placeNode = node.querySelector('[data-role="place"]');
   const coordsNode = node.querySelector('[data-role="coords"]');
