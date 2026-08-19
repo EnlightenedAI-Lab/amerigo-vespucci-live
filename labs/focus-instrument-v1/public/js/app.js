@@ -19,6 +19,12 @@ import {
   serializeSelection
 } from './object-ref.js';
 import {
+  addToCollectedSet,
+  collectedSetToCsv,
+  createCollectedSet,
+  serializeCollectedSet
+} from './collected-set.js';
+import {
   mountMarks,
   paintChip,
   paintFocusPlate,
@@ -28,7 +34,7 @@ import {
 } from './pointer.js';
 
 const ORIGIN = { lat: 45.50169, lng: -73.56832 };
-const LOCK_MS = 860;
+const LOCK_MS = 420;
 const STATES = {
   idle: 'IDLE',
   hover: 'HOVER',
@@ -44,6 +50,9 @@ const inspector = document.getElementById('inspector');
 const toast = document.getElementById('toast');
 const btnRef = document.getElementById('btn-ref');
 const btnInspect = document.getElementById('btn-inspect');
+const btnAddSet = document.getElementById('btn-add-set');
+const btnDark = document.getElementById('btn-dark');
+const btnExportCsv = document.getElementById('btn-export-csv');
 const sourceLine = document.getElementById('source-line');
 
 const catalog = await fetch('./data/features.json').then((r) => r.json());
@@ -81,16 +90,21 @@ for (const node of [
   L.DomEvent.disableScrollPropagation(node);
 }
 
-L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+const imageryLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
   maxZoom: 19,
   attribution: 'Tiles © Esri'
 }).addTo(map);
 
-L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+const labelsLayer = L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
   maxZoom: 19,
   opacity: 0.38,
   attribution: 'Labels © Esri'
 }).addTo(map);
+
+const darkLayer = L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+  maxZoom: 19,
+  attribution: 'Tiles © Esri'
+});
 
 const footprints = createFootprintController(map);
 
@@ -121,6 +135,8 @@ let inspectorOpen = false;
 let drag = false;
 let toastTimer = 0;
 let refMarker = null;
+let collectedSet = createCollectedSet();
+let basemapMode = 'imagery';
 
 function showToast(message) {
   toast.hidden = false;
@@ -265,7 +281,10 @@ function inspectorFields() {
     mgrs: inspector.querySelector('[data-field="mgrs"]'),
     epsg: inspector.querySelector('[data-field="epsg"]'),
     provenance: inspector.querySelector('[data-field="provenance"]'),
-    provenanceMethod: inspector.querySelector('[data-field="provenance-method"]')
+    provenanceMethod: inspector.querySelector('[data-field="provenance-method"]'),
+    setCount: inspector.querySelector('[data-field="set-count"]'),
+    setId: inspector.querySelector('[data-field="set-id"]'),
+    setRows: inspector.querySelector('[data-field="set-rows"]')
   };
 }
 
@@ -379,6 +398,33 @@ function paintInspector() {
       ? `method  ${objectRef.provenance?.method || 'vector-selection'}  ·  inference  ${objectRef.provenance?.inference ? 'yes' : 'no'}`
       : '';
   }
+  paintCollectedSet(fields);
+}
+
+function paintCollectedSet(fields) {
+  const count = collectedSet.objectRefs.length;
+  if (fields.setCount) fields.setCount.textContent = String(count);
+  if (fields.setId) {
+    fields.setId.textContent = count
+      ? `${collectedSet.setId}  ·  ${collectedSet.createdAt}`
+      : 'empty';
+  }
+  if (!fields.setRows) return;
+  if (!count) {
+    fields.setRows.innerHTML = '<tr><td colspan="5">NO OBJECTS IN SET</td></tr>';
+    return;
+  }
+  fields.setRows.innerHTML = collectedSet.objectRefs.map((item) => {
+    const row = item.row || {};
+    const sourceId = row.source_id ? String(row.source_id).slice(0, 8) : '—';
+    return `<tr>
+      <td>${row.object_class || '—'}</td>
+      <td title="${row.source_id || ''}">${sourceId}</td>
+      <td>${row.name_context || '—'}</td>
+      <td>${row.source_area_m2 || row.derived_area_m2 || '—'}</td>
+      <td>${row.height_max_m || '—'}</td>
+    </tr>`;
+  }).join('');
 }
 
 function setInspectorOpen(open) {
@@ -497,7 +543,8 @@ function onPointerSample(latlng, containerPoint) {
   const derived = hoverObject();
   footprints.setHover(hoverHit?.item.feature || null, {
     inside: hoverHit?.relation === 'inside',
-    name: derived && derived.name !== 'Building' ? derived.name : null
+    name: derived && derived.name !== 'Building' ? derived.name : null,
+    sourceId: hoverHit?.item.feature.properties?.feature_id || null
   });
   paintPointerReadout(pointerGeo, pointerState);
   paintRange(pointerGeo);
@@ -510,7 +557,8 @@ function onPointerSample(latlng, containerPoint) {
     const derived = hoverObject();
     if (hoverHit) {
       footprints.setDwell(hoverHit.item.feature, {
-        name: derived && derived.name !== 'Building' ? derived.name : null
+        name: derived && derived.name !== 'Building' ? derived.name : null,
+        sourceId: hoverHit.item.feature.properties?.feature_id || null
       });
     }
     paintPointerReadout(pointerGeo, 'targeted');
@@ -726,6 +774,71 @@ btnInspect.addEventListener('click', () => {
 });
 document.getElementById('inspector-close')?.addEventListener('click', () => setInspectorOpen(false));
 
+function addAcquiredToSet() {
+  const objectRef = selectionState?.objectRef;
+  const derived = currentObject();
+  const result = addToCollectedSet(collectedSet, objectRef, derived);
+  if (!result.ok && result.reason === 'no-objectref') {
+    showToast('NO ACQUIRED OBJECT');
+    return result;
+  }
+  if (!result.ok && result.reason === 'duplicate') {
+    showToast('ALREADY IN SET');
+    paintInspector();
+    return result;
+  }
+  collectedSet = result.set;
+  showToast(`ADDED TO SET  ·  ${collectedSet.objectRefs.length}`);
+  paintInspector();
+  return result;
+}
+
+function downloadCollectedCsv() {
+  if (!collectedSet.objectRefs.length) {
+    showToast('SET EMPTY');
+    return null;
+  }
+  const csv = collectedSetToCsv(collectedSet);
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${collectedSet.setId}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+  showToast('CSV EXPORTED');
+  return csv;
+}
+
+function setBasemap(mode) {
+  if (mode === 'dark') {
+    if (map.hasLayer(imageryLayer)) map.removeLayer(imageryLayer);
+    if (map.hasLayer(labelsLayer)) map.removeLayer(labelsLayer);
+    if (!map.hasLayer(darkLayer)) darkLayer.addTo(map);
+    basemapMode = 'dark';
+    btnDark?.setAttribute('aria-pressed', 'true');
+  } else {
+    if (map.hasLayer(darkLayer)) map.removeLayer(darkLayer);
+    if (!map.hasLayer(imageryLayer)) imageryLayer.addTo(map);
+    if (!map.hasLayer(labelsLayer)) labelsLayer.addTo(map);
+    basemapMode = 'imagery';
+    btnDark?.setAttribute('aria-pressed', 'false');
+  }
+  return basemapMode;
+}
+
+btnAddSet?.addEventListener('click', () => {
+  addAcquiredToSet();
+});
+btnExportCsv?.addEventListener('click', () => {
+  downloadCollectedCsv();
+});
+btnDark?.addEventListener('click', () => {
+  setBasemap(basemapMode === 'dark' ? 'imagery' : 'dark');
+});
+
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
     if (inspectorOpen) setInspectorOpen(false);
@@ -741,7 +854,7 @@ function containerPointOf(lat, lng) {
 }
 
 window.IQAIFocusInstrument = {
-  version: '4.3',
+  version: '4.4',
   origin: ORIGIN,
   geometrySource: buildingCollection.attribution,
   buildingSource: buildingCollection.source,
@@ -777,6 +890,13 @@ window.IQAIFocusInstrument = {
         derived: object.derived
       } : null,
       objectRef: selectionState?.objectRef || null,
+      collectedSet: {
+        contract: collectedSet.contract,
+        setId: collectedSet.setId,
+        count: collectedSet.objectRefs.length,
+        sourceIds: collectedSet.objectRefs.map((item) => item.sourceId)
+      },
+      basemap: basemapMode,
       selection: selectionState,
       zoom: map.getZoom(),
       scale: currentScale(),
@@ -854,7 +974,8 @@ window.IQAIFocusInstrument = {
     const derived = hoverObject();
     if (hoverHit) {
       footprints.setDwell(hoverHit.item.feature, {
-        name: derived && derived.name !== 'Building' ? derived.name : null
+        name: derived && derived.name !== 'Building' ? derived.name : null,
+        sourceId: hoverHit.item.feature.properties?.feature_id || null
       });
     }
     paintPointerReadout({ lat, lng }, 'targeted');
@@ -889,6 +1010,19 @@ window.IQAIFocusInstrument = {
   },
   clear() {
     clearFocus();
+    return this.getState();
+  },
+  addToSet() {
+    return addAcquiredToSet();
+  },
+  exportCollectedCsv() {
+    return downloadCollectedCsv();
+  },
+  serializeCollectedSet() {
+    return serializeCollectedSet(collectedSet);
+  },
+  setBasemap(mode) {
+    setBasemap(mode === 'dark' ? 'dark' : 'imagery');
     return this.getState();
   }
 };

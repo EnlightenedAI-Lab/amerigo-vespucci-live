@@ -7,8 +7,8 @@ import {
 
 const GREEN = '#2FD46A';
 const GREEN_BRIGHT = '#5AE88A';
-const RED = '#E24A4A';
-const RED_BRIGHT = '#FF6B6B';
+const RED = '#FF1A12';
+const RED_BRIGHT = '#FF3B14';
 const INK = '#070b08';
 
 const STYLE = {
@@ -41,19 +41,19 @@ const STYLE = {
   },
   acquire: {
     color: RED_BRIGHT,
-    weight: 3.1,
+    weight: 3.35,
     opacity: 1,
     fillColor: RED,
-    fillOpacity: 0.04,
+    fillOpacity: 0,
     className: 'fi-footprint fi-footprint--acquire',
     interactive: false
   },
   selected: {
     color: RED,
-    weight: 2.9,
+    weight: 3.2,
     opacity: 1,
     fillColor: RED,
-    fillOpacity: 0.03,
+    fillOpacity: 0,
     className: 'fi-footprint fi-footprint--selected',
     interactive: false
   }
@@ -65,8 +65,8 @@ const CANDIDATE_CASING = {
 };
 
 const ACQUIRED_CASING = {
-  acquire: { dark: 8.4, light: 5.2, darkOp: 0.96, lightOp: 0.94 },
-  selected: { dark: 8.0, light: 4.8, darkOp: 0.96, lightOp: 0.92 }
+  acquire: { dark: 9.2, light: 5.6, darkOp: 0.98, lightOp: 0.95 },
+  selected: { dark: 8.6, light: 5.2, darkOp: 0.97, lightOp: 0.94 }
 };
 
 function insetRing(ring, factor = 0.045) {
@@ -218,6 +218,17 @@ export function createFootprintController(map) {
       html: '<div class="fi-foot-label__card" hidden><span data-role="kicker">BUILDING FOOTPRINT</span><strong data-role="name"></strong><em data-role="status"></em></div>'
     })
   }).addTo(map);
+  const candidateChip = L.marker([0, 0], {
+    interactive: false,
+    keyboard: false,
+    pane: 'object-footprints',
+    icon: L.divIcon({
+      className: 'fi-cand-id-wrap',
+      iconSize: [0, 0],
+      iconAnchor: [0, 10],
+      html: '<div class="fi-cand-id" hidden><span data-role="text"></span></div>'
+    })
+  }).addTo(map);
 
   hover.setStyle({ opacity: 0, fillOpacity: 0 });
   dwell.setStyle({ opacity: 0, fillOpacity: 0 });
@@ -288,7 +299,7 @@ export function createFootprintController(map) {
   }
 
   function showAcquiredCasing(feature, mode) {
-    paintCasing(casingDark, casingLight, feature, ACQUIRED_CASING[mode], '#f7ecec');
+    paintCasing(casingDark, casingLight, feature, ACQUIRED_CASING[mode], '#f4f0ea');
   }
 
   function hideCandidateCasing() {
@@ -335,6 +346,7 @@ export function createFootprintController(map) {
     hide(traveler);
     hideCandidateCasing();
     ticks.clearLayers();
+    hideCandidateId();
   }
 
   function placeLabel(feature, { kicker, name, status }) {
@@ -369,6 +381,45 @@ export function createFootprintController(map) {
     if (root) root.hidden = true;
   }
 
+  function candidateIdentity({ name, sourceId } = {}) {
+    if (name) return name;
+    if (sourceId) return String(sourceId).slice(0, 8);
+    return 'BUILDING';
+  }
+
+  function placeCandidateId(feature, identity) {
+    const centroid = featureCentroid(feature);
+    const ring = featureOuterRings(feature)[0];
+    const east = ring ? Math.max(...ring.map((p) => p[0])) : centroid?.lng;
+    const lat = centroid?.lat;
+    const lng = east != null ? east + 0.00004 : centroid?.lng;
+    if (lat == null || lng == null) return;
+    candidateChip.setLatLng([lat, lng]);
+    const apply = () => {
+      const root = candidateChip.getElement()?.querySelector('.fi-cand-id');
+      if (!root) return false;
+      root.hidden = false;
+      root.querySelector('[data-role="text"]').textContent = identity || 'BUILDING';
+      return true;
+    };
+    if (!apply()) requestAnimationFrame(apply);
+  }
+
+  function hideCandidateId() {
+    const root = candidateChip.getElement()?.querySelector('.fi-cand-id');
+    if (root) root.hidden = true;
+  }
+
+  function hideAcquired() {
+    hide(selected);
+    hide(pulse);
+    hide(casingDark);
+    hide(casingLight);
+    acquiredTicks.clearLayers();
+    hideLabel();
+    radial.setStyle({ opacity: 0, fillOpacity: 0 });
+  }
+
   function clearTransient() {
     hideCandidate();
     radial.setStyle({ opacity: 0 });
@@ -380,19 +431,22 @@ export function createFootprintController(map) {
   }
 
   return {
-    setHover(feature, { inside = true, name = null } = {}) {
+    setHover(feature, { inside = true, name = null, sourceId = null } = {}) {
       const key = featureKey(feature);
+      const identity = candidateIdentity({ name, sourceId });
       if (selectedId) {
         hide(dwell);
         if (!feature || key === selectedId || !inside) {
           hide(hover);
           hideCandidateCasing();
           ticks.clearLayers();
+          hideCandidateId();
           return;
         }
         showPolygon(hover, feature, STYLE.hover);
         showCandidateCasing(feature, 'hover');
         paintTicks(feature, 'hover', ticks, GREEN);
+        placeCandidateId(feature, identity);
         return;
       }
       hide(dwell);
@@ -404,6 +458,7 @@ export function createFootprintController(map) {
         hide(shadow);
         hideCandidateCasing();
         ticks.clearLayers();
+        hideCandidateId();
         hideLabel();
         phase = 'idle';
         return;
@@ -411,22 +466,20 @@ export function createFootprintController(map) {
       phase = 'hover';
       showPolygon(hover, feature, STYLE.hover);
       showCandidateCasing(feature, 'hover');
-      showInner(feature, 0.35, GREEN);
-      showShadow(feature, 0.06);
+      showInner(feature, 0.28, GREEN);
+      showShadow(feature, 0.05);
       paintTicks(feature, 'hover', ticks, GREEN);
-      placeLabel(feature, {
-        kicker: 'AVAILABLE',
-        name,
-        status: 'CANDIDATE'
-      });
+      placeCandidateId(feature, identity);
     },
-    setDwell(feature, { name = null } = {}) {
+    setDwell(feature, { name = null, sourceId = null } = {}) {
       const key = featureKey(feature);
+      const identity = candidateIdentity({ name, sourceId });
       if (!feature || key === selectedId) {
         hide(dwell);
         hide(hover);
         hideCandidateCasing();
         ticks.clearLayers();
+        hideCandidateId();
         return;
       }
       hide(hover);
@@ -434,37 +487,37 @@ export function createFootprintController(map) {
       showPolygon(dwell, feature, STYLE.targeted);
       showCandidateCasing(feature, 'targeted');
       paintTicks(feature, 'dwell', ticks, GREEN_BRIGHT);
-      paintTraveler(feature, !selectedId);
+      paintTraveler(feature, false);
+      placeCandidateId(feature, identity);
       if (!selectedId) {
-        showInner(feature, 0.5, GREEN);
-        showShadow(feature, 0.08);
-        placeLabel(feature, {
-          kicker: 'AVAILABLE',
-          name,
-          status: 'TARGETED'
-        });
+        showInner(feature, 0.32, GREEN);
+        showShadow(feature, 0.06);
       }
     },
     acquire(feature, { name = null } = {}) {
+      const nextId = featureKey(feature);
       const centroid = featureCentroid(feature);
-      selectedId = featureKey(feature);
+      if (selectedId && selectedId !== nextId) {
+        hideAcquired();
+      }
+      selectedId = nextId;
       phase = 'acquire';
       hideCandidate();
       showPolygon(selected, feature, STYLE.acquire);
       showPolygon(pulse, feature, {
         color: RED_BRIGHT,
-        weight: 1.1,
-        opacity: 0.7,
+        weight: 2.4,
+        opacity: 1,
         fillOpacity: 0,
         className: 'fi-footprint fi-footprint--pulse'
       });
       showAcquiredCasing(feature, 'acquire');
-      showInner(feature, 0.45, RED);
-      showShadow(feature, 0.1);
+      showInner(feature, 0, RED);
+      showShadow(feature, 0.06);
       paintTicks(feature, 'acquire', acquiredTicks, RED_BRIGHT);
       if (centroid) {
         radial.setLatLng([centroid.lat, centroid.lng]);
-        radial.setStyle({ opacity: 0.9, fillOpacity: 0.08, radius: 14, color: RED });
+        radial.setStyle({ opacity: 0.85, fillOpacity: 0, radius: 16, color: RED_BRIGHT });
       }
       placeLabel(feature, {
         kicker: 'BUILDING',
@@ -479,10 +532,10 @@ export function createFootprintController(map) {
         radial.setStyle({ opacity: 0, fillOpacity: 0 });
         paintTicks(feature, 'selected', acquiredTicks, RED);
         showAcquiredCasing(feature, 'selected');
-        showInner(feature, 0.4, RED);
-        showShadow(feature, 0.08);
+        showInner(feature, 0, RED);
+        showShadow(feature, 0.04);
         phase = 'selected';
-      }, 860);
+      }, 420);
       return selectedId;
     },
     clear() {
@@ -490,16 +543,11 @@ export function createFootprintController(map) {
       phase = 'idle';
       clearTimeout(pulseTimer);
       hideCandidate();
-      hide(selected);
-      hide(pulse);
+      hideAcquired();
       hide(inner);
       hide(shadow);
-      hide(casingDark);
-      hide(casingLight);
       hide(traveler);
-      acquiredTicks.clearLayers();
-      radial.setStyle({ opacity: 0, fillOpacity: 0 });
-      hideLabel();
+      hideCandidateId();
     },
     selectedId() {
       return selectedId;

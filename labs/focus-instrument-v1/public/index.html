@@ -11,7 +11,7 @@
   <header class="fi-header">
     <div class="fi-brand">
       <span class="fi-brand__mark">IQAI SPATIAL</span>
-      <span class="fi-brand__product">Object Acquisition Lab v4.3</span>
+      <span class="fi-brand__product">Object Acquisition Lab v4.4</span>
     </div>
     <p class="fi-header__source" id="source-line">SOURCE  NRCan Automatically Extracted Buildings</p>
     <div class="fi-header__mode">
@@ -31,6 +31,8 @@
       <button type="button" id="btn-ref" aria-pressed="false" title="Set bearing and range reference">SET REFERENCE</button>
       <button type="button" id="btn-clear">CLEAR</button>
       <button type="button" id="btn-inspect" aria-pressed="false">INSPECT</button>
+      <button type="button" id="btn-add-set" title="Add acquired object to collected set">ADD TO SET</button>
+      <button type="button" id="btn-dark" aria-pressed="false" title="Dark basemap visibility proof">DARK TEST</button>
     </div>
 
     <aside class="fi-inspector" id="inspector" hidden>
@@ -109,6 +111,28 @@
         <h3>PROVENANCE</h3>
         <p data-field="provenance">NRCan Automatically Extracted Buildings</p>
         <p class="fi-inspector__muted" data-field="provenance-method"></p>
+      </section>
+
+      <section class="fi-inspector__block" id="set-block">
+        <h3>COLLECTED SET  ·  <span data-field="set-count">0</span></h3>
+        <p class="fi-inspector__muted" data-field="set-id">empty</p>
+        <div class="fi-set-table-wrap">
+          <table class="fi-set-table">
+            <thead>
+              <tr>
+                <th>CLASS</th>
+                <th>SOURCE ID</th>
+                <th>NAME</th>
+                <th>AREA</th>
+                <th>HMAX</th>
+              </tr>
+            </thead>
+            <tbody data-field="set-rows">
+              <tr><td colspan="5">NO OBJECTS IN SET</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <button type="button" id="btn-export-csv">EXPORT CSV</button>
       </section>
 
       <section class="fi-inspector__seam" data-seam="property" hidden></section>
