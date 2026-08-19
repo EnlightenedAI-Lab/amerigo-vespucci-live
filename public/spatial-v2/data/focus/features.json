@@ -1,0 +1,39 @@
+{
+  "region": "Greater Montreal — lab demo objects",
+  "reference": {
+    "id": "pvm",
+    "name": "Place Ville Marie",
+    "kind": "survey-origin",
+    "lat": 45.50169,
+    "lng": -73.56832
+  },
+  "elevationSamples": [
+    { "lat": 45.5088, "lng": -73.5876, "z": 233 },
+    { "lat": 45.5048, "lng": -73.5870, "z": 201 },
+    { "lat": 45.5017, "lng": -73.5673, "z": 32 },
+    { "lat": 45.5046, "lng": -73.5560, "z": 18 },
+    { "lat": 45.5088, "lng": -73.5544, "z": 20 },
+    { "lat": 45.5000, "lng": -73.5439, "z": 8 },
+    { "lat": 45.4961, "lng": -73.5693, "z": 28 },
+    { "lat": 45.4999, "lng": -73.5665, "z": 30 },
+    { "lat": 45.5139, "lng": -73.5316, "z": 14 }
+  ],
+  "features": [
+    { "id": "pvm", "name": "Place Ville Marie", "kind": "tower", "lat": 45.50169, "lng": -73.56832, "address": "1 Place Ville Marie, Montréal, QC" },
+    { "id": "tour-1000", "name": "1000 de La Gauchetière", "kind": "tower", "lat": 45.49833, "lng": -73.56639, "address": "1000 Rue de la Gauchetière O, Montréal, QC" },
+    { "id": "gare", "name": "Gare Centrale", "kind": "station", "lat": 45.49991, "lng": -73.56648, "address": "895 Rue de la Gauchetière O, Montréal, QC" },
+    { "id": "bell", "name": "Centre Bell", "kind": "arena", "lat": 45.49608, "lng": -73.56935, "address": "1909 Avenue des Canadiens-de-Montréal, Montréal, QC" },
+    { "id": "mcgill", "name": "McGill University", "kind": "campus", "lat": 45.50478, "lng": -73.57717, "address": "845 Rue Sherbrooke O, Montréal, QC" },
+    { "id": "pda", "name": "Place des Arts", "kind": "venue", "lat": 45.50827, "lng": -73.56648, "address": "175 Rue Sainte-Catherine O, Montréal, QC" },
+    { "id": "ndb", "name": "Basilique Notre-Dame", "kind": "landmark", "lat": 45.50463, "lng": -73.55601, "address": "110 Rue Notre-Dame O, Montréal, QC" },
+    { "id": "hotel-de-ville", "name": "Hôtel de Ville de Montréal", "kind": "civic", "lat": 45.50882, "lng": -73.55442, "address": "275 Rue Notre-Dame E, Montréal, QC" },
+    { "id": "bonsecours", "name": "Marché Bonsecours", "kind": "landmark", "lat": 45.50895, "lng": -73.55147, "address": "350 Rue Saint-Paul E, Montréal, QC" },
+    { "id": "old-port", "name": "Vieux-Port de Montréal", "kind": "waterfront", "lat": 45.50735, "lng": -73.55341, "address": "333 Rue de la Commune O, Montréal, QC" },
+    { "id": "square-vic", "name": "Square Victoria", "kind": "square", "lat": 45.50196, "lng": -73.56273, "address": "Square Victoria, Montréal, QC" },
+    { "id": "habitat", "name": "Habitat 67", "kind": "landmark", "lat": 45.50005, "lng": -73.54395, "address": "2600 Avenue Pierre-Dupuy, Montréal, QC" },
+    { "id": "biosphere", "name": "Biosphère", "kind": "landmark", "lat": 45.51395, "lng": -73.53163, "address": "160 Chemin Tour-de-l'Isle, Montréal, QC" },
+    { "id": "mount-royal", "name": "Belvédère Kondiaronk", "kind": "summit", "lat": 45.50368, "lng": -73.58705, "address": "1196 Voie Camillien-Houde, Montréal, QC" },
+    { "id": "oratoire", "name": "Oratoire Saint-Joseph", "kind": "landmark", "lat": 45.49222, "lng": -73.61694, "address": "3800 Chemin Queen Mary, Montréal, QC" },
+    { "id": "olympic", "name": "Stade olympique", "kind": "venue", "lat": 45.55798, "lng": -73.55148, "address": "4141 Avenue Pierre-De Coubertin, Montréal, QC" }
+  ]
+}

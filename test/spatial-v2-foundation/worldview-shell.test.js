@@ -64,6 +64,7 @@ test('AppShell remains composition-only while MAP is wrapped outside it', () => 
   assert.doesNotMatch(app, /new MapView\(/);
   assert.match(session, /initMapFoundation/);
   assert.match(session, /bindDropPinControl/);
+  assert.match(session, /bindFocusInstrument/);
   assert.match(session, /bindStreet360Control/);
   assert.match(session, /bindGooglePhotorealistic3dControl/);
   assert.match(session, /bindViewSwitcher/);
@@ -96,6 +97,7 @@ test('MAP, STREET 360, and 3D VISUAL are migrated; 3D ANALYZE stays unavailable'
   assert.equal(chassis.viewRegistry.require(VIEW_ID.MAP).migrationState, MIGRATION_STATE.MIGRATED);
   assert.equal(chassis.capabilityRegistry.require('map').migrationState, MIGRATION_STATE.MIGRATED);
   assert.equal(chassis.capabilityRegistry.require('focus.set').migrationState, MIGRATION_STATE.MIGRATED);
+  assert.equal(chassis.capabilityRegistry.require('selection.set').migrationState, MIGRATION_STATE.MIGRATED);
   assert.equal(chassis.viewRegistry.require(VIEW_ID.STREET_360).migrationState, MIGRATION_STATE.MIGRATED);
   assert.equal(chassis.viewRegistry.require(VIEW_ID.VISUAL_3D).migrationState, MIGRATION_STATE.MIGRATED);
   assert.equal(chassis.viewRegistry.require(VIEW_ID.ANALYZE_3D).migrationState, MIGRATION_STATE.UNAVAILABLE);

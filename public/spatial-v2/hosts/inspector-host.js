@@ -4,6 +4,7 @@
  */
 
 import { renderContextInspector, setInspectorRegion, bindContextInspector, paintInspectorPane } from '../shell/ContextInspector.js';
+import { objectRefKey } from '../foundation/contracts/index.js';
 
 export function renderInspectorHost() {
   return renderContextInspector();
@@ -35,8 +36,9 @@ export function paintInspectorHost(root, projection) {
 export { bindContextInspector, paintInspectorPane };
 
 export function projectInspector(world, extras = {}) {
-  const focus = world.activeFocus;
-  const selectionCount = world.selection?.objectRefs?.length || 0;
+  const refs = world.selection?.objectRefs || [];
+  const primaryId = world.selection?.primaryObjectRefId || null;
+  const primary = refs.find((ref) => objectRefKey(ref) === primaryId) || null;
   return {
     situationState: extras.activeSystem ? 'CHASSIS' : 'RESERVED',
     situation: [
@@ -44,12 +46,24 @@ export function projectInspector(world, extras = {}) {
       `Active system: ${extras.activeSystem || 'none'}`,
       `Active view: ${(world.views.activeViewIds || []).join(', ')}`,
       `Revision: ${world.revision}`,
-      'This is the Spatial V2 platform chassis. Specialist engines are unmigrated.'
+      extras.situationNote || 'DROP PIN is WHERE. Acquired ObjectRef is WHAT.'
     ].join('\n'),
-    selectionState: selectionCount ? 'SELECTED' : 'RESERVED',
-    selection: selectionCount
-      ? `${selectionCount} ObjectRef(s). Primary is not an ArcGIS OBJECTID.`
-      : 'No ObjectRef selected. DROP PIN / Active Spatial Focus is unmigrated.',
+    selectionState: primary ? 'ACQUIRED' : 'RESERVED',
+    selection: extras.acquiredInspect?.body && primary
+      ? extras.acquiredInspect.body
+      : (primary
+        ? [
+            'OBJECT ACQUIRED',
+            `KIND: ${String(primary.kind || '').toUpperCase()}`,
+            `LABEL: ${primary.label || primary.id}`,
+            `NAMESPACE: ${primary.namespace}`,
+            `ID: ${primary.id}`,
+            `DATASET: ${primary.datasetRef}`,
+            `DATASET VERSION: ${primary.datasetVersion}`,
+            `SOURCE: ${primary.sourceRef}`,
+            'Primary ObjectRef is not an ArcGIS OBJECTID.'
+          ].join('\n')
+        : 'No ObjectRef acquired. Hover/candidate is not acquisition. DROP PIN remains WHERE.'),
     evidenceState: 'RESERVED',
     evidence: extras.evidence || 'No evidence envelopes. Proven capabilities are not migrated into this chassis.',
     provenanceState: 'CHASSIS',

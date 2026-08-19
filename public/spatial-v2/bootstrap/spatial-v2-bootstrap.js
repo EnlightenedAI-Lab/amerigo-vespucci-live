@@ -3,7 +3,7 @@
  * Instantiates stores, registries, hosts, and adapters. It wires; it does not decide.
  */
 
-import { ACTION_SOURCE, createActionEnvelope, createId } from '../foundation/contracts/index.js';
+import { ACTION_SOURCE, createActionEnvelope, createId, objectRefKey } from '../foundation/contracts/index.js';
 import { createStateStore } from '../state/index.js';
 import {
   createCapabilityRegistry,
@@ -24,6 +24,29 @@ import { attachWorldviewMapSession } from './worldview-map-session.js';
 import { mountAppShell } from '../shell/AppShell.js';
 import { createAskCapabilityBus } from '../shell/ask-capability-bus.js';
 import { ASK_ROUTE_STATE } from '../shell/ask-capability-bus.js';
+
+function projectObjectInspector(world, acquiredInspect = null) {
+  const refs = world.selection?.objectRefs || [];
+  const primaryId = world.selection?.primaryObjectRefId || null;
+  const primary = refs.find((ref) => objectRefKey(ref) === primaryId) || null;
+  if (!primary) {
+    return 'No ObjectRef acquired. Hover/candidate is not acquisition. DROP PIN remains WHERE.';
+  }
+  if (acquiredInspect?.body && (!acquiredInspect.key || acquiredInspect.key === primaryId)) {
+    return acquiredInspect.body;
+  }
+  return [
+    'OBJECT ACQUIRED',
+    `KIND: ${String(primary.kind || '').toUpperCase()}`,
+    `LABEL: ${primary.label || primary.id}`,
+    `NAMESPACE: ${primary.namespace}`,
+    `ID: ${primary.id}`,
+    `DATASET: ${primary.datasetRef}`,
+    `DATASET VERSION: ${primary.datasetVersion}`,
+    `SOURCE: ${primary.sourceRef}`,
+    'Primary ObjectRef is not an ArcGIS OBJECTID.'
+  ].join('\n');
+}
 
 function unavailableAsk(id, label, aliases, quickActionIds, unavailableReason) {
   return {
@@ -166,7 +189,8 @@ export function createSpatialV2Chassis(options = {}) {
     timeDrawerOpen: false,
     addDataOpen: false,
     addDataResults: [],
-    addDataStatus: null
+    addDataStatus: null,
+    acquiredInspect: null
   };
   const listeners = new Set();
 
@@ -232,17 +256,8 @@ export function createSpatialV2Chassis(options = {}) {
           `View: ${activeViewId} · ${view.availability}`,
           `World revision: ${world.revision}`
         ].join('\n'),
-        selectionState: world.activeFocus ? 'ACTIVE SPATIAL FOCUS' : (world.selection.objectRefs.length ? 'SELECTED' : 'RESERVED'),
-        selection: world.activeFocus
-          ? [
-              'ACTIVE SPATIAL FOCUS',
-              `ADDRESS / PLACE: ${world.activeFocus.address || 'ADDRESS NOT RESOLVED'}`,
-              `sourceView: ${world.activeFocus.sourceView}`,
-              `sourceAction: ${world.activeFocus.sourceAction}`
-            ].join('\n')
-          : (world.selection.objectRefs.length
-            ? `${world.selection.objectRefs.length} ObjectRef(s)`
-            : 'No ObjectRef selected. Use DROP PIN to establish focus.'),
+        selectionState: world.selection.primaryObjectRefId ? 'ACQUIRED' : 'RESERVED',
+        selection: projectObjectInspector(world, presentation.acquiredInspect),
         evidenceState: 'RESERVED',
         evidence: 'No evidence envelopes. Proven specialist results are not migrated.',
         provenanceState: 'CHASSIS',
@@ -287,6 +302,10 @@ export function createSpatialV2Chassis(options = {}) {
     askBus,
     executeChassis,
     getViewModel,
+    setAcquiredInspect(payload) {
+      presentation.acquiredInspect = payload || null;
+      notify();
+    },
     subscribe(listener) {
       listeners.add(listener);
       listener(getViewModel());
@@ -365,7 +384,7 @@ export function createSpatialV2Chassis(options = {}) {
       notify();
     },
     async dispatchCapability(capabilityId, input = {}) {
-      if (capabilityId === 'layers.set-visibility' || capabilityId === 'layers.set-opacity' || capabilityId === 'layers.add-session' || capabilityId === 'focus.set' || capabilityId === 'layers.sync-authored' || capabilityId === 'map' || capabilityId === 'temporal.set-requested') {
+      if (capabilityId === 'layers.set-visibility' || capabilityId === 'layers.set-opacity' || capabilityId === 'layers.add-session' || capabilityId === 'focus.set' || capabilityId === 'selection.set' || capabilityId === 'layers.sync-authored' || capabilityId === 'map' || capabilityId === 'temporal.set-requested') {
         await executeChassis(capabilityId, input);
         return;
       }

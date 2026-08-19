@@ -2411,6 +2411,61 @@ body.iqai-v2-body {
   cursor: default;
 }
 
+.iqai-v2-map-host:not(.is-drop-pin) .esri-view-surface {
+  cursor: none;
+}
+
+.iqai-v2-id-plate {
+  margin-left: 0.35rem;
+  padding: 0.16rem 0.42rem 0.18rem;
+  background: rgba(4, 8, 10, 0.9);
+  border: 1px solid rgba(61, 255, 116, 0.9);
+  color: #e8ffef;
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.iqai-v2-id-plate strong {
+  display: block;
+  font-weight: 600;
+}
+
+.iqai-v2-id-plate [data-role="height"] {
+  display: block;
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  color: #9dffc4;
+}
+
+.iqai-v2-id-plate [data-role="height"][hidden] {
+  display: none !important;
+}
+
+.iqai-v2-id-plate[data-mode="acquired"] {
+  border-color: rgba(255, 0, 0, 0.95);
+  color: #ffe8e8;
+}
+
+.iqai-v2-id-plate[data-mode="acquired"] [data-role="height"] {
+  color: #FF6A6A;
+}
+
+.iqai-v2-id-plate[hidden] {
+  display: none !important;
+}
+
+.iqai-v2-focus-seal {
+  animation: iqai-v2-seal-clamp 0.42s ease-out 1 forwards;
+}
+
+@keyframes iqai-v2-seal-clamp {
+  0% { opacity: 0; }
+  16% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
 .iqai-v2-pane[data-iqai-pane="MAP"] .iqai-v2-pane__body {
   position: relative;
 }

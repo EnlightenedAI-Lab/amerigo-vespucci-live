@@ -8,7 +8,9 @@ import {
   TRUTH_CLASS,
   VIEW_ID,
   createDropPinFocusRef,
+  createEmptySelectionSet,
   createId,
+  createSelectionSet,
   failClosed
 } from '../foundation/contracts/index.js';
 
@@ -93,6 +95,43 @@ export function bindMapSurfaceAdapters({ capabilityRegistry, idFactory }) {
           actionId: action.actionId,
           effectClass: EFFECT_CLASS.SESSION_MUTATION,
           fields: { activeFocus: focus }
+        }
+      });
+    }
+  });
+
+  capabilityRegistry.bindAdapter('selection.set', '1.0.0', {
+    execute(action, { world }) {
+      const input = action.input || {};
+      const objectRefs = Array.isArray(input.objectRefs) ? input.objectRefs : [];
+      const selection = objectRefs.length
+        ? createSelectionSet({
+          selectionSetId: input.selectionSetId,
+          objectRefs,
+          primaryObjectRefId: input.primaryObjectRefId,
+          sourceView: input.sourceView || VIEW_ID.MAP,
+          sourceAction: input.sourceAction || 'SELECT_FEATURE',
+          revision: (world.selection?.revision || 0) + 1,
+          selectedAt: action.requestedAt
+        })
+        : createEmptySelectionSet({
+          sourceView: input.sourceView || VIEW_ID.MAP,
+          sourceAction: input.sourceAction || 'CLEAR_OBJECT',
+          now: () => action.requestedAt,
+          idFactory
+        });
+      return resultOf({
+        idFactory,
+        resultType: 'object-selection',
+        statePatch: {
+          patchId: createId('patch', idFactory),
+          baseRevision: action.baseWorldRevision,
+          actorRef: action.actorRef,
+          source: action.source,
+          capabilityId: action.capabilityId,
+          actionId: action.actionId,
+          effectClass: EFFECT_CLASS.SESSION_MUTATION,
+          fields: { selection }
         }
       });
     }

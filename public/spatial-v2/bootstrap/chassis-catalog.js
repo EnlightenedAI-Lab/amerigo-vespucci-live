@@ -242,6 +242,19 @@ export function registerChassisCatalog({
       compatibleViews: [VIEW_ID.MAP]
     },
     {
+      id: 'selection.set',
+      owner: 'tool-builder',
+      title: 'Set object selection',
+      resultType: 'object-selection',
+      requiredPolicyAction: POLICY_ACTION.DISPLAY,
+      effectClass: EFFECT_CLASS.SESSION_MUTATION,
+      undoPolicy: UNDO_POLICY.UNDOABLE,
+      execution: { mode: EXECUTION_MODE.SYNC, targets: [] },
+      migrationState: MIGRATION_STATE.MIGRATED,
+      adapterId: 'selection.set',
+      compatibleViews: [VIEW_ID.MAP]
+    },
+    {
       id: 'layers.set-visibility',
       owner: 'tool-builder',
       title: 'Set layer visibility',

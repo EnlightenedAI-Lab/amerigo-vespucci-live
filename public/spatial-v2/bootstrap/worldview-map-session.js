@@ -39,6 +39,7 @@ import { bindGooglePhotorealistic3dControl } from '../shell/GooglePhotorealistic
 import { bindViewSwitcher } from '../shell/ViewSwitcher.js';
 import { bindWorldViewFrame } from '../shell/WorldViewFrame.js';
 import { projectLayerDrawerGroups } from '../shell/LayersDrawer.js';
+import { bindFocusInstrument } from '../map/focus/instrument.js';
 
 function hideMapView(host) {
   if (!host) return;
@@ -104,9 +105,11 @@ export function attachWorldviewMapSession(root, chassis, api) {
   });
 
   let worldViewFrame = null;
+  let focusInstrument = null;
   const dropPin = bindDropPinControl(root, {
     getActiveView: () => viewSwitcher?.snapshot?.().activeView || 'map',
     returnToMap: () => worldViewFrame?.setLayout(1) || viewSwitcher?.setView('MAP'),
+    hasAcquiredObject: () => focusInstrument?.hasAcquired?.() === true,
     onPlaced: (focus) => {
       if (!focus) return;
       seedWorldviewNavigationFromFocus(focus);
@@ -121,6 +124,11 @@ export function attachWorldviewMapSession(root, chassis, api) {
         sourceView: VIEW_ID.MAP
       });
     }
+  });
+
+  focusInstrument = bindFocusInstrument(root, {
+    chassis,
+    isDropPinArmed: () => dropPin.snapshot().armed === true
   });
 
   const viewSwitcher = bindViewSwitcher(root, {
@@ -161,6 +169,7 @@ export function attachWorldviewMapSession(root, chassis, api) {
         attachWorldviewMapAdapter(view);
         mapNavAttached = true;
       }
+      if (view) focusInstrument?.attachView?.(view);
       if (!positionOverlay) {
         positionOverlay = bindWorldviewPositionOverlay(root);
       }
@@ -224,6 +233,7 @@ export function attachWorldviewMapSession(root, chassis, api) {
 
   showMapView(mapHost);
   api.dropPin = dropPin;
+  api.focusInstrument = focusInstrument;
   api.viewSwitcher = viewSwitcher;
   api.worldViewFrame = worldViewFrame;
   api.street360 = street360;
@@ -266,6 +276,7 @@ export function attachWorldviewMapSession(root, chassis, api) {
 
   return Object.freeze({
     dropPin,
+    focusInstrument,
     viewSwitcher,
     worldViewFrame,
     street360,

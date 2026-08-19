@@ -160,20 +160,22 @@ export function bindDropPinControl(root, options = {}) {
       }
     }
     const focus = snapshot.focus;
-    setInspectorRegion(root, 'selected-object-slot', {
-      stateLabel: focus ? 'ACTIVE SPATIAL FOCUS' : 'RESERVED',
-      body: focus
-        ? [
-            'ACTIVE SPATIAL FOCUS',
-            `ADDRESS / PLACE: ${focus.resolvedAddress || ADDRESS_NOT_RESOLVED}`,
-            `LATITUDE: ${formatLatitude(focus.latitude)}`,
-            `LONGITUDE: ${formatLongitude(focus.longitude)}`,
-            `sourceType: ${focus.sourceType}`,
-            `sourceView: ${focus.sourceView}`,
-            `updatedAt: ${focus.updatedAt}`
-          ].join('\n')
-        : 'No operator spatial focus. Use DROP PIN to choose a place.'
-    });
+    if (!options.hasAcquiredObject?.()) {
+      setInspectorRegion(root, 'selected-object-slot', {
+        stateLabel: focus ? 'ACTIVE SPATIAL FOCUS' : 'RESERVED',
+        body: focus
+          ? [
+              'ACTIVE SPATIAL FOCUS',
+              `ADDRESS / PLACE: ${focus.resolvedAddress || ADDRESS_NOT_RESOLVED}`,
+              `LATITUDE: ${formatLatitude(focus.latitude)}`,
+              `LONGITUDE: ${formatLongitude(focus.longitude)}`,
+              `sourceType: ${focus.sourceType}`,
+              `sourceView: ${focus.sourceView}`,
+              `updatedAt: ${focus.updatedAt}`
+            ].join('\n')
+          : 'No operator spatial focus. Use DROP PIN to choose a place.'
+      });
+    }
   }
 
   async function ensureFocusLayer() {

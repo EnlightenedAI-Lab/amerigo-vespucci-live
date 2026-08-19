@@ -249,6 +249,8 @@ export function renderMapStageHost() {
         <div class="iqai-v2-map-tools" data-iqai-map-tools hidden>
           <div class="iqai-v2-map-nav" data-iqai-map-nav></div>
           <button type="button" class="iqai-v2-focus-tool" data-iqai-drop-pin aria-pressed="false" title="Arm Focus">FOCUS</button>
+          <button type="button" class="iqai-v2-trace-tool" data-iqai-add-set title="Add acquired object to collected set">ADD TO SET</button>
+          <button type="button" class="iqai-v2-trace-tool" data-iqai-export-csv title="Export collected set CSV">EXPORT CSV</button>
           <button type="button" class="iqai-v2-trace-tool" data-iqai-clear-trace title="Clear Street 360 drive trace">CLEAR TRACE</button>
         </div>
         <div class="iqai-v2-view-switcher" data-iqai-view-switcher>
