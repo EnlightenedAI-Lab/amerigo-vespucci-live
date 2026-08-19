@@ -1,0 +1,192 @@
+[
+  {
+    "snapshotId": "synthetic-test-map-montreal-no-object",
+    "capturedAt": "2026-08-19T13:00:00.000Z",
+    "worldview": {
+      "position": { "latitude": 45.5019, "longitude": -73.5674 },
+      "distanceMeters": 1200,
+      "headingDegrees": 0,
+      "activeView": "MAP"
+    },
+    "street360": null,
+    "traversal": null,
+    "focus": null,
+    "object": null,
+    "time": {
+      "targetTime": null,
+      "displayedObservation": null,
+      "provider": null
+    },
+    "sensorPose": null,
+    "collection": null,
+    "availableCapabilities": ["MAP", "STREET_360", "QUERY_GIS", "TIME"]
+  },
+  {
+    "snapshotId": "synthetic-test-street360-traversal",
+    "capturedAt": "2026-08-19T13:05:00.000Z",
+    "worldview": {
+      "position": { "latitude": 45.50342, "longitude": -73.55888 },
+      "distanceMeters": 35,
+      "headingDegrees": 82.4,
+      "activeView": "STREET_360"
+    },
+    "street360": {
+      "provider": "synthetic-google-street-view-fixture",
+      "panoId": "synthetic-pano-mtl-001",
+      "position": { "latitude": 45.5034, "longitude": -73.55891 },
+      "headingDegrees": 82.4,
+      "pitchDegrees": -2.1,
+      "zoom": 1.4,
+      "captureDate": "2021-05"
+    },
+    "traversal": {
+      "pointCount": 7,
+      "distanceMeters": 184.6
+    },
+    "focus": null,
+    "object": null,
+    "time": {
+      "targetTime": null,
+      "displayedObservation": "2021-05",
+      "provider": "synthetic-google-street-view-fixture"
+    },
+    "sensorPose": null,
+    "collection": null,
+    "availableCapabilities": ["MAP", "STREET_360", "MEASURE", "QUERY_GIS"]
+  },
+  {
+    "snapshotId": "synthetic-test-nrcan-building",
+    "capturedAt": "2026-08-19T13:10:00.000Z",
+    "worldview": {
+      "position": { "latitude": 45.50351, "longitude": -73.55902 },
+      "distanceMeters": 24,
+      "headingDegrees": 96,
+      "activeView": "MAP"
+    },
+    "street360": null,
+    "traversal": null,
+    "focus": {
+      "targetType": "OBJECT",
+      "label": "Synthetic NRCan building fixture",
+      "geometrySummary": "Polygon footprint supplied by the synthetic test fixture"
+    },
+    "object": {
+      "summary": "Building footprint acquired from the synthetic NRCan test fixture",
+      "authority": "NRCan Automatically Extracted Buildings",
+      "sourceId": "synthetic-nrcan-building-001",
+      "objectClass": "BUILDING",
+      "attributes": {
+        "heightMeters": 18.4,
+        "areaSquareMeters": 642.7,
+        "sourceLayer": "Synthetic NRCan fixture layer"
+      },
+      "provenance": {
+        "method": "source-derived synthetic fixture",
+        "source": "NRCan-style test data",
+        "synthetic": true
+      }
+    },
+    "time": {
+      "targetTime": null,
+      "displayedObservation": null,
+      "provider": null
+    },
+    "sensorPose": null,
+    "collection": null,
+    "availableCapabilities": ["MAP", "STREET_360", "SCENE_3D", "MEASURE", "QUERY_GIS", "PLACE_CAMERA"]
+  },
+  {
+    "snapshotId": "synthetic-test-target-vs-observation-time",
+    "capturedAt": "2026-08-19T13:15:00.000Z",
+    "worldview": {
+      "position": { "latitude": 45.5034, "longitude": -73.55891 },
+      "distanceMeters": 30,
+      "headingDegrees": 82.4,
+      "activeView": "STREET_360"
+    },
+    "street360": {
+      "provider": "synthetic-google-street-view-fixture",
+      "panoId": "synthetic-pano-mtl-2021-05",
+      "position": { "latitude": 45.5034, "longitude": -73.55891 },
+      "headingDegrees": 82.4,
+      "pitchDegrees": 0,
+      "zoom": 1,
+      "captureDate": "2021-05"
+    },
+    "traversal": {
+      "pointCount": 1,
+      "distanceMeters": 0
+    },
+    "focus": null,
+    "object": null,
+    "time": {
+      "targetTime": "2019",
+      "displayedObservation": "2021-05",
+      "provider": "synthetic-google-street-view-fixture"
+    },
+    "sensorPose": null,
+    "collection": null,
+    "availableCapabilities": ["MAP", "STREET_360", "TIME", "QUERY_GIS"]
+  },
+  {
+    "snapshotId": "synthetic-test-unresolved-object",
+    "capturedAt": "2026-08-19T13:20:00.000Z",
+    "worldview": {
+      "position": { "latitude": 45.504, "longitude": -73.56 },
+      "distanceMeters": 16,
+      "headingDegrees": 210,
+      "activeView": "MAP"
+    },
+    "street360": null,
+    "traversal": null,
+    "focus": {
+      "targetType": "POINT",
+      "label": null,
+      "geometrySummary": "Operator-selected point"
+    },
+    "object": {
+      "summary": null,
+      "authority": null,
+      "sourceId": null,
+      "objectClass": null,
+      "attributes": null,
+      "provenance": null
+    },
+    "time": {
+      "targetTime": null,
+      "displayedObservation": null,
+      "provider": null
+    },
+    "sensorPose": null,
+    "collection": null,
+    "availableCapabilities": ["MAP", "QUERY_GIS", "MEASURE"]
+  },
+  {
+    "snapshotId": "synthetic-test-null-sensor-pose",
+    "capturedAt": "2026-08-19T13:25:00.000Z",
+    "worldview": {
+      "position": null,
+      "distanceMeters": null,
+      "headingDegrees": null,
+      "activeView": null
+    },
+    "street360": null,
+    "traversal": null,
+    "focus": null,
+    "object": null,
+    "time": {
+      "targetTime": null,
+      "displayedObservation": null,
+      "provider": null
+    },
+    "sensorPose": null,
+    "collection": [
+      {
+        "sourceId": "synthetic-collected-001",
+        "objectClass": "BUILDING",
+        "summary": "Synthetic collected-object summary"
+      }
+    ],
+    "availableCapabilities": ["MAP"]
+  }
+]

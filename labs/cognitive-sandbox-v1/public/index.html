@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>IQAI Cognitive Sandbox V1</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="masthead">
+    <div>
+      <p class="eyebrow">IQAI · TEMPORARY R&amp;D HELPER</p>
+      <h1>Cognitive Sandbox V1</h1>
+    </div>
+    <div class="boundary">
+      <strong>READ THE WORLD</strong>
+      <span>Advisory only · No production control · Synthetic fixtures</span>
+    </div>
+  </header>
+
+  <main class="console">
+    <section class="panel world-panel" aria-labelledby="world-heading">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">LEFT</p>
+          <h2 id="world-heading">WorldState</h2>
+        </div>
+        <span class="status-tag">READ ONLY</span>
+      </div>
+      <label for="fixture-select">Synthetic test snapshot</label>
+      <select id="fixture-select"></select>
+      <dl class="world-summary" id="world-summary"></dl>
+      <details open>
+        <summary>Snapshot JSON</summary>
+        <pre id="snapshot-json"></pre>
+      </details>
+    </section>
+
+    <section class="panel ask-panel" aria-labelledby="ask-heading">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">CENTER</p>
+          <h2 id="ask-heading">Ask IQAI</h2>
+        </div>
+      </div>
+      <div class="question-list" id="question-list" aria-label="Operator question presets"></div>
+      <label for="question-input">Question</label>
+      <textarea id="question-input" rows="5">What am I looking at?</textarea>
+      <div class="ask-controls">
+        <label for="provider-select">Adapter</label>
+        <select id="provider-select">
+          <option value="ollama">Local Gemma 4</option>
+          <option value="mock">Deterministic mock</option>
+        </select>
+        <button id="ask-button" type="button">ASK IQAI</button>
+      </div>
+      <p class="boundary-note">
+        The model can select bounded interpretations and proposals. It cannot add facts or execute actions.
+      </p>
+    </section>
+
+    <section class="panel response-panel" aria-labelledby="response-heading">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">RIGHT</p>
+          <h2 id="response-heading">Cognitive Response</h2>
+        </div>
+        <span class="status-tag" id="request-state">IDLE</span>
+      </div>
+      <p class="response-summary" id="response-summary">Ask a question about the supplied snapshot.</p>
+      <div class="truth-grid">
+        <section class="truth-block known">
+          <h3>Known</h3>
+          <ul id="known-list"></ul>
+        </section>
+        <section class="truth-block inferred">
+          <h3>Inferred</h3>
+          <ul id="inferred-list"></ul>
+        </section>
+        <section class="truth-block unknown">
+          <h3>Unknown</h3>
+          <ul id="unknown-list"></ul>
+        </section>
+        <section class="truth-block actions">
+          <h3>Next actions · proposed only</h3>
+          <div id="actions-list"></div>
+        </section>
+      </div>
+      <details>
+        <summary>Warnings</summary>
+        <ul id="warnings-list"></ul>
+      </details>
+    </section>
+  </main>
+
+  <footer class="model-strip">
+    <span><i>MODEL</i><b id="model-name">—</b></span>
+    <span><i>MODE</i><b id="model-mode">—</b></span>
+    <span><i>RUNTIME</i><b id="model-runtime">—</b></span>
+    <span><i>LATENCY</i><b id="model-latency">—</b></span>
+    <span><i>STATUS</i><b id="model-status">CHECKING</b></span>
+    <span class="no-write">ZERO WRITE-BACK TOOLS</span>
+  </footer>
+
+  <script type="module" src="/app.mjs"></script>
+</body>
+</html>
