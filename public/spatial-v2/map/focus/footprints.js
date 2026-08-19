@@ -7,6 +7,7 @@
 import {
   featureCentroid,
   featureOuterRings,
+  featurePoint,
   nearestEdgePoint,
   nearestFacadeEdges,
   ringCentroid
@@ -21,6 +22,8 @@ const INK = '#05070a';
 export const FOCUS_FOOTPRINT_OVERLAY_ID = 'iqai-v2-focus-overlay';
 
 function featureKey(feature) {
+  const lab = feature?.properties?.lab;
+  if (lab?.objectClass && lab?.sourceId) return `${lab.objectClass}:${lab.sourceId}`;
   return feature?.id || feature?.properties?.feature_id || null;
 }
 
@@ -64,8 +67,13 @@ function offsetMeters(lat, lng, northM, eastM) {
   return { lat: lat + dLat, lng: lng + dLng };
 }
 
-function candidateIdentity({ name, sourceId } = {}) {
+function candidateIdentity({ name, sourceId, objectClass } = {}) {
   if (name) return name;
+  if (objectClass === 'hydrant') return 'HYDRANT';
+  if (objectClass === 'traffic_signal') return 'TRAFFIC SIGNAL';
+  if (objectClass === 'sidewalk') return 'SIDEWALK';
+  if (objectClass === 'park') return 'PARK';
+  if (objectClass === 'evaluation_unit') return 'EVALUATION UNIT';
   if (sourceId) return String(sourceId).slice(0, 8);
   return 'BUILDING';
 }
@@ -73,7 +81,7 @@ function candidateIdentity({ name, sourceId } = {}) {
 export function createFocusFootprintPainter(getView) {
   let selectedId = null;
   let acquiredFeature = null;
-  let acquiredPlate = { identity: 'BUILDING', heightMax: null };
+  let acquiredPlate = { identity: 'BUILDING', heightMax: null, objectClass: 'building' };
   let hoverFeature = null;
   let hoverInside = false;
   let hoverFrom = null;
@@ -196,10 +204,22 @@ export function createFocusFootprintPainter(getView) {
 
   function polygon(svg, feature, width, color, className, kind) {
     const d = pathFromFeature(feature);
-    if (!d) return;
-    svg.appendChild(svgEl('path', {
-      d, fill: 'none', stroke: color, 'stroke-width': width,
-      'stroke-linejoin': 'round', class: className || '',
+    if (d) {
+      svg.appendChild(svgEl('path', {
+        d, fill: 'none', stroke: color, 'stroke-width': width,
+        'stroke-linejoin': 'round', class: className || '',
+        'data-iqai-kind': kind || ''
+      }));
+      return;
+    }
+    const point = featurePoint(feature);
+    if (!point) return;
+    const screen = toScreen(point.lng, point.lat);
+    if (!screen) return;
+    svg.appendChild(svgEl('circle', {
+      cx: screen.x, cy: screen.y, r: Math.max(7, width + 4),
+      fill: 'none', stroke: color, 'stroke-width': width,
+      class: className || '',
       'data-iqai-kind': kind || ''
     }));
   }
@@ -344,12 +364,13 @@ export function createFocusFootprintPainter(getView) {
       name = null,
       sourceId = null,
       from = null,
-      heightMax = null
+      heightMax = null,
+      objectClass = null
     } = {}) {
       hoverFeature = feature || null;
       hoverInside = inside;
       hoverFrom = from;
-      hoverMeta = { name, sourceId, heightMax };
+      hoverMeta = { name, sourceId, heightMax, objectClass };
       if (!feature) dwellFeature = null;
       paint();
       if (!inside && feature && from) {
@@ -362,7 +383,8 @@ export function createFocusFootprintPainter(getView) {
       name = null,
       sourceId = null,
       heightMax = null,
-      from = null
+      from = null,
+      objectClass = null
     } = {}) {
       if (!feature || featureKey(feature) === selectedId) {
         dwellFeature = null;
@@ -370,15 +392,19 @@ export function createFocusFootprintPainter(getView) {
         return;
       }
       dwellFeature = feature;
-      dwellMeta = { name, sourceId, heightMax };
+      dwellMeta = { name, sourceId, heightMax, objectClass };
       hoverFrom = from || hoverFrom;
       hoverInside = true;
       paint();
     },
-    acquire(feature, { name = null, heightMax = null } = {}) {
+    acquire(feature, { name = null, heightMax = null, objectClass = null } = {}) {
       selectedId = featureKey(feature);
       acquiredFeature = feature;
-      acquiredPlate = { identity: candidateIdentity({ name }), heightMax };
+      acquiredPlate = {
+        identity: candidateIdentity({ name, objectClass: objectClass || feature?.properties?.lab?.objectClass }),
+        heightMax,
+        objectClass: objectClass || feature?.properties?.lab?.objectClass
+      };
       hoverFeature = null;
       dwellFeature = null;
       sealing = true;

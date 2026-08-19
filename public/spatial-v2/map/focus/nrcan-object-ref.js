@@ -11,7 +11,10 @@ export const NRCAN_SOURCE_REF = 'nrcan:automatically-extracted-buildings';
 export const NRCAN_EXPECTED_FOOTPRINTS = 571;
 
 export function sourceIdOf(feature) {
-  return feature?.properties?.feature_id || null;
+  return feature?.properties?.lab?.sourceId
+    || feature?.properties?.feature_id
+    || feature?.properties?.source?.feature_id
+    || null;
 }
 
 export function objectRefFromNrcanFeature(feature, { label = null } = {}) {

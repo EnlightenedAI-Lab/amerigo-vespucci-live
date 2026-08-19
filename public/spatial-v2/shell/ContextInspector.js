@@ -47,13 +47,15 @@ export function renderContextInspector() {
   `;
 }
 
-export function setInspectorRegion(root, slot, { stateLabel, body } = {}) {
+export function setInspectorRegion(root, slot, { stateLabel, body, html } = {}) {
   const region = root.querySelector(`[data-iqai-slot="${slot}"]`);
   if (!region) return;
   const state = region.querySelector('.iqai-v2-region__state');
   const bodyEl = region.querySelector('.iqai-v2-region__body');
   if (state && stateLabel != null) state.textContent = stateLabel;
-  if (bodyEl && body != null) bodyEl.textContent = body;
+  if (!bodyEl) return;
+  if (html) bodyEl.innerHTML = html;
+  else if (body != null) bodyEl.textContent = body;
 }
 
 export function paintInspectorPane(root, slot) {

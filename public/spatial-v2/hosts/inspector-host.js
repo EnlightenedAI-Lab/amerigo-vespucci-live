@@ -17,7 +17,8 @@ export function paintInspectorHost(root, projection) {
   });
   setInspectorRegion(root, 'selected-object-slot', {
     stateLabel: projection.selectionState,
-    body: projection.selection
+    body: projection.selection,
+    html: projection.selectionHtml || null
   });
   setInspectorRegion(root, 'evidence-slot', {
     stateLabel: projection.evidenceState,

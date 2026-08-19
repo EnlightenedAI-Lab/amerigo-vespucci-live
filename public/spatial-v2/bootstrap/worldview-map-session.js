@@ -58,13 +58,25 @@ function showMapView(host) {
   if (view && typeof view.resize === 'function') view.resize();
 }
 
-function refreshLayerGroups(chassis) {
+function refreshLayerGroups(chassis, focusInstrument) {
   const liveLayers = listOperationalLayers();
   const world = chassis.stateStore.getSnapshot();
   chassis.setLayerGroups(projectLayerDrawerGroups({
     definitions: chassis.layerRegistry.list(),
     liveLayers,
-    instances: world.layers?.byId || {}
+    instances: world.layers?.byId || {},
+    acquisitionLayers: focusInstrument?.drawerRows?.() || []
+  }));
+}
+
+function woaLayerPayload(focusInstrument, liveCount = 0) {
+  return (focusInstrument?.drawerRows?.() || []).map((row, order) => ({
+    instanceId: row.instanceId,
+    layerId: 'woa-acquisition',
+    visible: row.visible !== false,
+    opacity: 1,
+    order: liveCount + order,
+    status: 'SESSION'
   }));
 }
 
@@ -145,7 +157,23 @@ export function attachWorldviewMapSession(root, chassis, api) {
   focusInstrument = bindFocusInstrument(root, {
     chassis,
     isDropPinArmed: () => dropPin.snapshot().armed === true,
-    isPlaceCameraArmed: () => placeCamera?.snapshot()?.armed === true
+    isPlaceCameraArmed: () => placeCamera?.snapshot()?.armed === true,
+    onReady() {
+      const liveLayers = listOperationalLayers();
+      void chassis.executeChassis('layers.sync-authored', {
+        layers: [
+          ...liveLayers.map((layer, order) => ({
+            instanceId: layer.id,
+            layerId: layer.session ? 'session-agol' : 'authored-operational-map',
+            visible: layer.visible !== false,
+            opacity: layer.opacity,
+            order,
+            status: layer.session ? 'SESSION' : 'AUTHORED'
+          })),
+          ...woaLayerPayload(focusInstrument, liveLayers.length)
+        ]
+      }).then(() => refreshLayerGroups(chassis, focusInstrument));
+    }
   });
 
   const viewSwitcher = bindViewSwitcher(root, {
@@ -206,15 +234,18 @@ export function attachWorldviewMapSession(root, chassis, api) {
       }
       const liveLayers = listOperationalLayers();
       void chassis.executeChassis('layers.sync-authored', {
-        layers: liveLayers.map((layer, order) => ({
-          instanceId: layer.id,
-          layerId: layer.session ? 'session-agol' : 'authored-operational-map',
-          visible: layer.visible !== false,
-          opacity: layer.opacity,
-          order,
-          status: layer.session ? 'SESSION' : 'AUTHORED'
-        }))
-      }).then(() => refreshLayerGroups(chassis));
+        layers: [
+          ...liveLayers.map((layer, order) => ({
+            instanceId: layer.id,
+            layerId: layer.session ? 'session-agol' : 'authored-operational-map',
+            visible: layer.visible !== false,
+            opacity: layer.opacity,
+            order,
+            status: layer.session ? 'SESSION' : 'AUTHORED'
+          })),
+          ...woaLayerPayload(focusInstrument, liveLayers.length)
+        ]
+      }).then(() => refreshLayerGroups(chassis, focusInstrument));
     }
   });
 
@@ -227,8 +258,11 @@ export function attachWorldviewMapSession(root, chassis, api) {
           setOperationalLayerOpacity(instance.instanceId, instance.opacity);
         }
       }
+      if (instance.layerId === 'woa-acquisition') {
+        focusInstrument?.setSourceVisible?.(instance.instanceId, instance.visible !== false);
+      }
     }
-    refreshLayerGroups(chassis);
+    refreshLayerGroups(chassis, focusInstrument);
     worldViewFrame?.paint?.();
   });
 

@@ -22,7 +22,7 @@ function familyOfType(type, session) {
   return 'OPERATIONAL';
 }
 
-export function projectLayerDrawerGroups({ definitions = [], liveLayers = [], instances = {} } = {}) {
+export function projectLayerDrawerGroups({ definitions = [], liveLayers = [], instances = {}, acquisitionLayers = [] } = {}) {
   const groups = new Map();
   for (const family of FAMILY_ORDER) groups.set(family, []);
 
@@ -48,6 +48,26 @@ export function projectLayerDrawerGroups({ definitions = [], liveLayers = [], in
         session
       });
     }
+  }
+
+  for (const layer of acquisitionLayers) {
+    const family = layer.family || 'OPERATIONAL';
+    if (!groups.has(family)) groups.set(family, []);
+    const instance = instances[layer.instanceId];
+    groups.get(family).push({
+      instanceId: layer.instanceId,
+      layerId: 'woa-acquisition',
+      title: layer.title,
+      source: layer.source || 'World Object Acquisition',
+      visible: instance ? instance.visible !== false : layer.visible !== false,
+      opacity: 1,
+      depth: 0,
+      group: 'ACQUISITION SOURCES',
+      family,
+      togglable: true,
+      legend: layer.legend || [],
+      session: true
+    });
   }
 
   for (const definition of definitions) {

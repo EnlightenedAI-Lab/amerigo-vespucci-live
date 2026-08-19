@@ -258,6 +258,7 @@ export function createSpatialV2Chassis(options = {}) {
         ].join('\n'),
         selectionState: world.selection.primaryObjectRefId ? 'ACQUIRED' : 'RESERVED',
         selection: projectObjectInspector(world, presentation.acquiredInspect),
+        selectionHtml: presentation.acquiredInspect?.html || null,
         evidenceState: 'RESERVED',
         evidence: 'No evidence envelopes. Proven specialist results are not migrated.',
         provenanceState: 'CHASSIS',
@@ -304,6 +305,10 @@ export function createSpatialV2Chassis(options = {}) {
     getViewModel,
     setAcquiredInspect(payload) {
       presentation.acquiredInspect = payload || null;
+      if (payload?.html) {
+        presentation.inspectorOpen = true;
+        presentation.inspectorPane = 'selected-object-slot';
+      }
       notify();
     },
     subscribe(listener) {

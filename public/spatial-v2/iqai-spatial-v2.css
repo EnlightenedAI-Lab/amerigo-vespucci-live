@@ -3295,13 +3295,150 @@ body.iqai-v2-body {
 #iqai-spatial-v2[data-iqai-spatial-view="analyze-3d"] .iqai-v2-layout-switcher,
 #iqai-spatial-v2[data-iqai-spatial-view="analyze-3d"] .iqai-v2-map-tools,
 #iqai-spatial-v2[data-iqai-spatial-view="analyze-3d"] .iqai-v2-place-camera-editor,
-#iqai-spatial-v2[data-iqai-spatial-view="analyze-3d"] .iqai-v2-worldview-frame {
+#iqai-spatial-v2[data-iqai-spatial-view="analyze-3d"] .iqai-v2-worldview-frame,
+#iqai-spatial-v2[data-iqai-spatial-view="analyze-3d"] .iqai-v2-woa-chooser,
+#iqai-spatial-v2[data-iqai-spatial-view="street-360"] .iqai-v2-woa-chooser,
+#iqai-spatial-v2[data-iqai-spatial-view="google-3d"] .iqai-v2-woa-chooser {
   visibility: hidden;
 }
 
 #iqai-spatial-v2[data-iqai-spatial-view="analyze-3d"] .iqai-v2-view-switcher {
   visibility: visible;
   z-index: 8;
+}
+
+.iqai-v2-woa-chooser {
+  position: absolute;
+  z-index: 32;
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  min-width: 7.4rem;
+  padding: 0.18rem;
+  border: 1px solid var(--iqai-v2-chrome-border);
+  background: rgba(12, 12, 14, 0.92);
+  pointer-events: auto;
+}
+
+.iqai-v2-woa-chooser[hidden] {
+  display: none !important;
+}
+
+.iqai-v2-woa-chooser button {
+  min-height: 1.35rem;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #f4f0ea;
+  font: inherit;
+  font-size: 0.5rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-align: left;
+  cursor: pointer;
+}
+
+.iqai-v2-woa-chooser button[data-active="true"] {
+  background: #f4f0ea;
+  color: #0b0d10;
+}
+
+.iqai-v2-woa-inspector {
+  display: grid;
+  gap: 0.28rem;
+  color: #f4f0ea;
+}
+
+.iqai-v2-woa-kicker,
+.iqai-v2-woa-kind,
+.iqai-v2-woa-id,
+.iqai-v2-woa-meta {
+  margin: 0;
+  font-size: 0.52rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+}
+
+.iqai-v2-woa-kind {
+  color: #9ad7ec;
+}
+
+.iqai-v2-woa-name {
+  margin: 0.15rem 0 0;
+  font-size: 0.92rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+}
+
+.iqai-v2-woa-legal {
+  margin: 0;
+  color: #ffb4b4;
+  font-size: 0.52rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.iqai-v2-woa-rows {
+  display: grid;
+  gap: 0.18rem;
+}
+
+.iqai-v2-woa-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.58rem;
+}
+
+.iqai-v2-woa-row span {
+  color: rgba(244, 240, 234, 0.62);
+  letter-spacing: 0.06em;
+}
+
+.iqai-v2-woa-raw {
+  margin-top: 0.45rem;
+  border-top: 1px solid rgba(244, 240, 234, 0.12);
+  padding-top: 0.35rem;
+}
+
+.iqai-v2-woa-raw summary {
+  cursor: pointer;
+  font-size: 0.5rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+}
+
+.iqai-v2-woa-raw:not([open]) .iqai-v2-woa-rows {
+  display: none;
+}
+
+.iqai-v2-woa-asset {
+  overflow: visible;
+}
+
+.iqai-v2-woa-asset path,
+.iqai-v2-woa-asset rect,
+.iqai-v2-woa-asset circle {
+  fill: rgba(236, 228, 214, 0.22);
+  stroke: rgba(236, 228, 214, 0.72);
+  stroke-width: 1.05;
+}
+
+.iqai-v2-woa-asset.is-hover path,
+.iqai-v2-woa-asset.is-hover rect,
+.iqai-v2-woa-asset.is-hover circle {
+  fill: rgba(61, 255, 116, 0.12);
+  stroke: #3DFF74;
+}
+
+.iqai-v2-woa-asset.is-acquired path,
+.iqai-v2-woa-asset.is-acquired rect,
+.iqai-v2-woa-asset.is-acquired circle {
+  fill: rgba(255, 0, 0, 0.08);
+  stroke: #FF0000;
+}
+
+.iqai-v2-woa-asset--traffic_signal .lamp {
+  fill: rgba(12, 14, 16, 0.85);
 }
 
 

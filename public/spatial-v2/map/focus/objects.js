@@ -34,6 +34,24 @@ export function bboxContains(bbox, lng, lat, pad = 0) {
   return lng >= bbox[0] - pad && lng <= bbox[2] + pad && lat >= bbox[1] - pad && lat <= bbox[3] + pad;
 }
 
+export function bboxIntersects(a, b) {
+  if (!a || !b) return false;
+  return !(a[2] < b[0] || a[0] > b[2] || a[3] < b[1] || a[1] > b[3]);
+}
+
+export function featurePoint(feature) {
+  const geometry = feature?.geometry;
+  if (geometry?.type === 'Point' && Array.isArray(geometry.coordinates)) {
+    const [lng, lat] = geometry.coordinates;
+    if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng };
+  }
+  return null;
+}
+
+export function isPointFeature(feature) {
+  return feature?.geometry?.type === 'Point';
+}
+
 export function sphericalAreaSquareMeters(ring) {
   if (!ring || ring.length < 4) return 0;
   let sum = 0;
@@ -101,6 +119,11 @@ export function featureContainsPoint(feature, lng, lat) {
 }
 
 export function featureBBox(feature) {
+  const point = featurePoint(feature);
+  if (point) {
+    const pad = 0.00008;
+    return [point.lng - pad, point.lat - pad, point.lng + pad, point.lat + pad];
+  }
   let minX = Infinity;
   let minY = Infinity;
   let maxX = -Infinity;
@@ -136,6 +159,8 @@ export function featurePerimeter(feature) {
 }
 
 export function featureCentroid(feature) {
+  const point = featurePoint(feature);
+  if (point) return point;
   const parts = polygonParts(feature?.geometry);
   if (!parts.length) return null;
   let weight = 0;
@@ -194,6 +219,10 @@ export function distanceToRingMeters(lat, lng, ring) {
 
 export function nearestEdgePoint(lat, lng, feature) {
   if (!feature) return null;
+  const point = featurePoint(feature);
+  if (point) {
+    return { lat: point.lat, lng: point.lng, range: haversineMeters(lat, lng, point.lat, point.lng) };
+  }
   if (featureContainsPoint(feature, lng, lat)) {
     return { lat, lng, range: 0 };
   }

@@ -1,0 +1,77 @@
+{
+  "remote": "https://enlightenedai-lab.github.io/iqai-mtl-uev-data/data",
+  "legal": "Municipal evaluation unit. Not legal cadastre and not proof of ownership.",
+  "bbox": [
+    -73.578,
+    45.495,
+    -73.554,
+    45.512
+  ],
+  "displayCells": [
+    "d_0.01_52_14",
+    "d_0.01_52_15",
+    "d_0.01_52_16",
+    "d_0.01_53_14",
+    "d_0.01_53_15",
+    "d_0.01_53_16",
+    "d_0.01_54_14",
+    "d_0.01_54_15",
+    "d_0.01_54_16"
+  ],
+  "fixtureId": "01021622",
+  "fixtureCell": "c_0.005_107_32",
+  "files": [
+    {
+      "rel": "manifest.json",
+      "bytes": 154451
+    },
+    {
+      "rel": "provenance.json",
+      "bytes": 1469
+    },
+    {
+      "rel": "display/detail/d_0.01_52_14.json.gz",
+      "bytes": 17132
+    },
+    {
+      "rel": "display/detail/d_0.01_52_15.json.gz",
+      "bytes": 17147
+    },
+    {
+      "rel": "display/detail/d_0.01_52_16.json.gz",
+      "bytes": 59763
+    },
+    {
+      "rel": "display/detail/d_0.01_53_14.json.gz",
+      "bytes": 12247
+    },
+    {
+      "rel": "display/detail/d_0.01_53_15.json.gz",
+      "bytes": 10468
+    },
+    {
+      "rel": "display/detail/d_0.01_53_16.json.gz",
+      "bytes": 27512
+    },
+    {
+      "rel": "display/detail/d_0.01_54_14.json.gz",
+      "bytes": 6927
+    },
+    {
+      "rel": "display/detail/d_0.01_54_15.json.gz",
+      "bytes": 14264
+    },
+    {
+      "rel": "display/detail/d_0.01_54_16.json.gz",
+      "bytes": 24288
+    },
+    {
+      "rel": "exact/ids/22.json",
+      "bytes": 135530
+    },
+    {
+      "rel": "exact/cells/c_0.005_107_32.json.gz",
+      "bytes": 43120
+    }
+  ]
+}

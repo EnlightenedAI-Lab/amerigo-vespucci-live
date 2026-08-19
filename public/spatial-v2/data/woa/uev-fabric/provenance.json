@@ -1,0 +1,23 @@
+{
+  "retrieved_at": "2026-08-19T17:23:06Z",
+  "official_resource_url": "https://donnees.montreal.ca/dataset/4ad6baea-4d2c-460f-a8bf-5d000db498f7/resource/866a3dbc-8b59-48ff-866d-f2f9d3bbee9d/download/uniteevaluationfonciere.geojson.zip",
+  "resource_id": "866a3dbc-8b59-48ff-866d-f2f9d3bbee9d",
+  "resource_name": "Extrait géographique des unités d'évaluation foncière",
+  "resource_last_modified": "2026-08-19T06:43:30.564245",
+  "package_metadata_modified": "2026-08-19T06:47:07.464081",
+  "source_filename": "uniteevaluationfonciere.geojson.zip",
+  "zip_member": "uniteevaluationfonciere.geojson",
+  "compressed_bytes": 176065752,
+  "extracted_bytes": 781547668,
+  "format": "GeoJSON zip",
+  "declared_crs": "WGS84",
+  "runtime_crs": "EPSG:4326",
+  "sha256_zip": "3436a8498d8aef7551edb946c7784d986f9487fabb3e5b2517d23e8f5e748e32",
+  "http_last_modified": "2026-08-19T06:43:30.564245",
+  "etag": null,
+  "download_elapsed_s": 0,
+  "update_frequency": null,
+  "temporal": "2017-09-28/ (open-ended catalog coverage; not a capture date)",
+  "legal_note": "This is a municipal property-assessment / evaluation-unit division (unité d'évaluation foncière). It has no legal cadastral value and must not be confused with cadastre or proof of ownership.",
+  "attribution": "Données © Ville de Montréal — Unités d'évaluation foncière (CC BY 4.0). IQAI static spatial package is a derived partition for viewport access; it is not an official municipal service."
+}

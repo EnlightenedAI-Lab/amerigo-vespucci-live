@@ -1,0 +1,98 @@
+{
+  "lab": "iqai-world-object-acquisition-v1",
+  "retrievedAt": "2026-08-19T15:59:50Z",
+  "bbox": [
+    -73.578,
+    45.495,
+    -73.554,
+    45.51
+  ],
+  "classes": [
+    "building",
+    "park",
+    "sidewalk",
+    "evaluation_unit",
+    "hydrant",
+    "traffic_signal"
+  ],
+  "counts": {
+    "building": 571,
+    "park": 51,
+    "sidewalk": 1733,
+    "evaluation_unit": 1595,
+    "hydrant": 439,
+    "traffic_signal": 148
+  },
+  "fixtures": {
+    "origin": {
+      "lat": 45.50169,
+      "lng": -73.56832
+    },
+    "bbox": [
+      -73.578,
+      45.495,
+      -73.554,
+      45.51
+    ],
+    "building": {
+      "objectClass": "building",
+      "sourceId": "79f19e6e-9da7-4f1e-b269-ac2f28aff1d0",
+      "name": null,
+      "lat": 45.50158145326314,
+      "lng": -73.56885536397334
+    },
+    "park": {
+      "objectClass": "park",
+      "sourceId": "0266-000",
+      "name": "Square Victoria",
+      "lat": 45.50134542597,
+      "lng": -73.56127075552
+    },
+    "sidewalk": {
+      "objectClass": "sidewalk",
+      "sourceId": "220048426",
+      "name": "Trottoir simple",
+      "lat": 45.502075611767644,
+      "lng": -73.56828564555606
+    },
+    "evaluation_unit": {
+      "objectClass": "evaluation_unit",
+      "sourceId": "01021622",
+      "name": "1 rue Sainte-Catherine Est",
+      "lat": 45.510241461326274,
+      "lng": -73.56383503838062
+    },
+    "approach": {
+      "objectClass": "building",
+      "sourceId": "79f19e6e-9da7-4f1e-b269-ac2f28aff1d0",
+      "lat": 45.50147493681254,
+      "lng": -73.56952393991342,
+      "note": "West of Place Ville Marie, near building not inside"
+    },
+    "overlap": {
+      "lat": 45.50169,
+      "lng": -73.56832,
+      "note": "Place Ville Marie: building inside evaluation unit, sidewalk nearby"
+    },
+    "hydrant": {
+      "objectClass": "hydrant",
+      "sourceId": "5020381",
+      "lat": 45.502069630898326,
+      "lng": -73.56765750260932
+    },
+    "traffic_signal": {
+      "objectClass": "traffic_signal",
+      "sourceId": "1446",
+      "lat": 45.501013044979,
+      "lng": -73.5681852677783
+    },
+    "counts": {
+      "building": 571,
+      "park": 51,
+      "sidewalk": 1733,
+      "evaluation_unit": 1595,
+      "hydrant": 439,
+      "traffic_signal": 148
+    }
+  }
+}
