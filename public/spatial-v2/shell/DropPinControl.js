@@ -346,6 +346,7 @@ export function bindDropPinControl(root, options = {}) {
     }
     if (!clickHandle && typeof view.on === 'function') {
       clickHandle = view.on('click', (event) => {
+        if (options.isPlaceCameraArmed?.() === true) return;
         if (armed) {
           const point = pointFromMapEvent(event);
           if (!point) return;
@@ -371,6 +372,7 @@ export function bindDropPinControl(root, options = {}) {
     if (options.getActiveView?.() && options.getActiveView() !== 'map') {
       await options.returnToMap?.();
     }
+    options.disarmPlaceCamera?.();
     armed = true;
     paintChrome();
     return snapshot();

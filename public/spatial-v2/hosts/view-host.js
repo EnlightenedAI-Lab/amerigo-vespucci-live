@@ -257,10 +257,31 @@ export function renderMapStageHost() {
         <div class="iqai-v2-map-tools" data-iqai-map-tools hidden>
           <div class="iqai-v2-map-nav" data-iqai-map-nav></div>
           <button type="button" class="iqai-v2-focus-tool" data-iqai-drop-pin aria-pressed="false" title="Arm Focus">FOCUS</button>
+          <button type="button" class="iqai-v2-focus-tool" data-iqai-place-camera aria-pressed="false" title="Place an authored camera pose">PLACE CAMERA</button>
           <button type="button" class="iqai-v2-trace-tool" data-iqai-add-set title="Add acquired object to collected set">ADD TO SET</button>
           <button type="button" class="iqai-v2-trace-tool" data-iqai-export-csv title="Export collected set CSV">EXPORT CSV</button>
           <button type="button" class="iqai-v2-trace-tool" data-iqai-clear-trace title="Clear Street 360 drive trace">CLEAR TRACE</button>
         </div>
+        <aside class="iqai-v2-place-camera-editor" data-iqai-place-camera-editor hidden>
+          <p class="iqai-v2-place-camera-editor__kicker">PLACE CAMERA</p>
+          <p data-iqai-place-camera-id></p>
+          <p data-iqai-place-camera-ll></p>
+          <p data-iqai-place-camera-z>Z UNKNOWN</p>
+          <label>HEADING
+            <input data-iqai-place-camera-heading type="number" min="0" max="359" step="1" aria-label="Camera heading">
+          </label>
+          <label>PITCH
+            <input data-iqai-place-camera-pitch type="number" min="-90" max="90" step="1" aria-label="Camera pitch">
+          </label>
+          <label>HEIGHT AGL
+            <input data-iqai-place-camera-height type="number" min="0.5" max="200" step="0.5" aria-label="Height above ground">
+          </label>
+          <label>HFOV
+            <input data-iqai-place-camera-fov type="number" min="10" max="120" step="1" aria-label="Horizontal field of view">
+          </label>
+          <button type="button" data-iqai-place-camera-delete>DELETE CAMERA</button>
+          <p class="iqai-v2-place-camera-editor__note">Orientation / FOV direction. Not LOS. Not WorldState.cameras.</p>
+        </aside>
         <div class="iqai-v2-view-switcher" data-iqai-view-switcher>
           <button type="button" data-iqai-view="MAP" aria-pressed="true">MAP</button>
           <button type="button" data-iqai-view="3D VISUAL" aria-pressed="false">3D</button>

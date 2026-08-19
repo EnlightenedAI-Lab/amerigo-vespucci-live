@@ -42,6 +42,7 @@ export function renderMapStage() {
           <button type="button" data-iqai-view="3d-visual" aria-pressed="false">3D VISUAL</button>
           <button type="button" data-iqai-view="3d-analyze" disabled aria-disabled="true">3D ANALYZE</button>
           <button type="button" data-iqai-drop-pin aria-pressed="false">DROP PIN</button>
+          <button type="button" data-iqai-place-camera aria-pressed="false">PLACE CAMERA</button>
         </div>
         <p class="iqai-v2-pointer-coords" data-iqai-pointer-coords hidden></p>
         <div class="iqai-v2-spatial-focus-receipt" data-iqai-spatial-focus-receipt hidden></div>

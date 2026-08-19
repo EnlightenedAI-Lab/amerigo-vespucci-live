@@ -38,7 +38,7 @@ export function bindFocusInstrument(root, options = {}) {
   let loadError = null;
 
   function isArmed() {
-    return options.isDropPinArmed?.() === true;
+    return options.isDropPinArmed?.() === true || options.isPlaceCameraArmed?.() === true;
   }
 
   function sensing() {

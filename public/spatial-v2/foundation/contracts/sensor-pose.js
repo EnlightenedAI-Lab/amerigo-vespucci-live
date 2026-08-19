@@ -1,7 +1,8 @@
 /**
  * SensorPose — real-world analytical sensor position.
  * Not WorldState.cameras (retained view-camera state).
- * Not PLACE CAMERA UI. Not Google 3D visual camera.
+ * Not PLACE CAMERA UI chrome. Not Google 3D visual camera.
+ * OPERATOR_AUTHORED is a pose source, not a World State camera key.
  */
 
 import { SCHEMA_IDS } from './schema-ids.js';
@@ -18,13 +19,15 @@ import {
 
 export const SENSOR_POSE_SOURCE = Object.freeze({
   SCENE_CAMERA_SAMPLE: 'SCENE_CAMERA_SAMPLE',
-  ANALYTICAL_HIT: 'ANALYTICAL_HIT'
+  ANALYTICAL_HIT: 'ANALYTICAL_HIT',
+  OPERATOR_AUTHORED: 'OPERATOR_AUTHORED'
 });
 
 const KEYS = [
   'schemaId',
   'schemaVersion',
   'poseId',
+  'cameraId',
   'x',
   'y',
   'z',
@@ -33,6 +36,9 @@ const KEYS = [
   'heading',
   'pitch',
   'roll',
+  'heightAboveGround',
+  'horizontalFov',
+  'verticalFov',
   'crs',
   'source',
   'provenance',
@@ -68,10 +74,15 @@ export function createSensorPose(input = {}, options = {}) {
   if ((x == null || y == null) && (longitude == null || latitude == null)) {
     failClosed('INVALID_NUMBER', 'SensorPose requires X/Y or longitude/latitude.');
   }
+  const cameraId = optionalString(input.cameraId, 'cameraId');
+  if (source === SENSOR_POSE_SOURCE.OPERATOR_AUTHORED && !cameraId) {
+    failClosed('INVALID_STRING', 'OPERATOR_AUTHORED SensorPose requires cameraId.', { source });
+  }
   return {
     schemaId: SCHEMA_IDS.SENSOR_POSE,
     schemaVersion: '1.0.0',
     poseId: input.poseId ? requireString(input.poseId, 'poseId') : createId('sensor-pose', options.idFactory),
+    cameraId,
     x,
     y,
     z: optionalFiniteNumber(input.z, 'z'),
@@ -80,6 +91,9 @@ export function createSensorPose(input = {}, options = {}) {
     heading: optionalFiniteNumber(input.heading, 'heading'),
     pitch: optionalFiniteNumber(input.pitch, 'pitch'),
     roll: optionalFiniteNumber(input.roll, 'roll'),
+    heightAboveGround: optionalFiniteNumber(input.heightAboveGround, 'heightAboveGround'),
+    horizontalFov: optionalFiniteNumber(input.horizontalFov, 'horizontalFov'),
+    verticalFov: optionalFiniteNumber(input.verticalFov, 'verticalFov'),
     crs: createCrs(input.crs),
     source,
     provenance: requireString(input.provenance, 'provenance'),

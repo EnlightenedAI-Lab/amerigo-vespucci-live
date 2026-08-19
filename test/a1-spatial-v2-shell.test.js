@@ -229,7 +229,7 @@ test('V1 spatial index remains a separate surface', () => {
   assert.equal(v1.includes('/spatial-v2/'), false);
   assert.equal(v1.includes('iqai-spatial-v2'), false);
   const v2 = readV2('index.html');
-  assert.match(v2, /src="\/spatial-v2\/spatial-v2\.js"/);
+  assert.match(v2, /src="\/spatial-v2\/spatial-v2\.js(?:\?[^"]*)?"/);
   assert.match(v2, /href="\/spatial-v2\/iqai-spatial-v2\.css"/);
   assert.equal(v2.includes('/spatial/spatial.js'), false);
   assert.equal(v2.includes('spatial-arcgis-runtime'), false);

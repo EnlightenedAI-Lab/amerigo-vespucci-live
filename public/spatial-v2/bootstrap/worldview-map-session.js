@@ -34,6 +34,7 @@ import {
 } from '../map/worldview-navigation.js';
 import { applyMapFoundationToStage } from '../shell/MapStage.js';
 import { bindDropPinControl } from '../shell/DropPinControl.js';
+import { bindPlaceCameraControl } from '../shell/PlaceCameraControl.js';
 import { bindStreet360Control } from '../shell/Street360Control.js';
 import { bindGooglePhotorealistic3dControl } from '../shell/GooglePhotorealistic3dControl.js';
 import { bindAnalyze3dControl } from '../shell/Analyze3dControl.js';
@@ -111,10 +112,13 @@ export function attachWorldviewMapSession(root, chassis, api) {
 
   let worldViewFrame = null;
   let focusInstrument = null;
+  let placeCamera = null;
   const dropPin = bindDropPinControl(root, {
     getActiveView: () => viewSwitcher?.snapshot?.().activeView || 'map',
     returnToMap: () => worldViewFrame?.setLayout(1) || viewSwitcher?.setView('MAP'),
     hasAcquiredObject: () => focusInstrument?.hasAcquired?.() === true,
+    isPlaceCameraArmed: () => placeCamera?.snapshot()?.armed === true,
+    disarmPlaceCamera: () => placeCamera?.disarm?.(),
     onPlaced: (focus) => {
       if (!focus) return;
       seedWorldviewNavigationFromFocus(focus);
@@ -132,9 +136,16 @@ export function attachWorldviewMapSession(root, chassis, api) {
     }
   });
 
+  placeCamera = bindPlaceCameraControl(root, {
+    getActiveView: () => viewSwitcher?.snapshot?.().activeView || 'map',
+    returnToMap: () => worldViewFrame?.setLayout(1) || viewSwitcher?.setView('MAP'),
+    disarmDropPin: () => dropPin.disarm()
+  });
+
   focusInstrument = bindFocusInstrument(root, {
     chassis,
-    isDropPinArmed: () => dropPin.snapshot().armed === true
+    isDropPinArmed: () => dropPin.snapshot().armed === true,
+    isPlaceCameraArmed: () => placeCamera?.snapshot()?.armed === true
   });
 
   const viewSwitcher = bindViewSwitcher(root, {
@@ -170,6 +181,7 @@ export function attachWorldviewMapSession(root, chassis, api) {
     api.portalWrites = 'NONE';
     if (snapshot.state === 'READY') {
       dropPin.setMapReady(true);
+      placeCamera.setMapReady(true);
       street360.setMapReady(true);
       google3d.setMapReady(true);
       analyze3d.setMapReady(true);
@@ -253,6 +265,7 @@ export function attachWorldviewMapSession(root, chassis, api) {
 
   showMapView(mapHost);
   api.dropPin = dropPin;
+  api.placeCamera = placeCamera;
   api.focusInstrument = focusInstrument;
   api.viewSwitcher = viewSwitcher;
   api.worldViewFrame = worldViewFrame;
@@ -297,6 +310,7 @@ export function attachWorldviewMapSession(root, chassis, api) {
 
   return Object.freeze({
     dropPin,
+    placeCamera,
     focusInstrument,
     viewSwitcher,
     worldViewFrame,
