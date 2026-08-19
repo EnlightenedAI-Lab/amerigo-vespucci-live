@@ -5,6 +5,16 @@ import {
   getMapViewCreateCount
 } from '../map/map-foundation.js';
 import {
+  WORLDVIEW_NAV_SOURCE,
+  beginWorldviewNavigationApply,
+  endWorldviewNavigationApply,
+  getWorldviewNavigation,
+  isWorldviewNavigationApplying,
+  proposeWorldviewNavigation,
+  subscribeWorldviewNavigation
+} from '../map/worldview-navigation.js';
+import {
+  applyWorldviewNavigationToMap3d,
   closeGoogleMapsJs3d,
   flyGoogleMapsJs3dToSelectedPoint,
   getGoogleMapsJs3dSnapshot,
@@ -17,7 +27,9 @@ import {
   resetGoogleMapsJs3dView,
   setGoogleMapsJs3dObliqueView,
   setGoogleMapsJs3dReference,
-  setGoogleMapsJs3dTopView
+  setGoogleMapsJs3dTopView,
+  subscribeGoogleMapsJs3dCamera,
+  updateGoogleMapsJs3dFocusMarker
 } from '../map/google-maps-js-3d.js';
 
 const STAGE_STATE = Object.freeze({
@@ -46,6 +58,8 @@ export function bindGooglePhotorealistic3dControl(root, options = {}) {
   let selectedPoint = null;
   let mapViewIdentity = null;
   let transition = 0;
+  let cameraUnsub = null;
+  let navUnsub = null;
 
   const hasSelection = () => Boolean(
     selectedPoint
@@ -55,6 +69,8 @@ export function bindGooglePhotorealistic3dControl(root, options = {}) {
     )
   );
 
+  const keepMapVisible = options.keepMapVisible === true;
+
   function paint() {
     const specialistVisible = [
       STAGE_STATE.OPENING,
@@ -62,13 +78,15 @@ export function bindGooglePhotorealistic3dControl(root, options = {}) {
       STAGE_STATE.CLOSING
     ].includes(stageState);
 
-    if (well) {
-      if (specialistVisible) well.dataset.iqaiSpecialistView = 'google-3d';
-      else if (well.dataset.iqaiSpecialistView === 'google-3d') well.dataset.iqaiSpecialistView = '2d';
-    }
-    if (root) {
-      if (specialistVisible) root.dataset.iqaiSpatialView = 'google-3d';
-      else if (root.dataset.iqaiSpatialView === 'google-3d') root.dataset.iqaiSpatialView = '2d';
+    if (!keepMapVisible) {
+      if (well) {
+        if (specialistVisible) well.dataset.iqaiSpecialistView = 'google-3d';
+        else if (well.dataset.iqaiSpecialistView === 'google-3d') well.dataset.iqaiSpecialistView = '2d';
+      }
+      if (root) {
+        if (specialistVisible) root.dataset.iqaiSpatialView = 'google-3d';
+        else if (root.dataset.iqaiSpatialView === 'google-3d') root.dataset.iqaiSpatialView = '2d';
+      }
     }
     if (stageHost) stageHost.hidden = !specialistVisible;
     if (controlsRoot) controlsRoot.hidden = !specialistVisible;
@@ -99,19 +117,68 @@ export function bindGooglePhotorealistic3dControl(root, options = {}) {
     }
   }
 
-  function applySpatialFocus() {
+  function canonicalFocusPoint() {
     const peer = options.getSpatialFocus?.() || options.getPeerSelectedPoint?.();
-    if (!isDropPinFocus(peer)) return hasSelection();
+    if (!isDropPinFocus(peer)) return null;
     const lon = Number(peer.longitude);
     const lat = Number(peer.latitude);
-    if (!isGreaterMontrealLongitudeLatitude(lon, lat)) return hasSelection();
-    selectedPoint = {
+    if (!isGreaterMontrealLongitudeLatitude(lon, lat)) return null;
+    return {
       longitude: lon,
       latitude: lat,
       spatialReferenceWkid: 4326,
       source: 'drop-pin'
     };
+  }
+
+  function applySpatialFocus() {
+    const point = canonicalFocusPoint();
+    if (point) selectedPoint = point;
     return hasSelection();
+  }
+
+  function waitForLaidOutStage() {
+    return new Promise((resolve) => {
+      const started = Date.now();
+      const tick = () => {
+        if (stageHost && stageHost.offsetWidth > 8 && stageHost.offsetHeight > 8) {
+          resolve(true);
+          return;
+        }
+        if (Date.now() - started > 2000) {
+          resolve(false);
+          return;
+        }
+        requestAnimationFrame(tick);
+      };
+      tick();
+    });
+  }
+
+  function openCameraTarget() {
+    const nav = getWorldviewNavigation();
+    if (nav && isGreaterMontrealLongitudeLatitude(nav.longitude, nav.latitude)) {
+      return {
+        longitude: nav.longitude,
+        latitude: nav.latitude,
+        range: nav.rangeMeters,
+        heading: nav.heading,
+        source: 'worldview-navigation'
+      };
+    }
+    return canonicalFocusPoint();
+  }
+
+  function cameraMissesFocus(engine, target) {
+    const camera = engine?.camera || {};
+    const lat = Number(camera.lat);
+    const lng = Number(camera.lng);
+    const aim = target || selectedPoint;
+    if (!aim || !Number.isFinite(lat) || !Number.isFinite(lng)) return true;
+    const offset = Number(engine?.cameraFocusOffsetMeters);
+    if (aim.source === 'drop-pin' && Number.isFinite(offset)) return offset > 25;
+    return Math.abs(lat - aim.latitude) > 0.0002
+      || Math.abs(lng - aim.longitude) > 0.0002;
   }
 
   function selectPoint(longitude, latitude, source = 'operator') {
@@ -124,6 +191,9 @@ export function bindGooglePhotorealistic3dControl(root, options = {}) {
       spatialReferenceWkid: 4326,
       source: String(source || 'operator')
     };
+    if (stageState === STAGE_STATE.OPEN) {
+      updateGoogleMapsJs3dFocusMarker(selectedPoint);
+    }
     if (stageState === STAGE_STATE.ERROR) stageState = STAGE_STATE.IDLE;
     options.onSelectPoint?.(selectedPoint);
     paint();
@@ -140,7 +210,7 @@ export function bindGooglePhotorealistic3dControl(root, options = {}) {
   }
 
   function showSpecialistSurface() {
-    if (mapHost) {
+    if (!keepMapVisible && mapHost) {
       mapHost.style.visibility = 'hidden';
       mapHost.style.pointerEvents = 'none';
     }
@@ -155,7 +225,7 @@ export function bindGooglePhotorealistic3dControl(root, options = {}) {
       stageHost.hidden = true;
       stageHost.innerHTML = '';
     }
-    if (mapHost) {
+    if (!keepMapVisible && mapHost) {
       mapHost.style.visibility = 'visible';
       mapHost.style.pointerEvents = '';
     }
@@ -182,6 +252,8 @@ export function bindGooglePhotorealistic3dControl(root, options = {}) {
       referenceEnabled: isGoogleMapsJs3dReferenceEnabled(),
       navVisible: Boolean(nav && !nav.hidden),
       layersVisible: Boolean(layers && !layers.hidden),
+      temporalMode: 'CURRENT_ONLY',
+      displayedAcquisitionLabel: 'CURRENT ONLY',
       mapCenter: {
         longitude: view?.center?.longitude ?? null,
         latitude: view?.center?.latitude ?? null
@@ -189,11 +261,53 @@ export function bindGooglePhotorealistic3dControl(root, options = {}) {
     };
   }
 
+  function detachNavSync() {
+    cameraUnsub?.();
+    navUnsub?.();
+    cameraUnsub = null;
+    navUnsub = null;
+  }
+
+  function attachNavSync() {
+    detachNavSync();
+    cameraUnsub = subscribeGoogleMapsJs3dCamera((camera) => {
+      if (stageState !== STAGE_STATE.OPEN) return;
+      if (isWorldviewNavigationApplying(WORLDVIEW_NAV_SOURCE.VISUAL_3D)) return;
+      if (!Number.isFinite(camera.lat) || !Number.isFinite(camera.lng)) return;
+      const current = getWorldviewNavigation();
+      if (
+        current
+        && current.sourceView !== WORLDVIEW_NAV_SOURCE.VISUAL_3D
+        && Math.abs(camera.lat - current.latitude) < 0.0002
+        && Math.abs(camera.lng - current.longitude) < 0.0002
+      ) {
+        return;
+      }
+      proposeWorldviewNavigation(WORLDVIEW_NAV_SOURCE.VISUAL_3D, {
+        longitude: camera.lng,
+        latitude: camera.lat,
+        rangeMeters: camera.range,
+        heading: camera.heading
+      });
+    });
+    navUnsub = subscribeWorldviewNavigation((nav) => {
+      if (!nav || stageState !== STAGE_STATE.OPEN) return;
+      if (nav.sourceView === WORLDVIEW_NAV_SOURCE.VISUAL_3D) return;
+      beginWorldviewNavigationApply(WORLDVIEW_NAV_SOURCE.VISUAL_3D);
+      try {
+        applyWorldviewNavigationToMap3d(nav);
+      } finally {
+        endWorldviewNavigationApply(WORLDVIEW_NAV_SOURCE.VISUAL_3D, nav.revision);
+      }
+    });
+  }
+
   async function open() {
     const view = getMapView();
     attachMapView(view);
     applySpatialFocus();
-    if (!mapReady || !hasSelection()) {
+    const target = openCameraTarget();
+    if (!mapReady || !target) {
       return snapshot();
     }
 
@@ -203,10 +317,27 @@ export function bindGooglePhotorealistic3dControl(root, options = {}) {
     paint();
 
     try {
-      const engine = await openGoogleMapsJs3d({
+      await waitForLaidOutStage();
+      applySpatialFocus();
+      const cameraTarget = openCameraTarget();
+      if (!cameraTarget) {
+        throw new Error('ACTIVE SPATIAL FOCUS or WorldView navigation is required for 3D VISUAL.');
+      }
+      const markerPoint = canonicalFocusPoint() || cameraTarget;
+      selectedPoint = {
+        longitude: markerPoint.longitude,
+        latitude: markerPoint.latitude,
+        spatialReferenceWkid: 4326,
+        source: markerPoint.source || 'drop-pin'
+      };
+      let engine = await openGoogleMapsJs3d({
         container: stageHost,
-        longitude: selectedPoint.longitude,
-        latitude: selectedPoint.latitude,
+        longitude: cameraTarget.longitude,
+        latitude: cameraTarget.latitude,
+        range: cameraTarget.range,
+        heading: cameraTarget.heading,
+        markerLongitude: selectedPoint.longitude,
+        markerLatitude: selectedPoint.latitude,
         source: selectedPoint.source
       });
       if (token !== transition) return snapshot();
@@ -214,16 +345,31 @@ export function bindGooglePhotorealistic3dControl(root, options = {}) {
         engine.open !== true
         || engine.maps3dLoaded !== true
         || engine.markerPresent !== true
-        || engine.steady !== true
-        || engine.error
       ) {
-        throw new Error('Google Photorealistic 3D did not become ready.');
+        throw new Error(engine.error || 'Google Photorealistic 3D did not become ready.');
       }
+      if (engine.error && !/did not become steady/i.test(String(engine.error))) {
+        throw new Error(String(engine.error));
+      }
+      if (cameraMissesFocus(engine, cameraTarget) && cameraTarget.source === 'drop-pin') {
+        engine = await resetGoogleMapsJs3dView();
+      } else if (cameraMissesFocus(engine, cameraTarget)) {
+        applyWorldviewNavigationToMap3d({
+          latitude: cameraTarget.latitude,
+          longitude: cameraTarget.longitude,
+          rangeMeters: cameraTarget.range,
+          heading: cameraTarget.heading
+        });
+        engine = getGoogleMapsJs3dSnapshot();
+      }
+      if (token !== transition) return snapshot();
       stageState = STAGE_STATE.OPEN;
+      attachNavSync();
       paint();
       return snapshot();
     } catch (error) {
       if (token === transition) {
+        detachNavSync();
         await closeGoogleMapsJs3d().catch(() => {});
         restoreMapSurface();
         stageState = STAGE_STATE.ERROR;
@@ -238,6 +384,7 @@ export function bindGooglePhotorealistic3dControl(root, options = {}) {
     const token = ++transition;
     stageState = STAGE_STATE.CLOSING;
     paint();
+    detachNavSync();
     await closeGoogleMapsJs3d();
     if (token !== transition) return snapshot();
     if (restoreMap) restoreMapSurface();

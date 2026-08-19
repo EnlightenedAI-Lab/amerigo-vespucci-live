@@ -19,6 +19,7 @@ import { ensureImageryObservationSlot } from '../imagery/imagery-plane.js';
 import {
   fetchOperationalMapOAuthConfig,
   getAgolSession,
+  getLocalDemoApiKey,
   isAccessDeniedError,
   registerAgolOAuth,
   registerPreauthTokenIfPresent,
@@ -61,7 +62,9 @@ const listeners = new Set();
 function sanitizeError(error) {
   return String(error?.message || error || 'Unknown error')
     .replace(/token=[^&\s]+/gi, 'token=[redacted]')
-    .replace(/access_token=[^&\s]+/gi, 'access_token=[redacted]');
+    .replace(/access_token=[^&\s]+/gi, 'access_token=[redacted]')
+    .replace(/apiKey=[^&\s]+/gi, 'apiKey=[redacted]')
+    .replace(/AAPT[A-Za-z0-9._-]{8,}/g, 'AAPT[redacted]');
 }
 
 async function withTimeout(promise, timeoutMs, label) {
@@ -131,6 +134,172 @@ export function getAuthoredLayerIds() {
   return [...authoredLayerIds];
 }
 
+function layerLegendLabels(layer) {
+  const renderer = layer?.renderer;
+  const infos = renderer?.uniqueValueInfos || renderer?.classBreakInfos || [];
+  return infos.map((info) => String(info.label || info.value || '').trim()).filter(Boolean);
+}
+
+function layerCollection(collection) {
+  if (!collection) return [];
+  if (typeof collection.toArray === 'function') return collection.toArray();
+  return [...collection];
+}
+
+function walkOperationalLayers(collection, groupTitle = null, depth = 0, out = []) {
+  for (const layer of layerCollection(collection)) {
+    if (!layer) continue;
+    if (layer.id === RUNTIME_PLANE_ID) {
+      walkOperationalLayers(layer.layers, 'Session overlay', depth, out);
+      continue;
+    }
+    if (layer.listMode === 'hide') continue;
+    out.push({
+      id: String(layer.id || layer.title || `layer-${out.length}`),
+      title: String(layer.title || layer.id || 'Untitled layer'),
+      visible: layer.visible !== false,
+      opacity: Number.isFinite(Number(layer.opacity)) ? Number(layer.opacity) : 1,
+      group: groupTitle,
+      depth,
+      type: String(layer.type || ''),
+      source: String(layer.portalItem?.title || groupTitle || 'Authored operational map'),
+      session: String(layer.id || '').startsWith('session-'),
+      legend: layerLegendLabels(layer)
+    });
+    if (layer.layers) walkOperationalLayers(layer.layers, layer.title || groupTitle, depth + 1, out);
+  }
+  return out;
+}
+
+export function listOperationalLayers() {
+  if (!webMap) return [];
+  return walkOperationalLayers(webMap.layers);
+}
+
+function findOperationalLayer(layerId) {
+  if (!webMap || !layerId) return null;
+  const all = webMap.allLayers ? layerCollection(webMap.allLayers) : layerCollection(webMap.layers);
+  return all.find((layer) => layer && String(layer.id) === String(layerId)) || null;
+}
+
+export function setOperationalLayerVisibility(layerId, visible) {
+  const layer = findOperationalLayer(layerId);
+  if (!layer) return false;
+  layer.visible = visible === true;
+  return true;
+}
+
+export function setOperationalLayerOpacity(layerId, opacity) {
+  const layer = findOperationalLayer(layerId);
+  if (!layer || !('opacity' in layer)) return false;
+  const value = Number(opacity);
+  if (!Number.isFinite(value)) return false;
+  layer.opacity = Math.min(1, Math.max(0, value));
+  return true;
+}
+
+async function postArcGisForm(url, params, timeoutMs = 10000) {
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: params,
+    signal: AbortSignal.timeout(timeoutMs)
+  });
+  return response.json().catch(() => ({}));
+}
+
+function demoApiKeyFrom(oauth = {}) {
+  return getLocalDemoApiKey() || (typeof oauth.apiKey === 'string' ? oauth.apiKey.trim() : '');
+}
+
+export async function searchPortalItems(query) {
+  const text = String(query || '').trim();
+  if (!text) return { ok: false, results: [], status: 'Enter a search.', portalWrite: false };
+  const oauth = await fetchOperationalMapOAuthConfig().catch(() => ({}));
+  const portalUrl = String(oauth.portalUrl || 'https://www.arcgis.com').replace(/\/$/, '');
+  const params = new URLSearchParams({
+    f: 'json',
+    num: '8',
+    q: `(type:"Feature Service" OR type:"Map Service" OR type:"Image Service" OR type:"Web Map") AND (${text})`
+  });
+  const apiKey = demoApiKeyFrom(oauth);
+  if (apiKey) params.set('token', apiKey);
+  try {
+    const data = await postArcGisForm(`${portalUrl}/sharing/rest/search`, params);
+    const results = (data.results || []).map((item) => {
+      const type = String(item.type || '');
+      const addable = /feature service|map service|image service/i.test(type);
+      return {
+        id: item.id,
+        title: item.title,
+        type,
+        addable
+      };
+    });
+    return { ok: true, results, status: results.length ? null : 'No items found.', portalWrite: false };
+  } catch {
+    return { ok: false, results: [], status: 'ArcGIS Online search is unavailable.', portalWrite: false };
+  }
+}
+
+export async function addSessionPortalItem({ id, type, title }) {
+  if (!runtimePlane || !webMap) return { ok: false, reason: 'MAP_NOT_READY', portalWrite: false };
+  if (/web map/i.test(String(type || ''))) {
+    return { ok: false, reason: 'WEBMAP_NOT_SESSION_OVERLAY', portalWrite: false };
+  }
+  const itemId = String(id || '').trim();
+  if (!itemId) return { ok: false, reason: 'MISSING_ITEM', portalWrite: false };
+  const layerId = `session-${itemId}`;
+  if (findOperationalLayer(layerId)) {
+    return { ok: true, layerId, already: true, portalWrite: false };
+  }
+  const kind = String(type || '').toLowerCase();
+  const moduleId = /image/.test(kind)
+    ? '@arcgis/core/layers/ImageryLayer.js'
+    : /map service/.test(kind)
+      ? '@arcgis/core/layers/MapImageLayer.js'
+      : '@arcgis/core/layers/FeatureLayer.js';
+  const LayerClass = await importArc(moduleId);
+  const layer = new LayerClass({
+    id: layerId,
+    title: title || itemId,
+    portalItem: { id: itemId },
+    popupEnabled: false
+  });
+  runtimePlane.add(layer);
+  runtimePlane.visible = true;
+  return { ok: true, layerId, portalWrite: false };
+}
+
+export async function searchAndGoTo(query) {
+  const text = String(query || '').trim();
+  if (!text || !mapView) return { ok: false };
+  const oauth = await fetchOperationalMapOAuthConfig().catch(() => ({}));
+  const params = new URLSearchParams({
+    f: 'json',
+    singleLine: text,
+    maxLocations: '1',
+    outFields: '*'
+  });
+  const apiKey = demoApiKeyFrom(oauth);
+  if (apiKey) params.set('token', apiKey);
+  const root = apiKey
+    ? 'https://geocode-api.arcgis.com/arcgis/rest/services/World/GeocodeServer'
+    : 'https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer';
+  try {
+    const data = await postArcGisForm(`${root}/findAddressCandidates`, params, 8000);
+    const candidate = data.candidates?.[0];
+    const lon = Number(candidate?.location?.x);
+    const lat = Number(candidate?.location?.y);
+    if (!Number.isFinite(lon) || !Number.isFinite(lat)) return { ok: false };
+    mapView.center = [lon, lat];
+    if (Number.isFinite(mapView.zoom) && mapView.zoom < 14) mapView.zoom = 15;
+    return { ok: true, longitude: lon, latitude: lat, address: candidate.address || text, portalWrite: false };
+  } catch {
+    return { ok: false };
+  }
+}
+
 export function getMapViewCreateCount() {
   return mapViewCreateCount;
 }
@@ -163,6 +332,19 @@ function applyOperationalHome(view) {
   if (!view) return;
   view.center = [MONTREAL_OPERATIONAL_CENTER.longitude, MONTREAL_OPERATIONAL_CENTER.latitude];
   view.scale = MONTREAL_OPERATIONAL_SCALE;
+}
+
+function adjustMapZoom(view, deltaZoom) {
+  if (!view || !deltaZoom) return;
+  const zoom = Number(view.zoom);
+  if (Number.isFinite(zoom)) {
+    view.zoom = zoom + deltaZoom;
+    return;
+  }
+  const scale = Number(view.scale);
+  if (Number.isFinite(scale) && scale > 0) {
+    view.scale = deltaZoom > 0 ? scale / 2 : scale * 2;
+  }
 }
 
 const MAP_HOST_SURFACE_STYLE_ID = 'iqai-v2-map-foundation-surface';
@@ -250,6 +432,14 @@ async function loadWebMapOrSignIn(map, session, timeoutMs) {
     await withTimeout(map.load(), timeoutMs, 'WebMap load');
     return;
   } catch (error) {
+    if (session.authMode === 'local-api-key') {
+      const err = new Error(
+        `Local API key cannot load the authored WebMap ${session.webmapItemId || ''}`.trim()
+      );
+      err.code = 'API_KEY_ITEM_DENIED';
+      err.cause = error;
+      throw err;
+    }
     const accessDenied = isAccessDeniedError(error);
     if (!accessDenied && !/timed out|timeout|unable to load|failed to load/i.test(String(error?.message || error))) {
       throw error;
@@ -303,12 +493,15 @@ async function bootstrap(container, options) {
   await ensureNearmapWmsInterceptor();
   installMapViewHostCss();
   const oauthConfig = await fetchOperationalMapOAuthConfig();
-  if (!oauthConfig.oauthAppIdConfigured) {
+  if (!oauthConfig.apiKeyConfigured && !oauthConfig.oauthAppIdConfigured) {
     throw new Error('ArcGIS OAuth App ID is not configured.');
   }
 
   const session = await registerAgolOAuth(oauthConfig);
-  registerPreauthTokenIfPresent(session.IdentityManager, session.sharingUrl);
+  session.webmapItemId = oauthConfig.webmapItemId || MONTREAL_OPERATIONAL_WEBMAP_ITEM_ID;
+  if (session.authMode !== 'local-api-key') {
+    registerPreauthTokenIfPresent(session.IdentityManager, session.sharingUrl);
+  }
 
   const webmapItemId = oauthConfig.webmapItemId || MONTREAL_OPERATIONAL_WEBMAP_ITEM_ID;
 
@@ -432,18 +625,21 @@ export function getMapFoundationController() {
     getWebMap,
     getRuntimePlane,
     getAuthoredLayerIds,
+    listOperationalLayers,
+    setOperationalLayerVisibility,
+    setOperationalLayerOpacity,
+    searchPortalItems,
+    addSessionPortalItem,
+    searchAndGoTo,
     getMapViewCreateCount,
     subscribe: subscribeMapFoundation,
     zoomIn: async () => {
-      if (!mapView) return;
-      await mapView.goTo({ zoom: (mapView.zoom || 0) + 1 }).catch(() => {});
+      adjustMapZoom(mapView, 1);
     },
     zoomOut: async () => {
-      if (!mapView) return;
-      await mapView.goTo({ zoom: (mapView.zoom || 0) - 1 }).catch(() => {});
+      adjustMapZoom(mapView, -1);
     },
     goHome: async () => {
-      if (!mapView) return;
       applyOperationalHome(mapView);
     }
   };

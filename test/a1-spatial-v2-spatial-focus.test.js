@@ -69,9 +69,17 @@ test('DROP PIN is a map-stage spatial action and specialists consume spatial foc
   assert.doesNotMatch(street, /view\.on\('click'/);
   assert.match(visual, /getSpatialFocus/);
   assert.match(visual, /applySpatialFocus/);
+  assert.match(visual, /canonicalFocusPoint/);
+  assert.match(visual, /waitForLaidOutStage/);
+  assert.match(visual, /cameraMissesFocus/);
   assert.doesNotMatch(visual, /view\.on\('click'/);
   assert.doesNotMatch(engine, /montreal-operational-center/);
+  assert.doesNotMatch(engine, /mapview-center/);
   assert.match(engine, /return selectedPoint \? \{ \.\.\.selectedPoint \} : null/);
+  assert.match(engine, /applySelectedPointToMap3d/);
+  assert.match(engine, /settleFocusCamera/);
+  assert.match(engine, /cameraFocusOffsetMeters/);
+  assert.match(engine, /selectedPoint = null/);
   assert.match(guided, /host\.hidden = true/);
   assert.match(css, /is-drop-pin/);
   assert.match(css, /12 12, crosshair/);

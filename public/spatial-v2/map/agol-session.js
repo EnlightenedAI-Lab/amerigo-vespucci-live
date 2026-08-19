@@ -10,6 +10,11 @@ const OAUTH_CONFIG_PATH = '/api/spatial/operational-map/oauth-config';
 
 let registration = null;
 let hashBridgeWired = false;
+let localDemoApiKey = null;
+
+export function getLocalDemoApiKey() {
+  return localDemoApiKey;
+}
 
 export async function fetchOperationalMapOAuthConfig() {
   const res = await fetch(OAUTH_CONFIG_PATH, { cache: 'no-store' });
@@ -31,9 +36,13 @@ function wireOAuthHashBridge(IdentityManager) {
 export async function registerAgolOAuth(oauthConfig) {
   const popupCallbackUrl = oauthConfig.popupCallbackUrl
     || `${window.location.origin}/spatial/oauth-callback.html`;
+  const authMode = oauthConfig.authMode === 'local-api-key' ? 'local-api-key' : 'browser-oauth';
+  const apiKey = typeof oauthConfig.apiKey === 'string' ? oauthConfig.apiKey.trim() : '';
   if (
     registration?.appId === oauthConfig.oauthAppId
     && registration?.popupCallbackUrl === popupCallbackUrl
+    && registration?.authMode === authMode
+    && registration?.hasApiKey === Boolean(apiKey)
   ) {
     return registration;
   }
@@ -46,22 +55,30 @@ export async function registerAgolOAuth(oauthConfig) {
 
   const portalUrl = String(oauthConfig.portalUrl || 'https://www.arcgis.com').replace(/\/$/, '');
   esriConfig.portalUrl = portalUrl;
+  if (apiKey) {
+    esriConfig.apiKey = apiKey;
+    localDemoApiKey = apiKey;
+  }
 
-  IdentityManager.registerOAuthInfos([
-    new OAuthInfo({
-      appId: oauthConfig.oauthAppId,
-      portalUrl,
-      popup: true,
-      popupCallbackUrl
-    })
-  ]);
-  wireOAuthHashBridge(IdentityManager);
+  if (authMode !== 'local-api-key' && oauthConfig.oauthAppId) {
+    IdentityManager.registerOAuthInfos([
+      new OAuthInfo({
+        appId: oauthConfig.oauthAppId,
+        portalUrl,
+        popup: true,
+        popupCallbackUrl
+      })
+    ]);
+    wireOAuthHashBridge(IdentityManager);
+  }
 
   registration = {
-    appId: oauthConfig.oauthAppId,
+    appId: oauthConfig.oauthAppId || null,
     portalUrl,
     sharingUrl: `${portalUrl}/sharing`,
     popupCallbackUrl,
+    authMode,
+    hasApiKey: Boolean(apiKey),
     IdentityManager
   };
   return registration;
@@ -90,7 +107,10 @@ export function registerPreauthTokenIfPresent(IdentityManager, sharingUrl) {
   return true;
 }
 
-export async function getAgolSession(IdentityManager, sharingUrl) {
+export async function getAgolSession(IdentityManager, sharingUrl, options = {}) {
+  if (options.authMode === 'local-api-key' || localDemoApiKey) {
+    return { authenticated: true, credential: null, authMode: 'local-api-key' };
+  }
   registerPreauthTokenIfPresent(IdentityManager, sharingUrl);
   try {
     const credential = await IdentityManager.checkSignInStatus(sharingUrl);

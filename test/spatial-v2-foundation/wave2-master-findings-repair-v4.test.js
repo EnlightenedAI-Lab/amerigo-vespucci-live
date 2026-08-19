@@ -237,7 +237,7 @@ test('legitimate trusted chassis registration still executes; MIGRATED specialis
   assert.equal(inspect.executed, true);
   assert.equal(chassis.capabilityRegistry.isChassisTrusted('chassis.inspect-world'), true);
   assert.equal(chassis.capabilityRegistry.isChassisTrusted('view.select'), true);
-  assert.equal(chassis.capabilityRegistry.require('map').migrationState, MIGRATION_STATE.UNMIGRATED);
+  assert.equal(chassis.capabilityRegistry.require('map').migrationState, MIGRATION_STATE.MIGRATED);
 
   const now = clock();
   const idFactory = ids('v4iso');

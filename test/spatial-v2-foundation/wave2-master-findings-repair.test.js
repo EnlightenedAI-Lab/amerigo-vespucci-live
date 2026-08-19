@@ -445,11 +445,11 @@ test('ViewHost cannot diverge from World State and cannot execute unmigrated ada
     (error) => error.code === 'HOST_HAS_NO_CANONICAL_VIEW'
   );
   assert.throws(
-    () => chassis.viewHost.mount(VIEW_ID.MAP),
+    () => chassis.viewHost.mount(VIEW_ID.ANALYZE_3D),
     (error) => error.code === 'VIEW_ADAPTER_NOT_EXECUTABLE'
   );
   assert.throws(
-    () => chassis.viewHost.show(VIEW_ID.STREET_360),
+    () => chassis.viewHost.show(VIEW_ID.ANALYZE_3D),
     (error) => error.code === 'VIEW_ADAPTER_NOT_EXECUTABLE'
   );
   assert.equal(invoked, 0);

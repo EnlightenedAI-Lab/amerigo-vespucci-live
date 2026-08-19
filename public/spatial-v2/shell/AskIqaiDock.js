@@ -3,11 +3,12 @@ import { ASK_QUICK_ACTIONS, SHELL_SLOTS } from './layout-registry.js';
 export function renderAskIqaiDock() {
   const { id, slot } = SHELL_SLOTS.askIqaiDock;
   return `
-    <section id="${id}" class="iqai-v2-ask" data-iqai-slot="${slot}" aria-label="Ask IQAI">
+    <section id="${id}" class="iqai-v2-ask" data-iqai-slot="${slot}" data-iqai-ask-open="false" hidden aria-label="Ask IQAI">
       <form class="iqai-v2-ask__form" data-iqai-ask-form="true" autocomplete="off">
         <div class="iqai-v2-ask__top">
           <h2 class="iqai-v2-ask__label">ASK IQAI</h2>
-          <p class="iqai-v2-ask__prompt">What do you want to know or do?</p>
+          <button type="button" class="iqai-v2-ask__close" data-iqai-ask-close aria-label="Close Ask IQAI">Close</button>
+          <p class="iqai-v2-ask__prompt iqai-v2-visually-hidden">Ask IQAI</p>
           <div class="iqai-v2-ask__actions" aria-label="Quick actions">
             ${ASK_QUICK_ACTIONS.map((action) => `
               <button
@@ -26,10 +27,17 @@ export function renderAskIqaiDock() {
               class="iqai-v2-ask__input"
               name="ask"
               rows="1"
-              placeholder="Ask a question or describe what you want to build..."
+              placeholder="Ask, analyze or command…"
+              data-iqai-ask-legacy="Ask a question or describe what you want to build..."
             ></textarea>
           </label>
           <button type="submit" class="iqai-v2-ask__send" data-iqai-guided-action="ASK">ASK</button>
+        </div>
+        <div class="iqai-v2-ask__models" data-iqai-model-selector hidden>
+          <span>AUTO</span>
+          <span>Grok</span>
+          <span>Cloud</span>
+          <span>Gemini</span>
         </div>
         <p class="iqai-v2-ask__status" data-iqai-ask-status hidden></p>
       </form>
@@ -55,6 +63,19 @@ function receiptMessage(receipt) {
   return 'UNROUTED — No registered capability accepted this request.';
 }
 
+export function paintAskIqaiDock(root, { open = false } = {}) {
+  const dock = root.querySelector('[data-iqai-slot="ask-iqai-dock"]');
+  if (!dock) return;
+  dock.hidden = !open;
+  dock.dataset.iqaiAskOpen = open ? 'true' : 'false';
+  root.dataset.iqaiAsk = open ? 'open' : 'closed';
+  const toggle = root.querySelector('[data-iqai-ask-toggle]');
+  if (toggle) {
+    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    toggle.classList.toggle('is-open', open);
+  }
+}
+
 export function paintAskIqaiReceipt(root, receipt) {
   const status = root.querySelector('[data-iqai-ask-status]');
   if (!status) return;
@@ -65,7 +86,16 @@ export function paintAskIqaiReceipt(root, receipt) {
 
 export function bindAskIqaiDock(root, handlers = {}) {
   const form = root.querySelector('[data-iqai-ask-form]');
-  if (!form) return () => {};
+  const dock = root.querySelector('[data-iqai-slot="ask-iqai-dock"]');
+  const onToggle = (event) => {
+    const control = event.target.closest('[data-iqai-ask-toggle], [data-iqai-ask-close]');
+    if (!control || !root.contains(control)) return;
+    handlers.onToggle?.();
+  };
+  if (!form) {
+    root.addEventListener('click', onToggle);
+    return () => root.removeEventListener('click', onToggle);
+  }
 
   const status = form.querySelector('[data-iqai-ask-status]');
   const input = form.querySelector('[name="ask"]');
@@ -92,19 +122,23 @@ export function bindAskIqaiDock(root, handlers = {}) {
 
   const onClick = (event) => {
     const chip = event.target.closest('[data-iqai-quick-action]');
-    if (!chip || !form.contains(chip)) return;
-    const pressed = chip.getAttribute('aria-pressed') === 'true';
-    form.querySelectorAll('[data-iqai-quick-action]').forEach((item) => {
-      const nextPressed = item === chip && !pressed;
-      item.setAttribute('aria-pressed', nextPressed ? 'true' : 'false');
-      item.classList.toggle('is-pressed', nextPressed);
-    });
+    if (chip && form.contains(chip)) {
+      const pressed = chip.getAttribute('aria-pressed') === 'true';
+      form.querySelectorAll('[data-iqai-quick-action]').forEach((item) => {
+        const nextPressed = item === chip && !pressed;
+        item.setAttribute('aria-pressed', nextPressed ? 'true' : 'false');
+        item.classList.toggle('is-pressed', nextPressed);
+      });
+    }
   };
 
   form.addEventListener('submit', onSubmit);
   form.addEventListener('click', onClick);
+  root.addEventListener('click', onToggle);
   return () => {
     form.removeEventListener('submit', onSubmit);
     form.removeEventListener('click', onClick);
+    root.removeEventListener('click', onToggle);
+    void dock;
   };
 }

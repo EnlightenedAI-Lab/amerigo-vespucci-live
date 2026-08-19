@@ -3,6 +3,9 @@
  * Specialists consume this contract. They do not invent a location.
  */
 
+import { getLocalDemoApiKey } from './agol-session.js';
+import { describeCoordinates, formatDecimalDegrees } from './coordinate-formats.js';
+
 export const SPATIAL_FOCUS_SOURCE_TYPE = Object.freeze({
   DROP_PIN: 'DROP_PIN'
 });
@@ -62,10 +65,7 @@ export function formatLongitude(longitude, digits = 5) {
 }
 
 export function formatLatitudeLongitude(latitude, longitude, digits = 5) {
-  const lat = formatLatitude(latitude, digits);
-  const lon = formatLongitude(longitude, digits);
-  if (!lat || !lon) return null;
-  return `${lat}   ${lon}`;
+  return formatDecimalDegrees(latitude, longitude, digits);
 }
 
 export function isDropPinFocus(point) {
@@ -91,18 +91,28 @@ export function getPointerCoordinates() {
 
 export function getSpatialFocusSnapshot() {
   const active = getActiveSpatialFocus();
+  const pointerFormats = pointer
+    ? describeCoordinates(pointer.latitude, pointer.longitude)
+    : null;
+  const focusFormats = active
+    ? describeCoordinates(active.latitude, active.longitude, {
+      place: active.resolvedAddress
+    })
+    : null;
   return {
     focus: active,
     pointer: getPointerCoordinates(),
-    pointerText: pointer
-      ? formatLatitudeLongitude(pointer.latitude, pointer.longitude)
-      : null,
+    pointerText: pointerFormats?.dd || null,
+    pointerFormats,
+    focusFormats,
     receiptText: active
       ? [
           active.resolvedAddress || ADDRESS_NOT_RESOLVED,
-          formatLatitude(active.latitude),
-          formatLongitude(active.longitude)
-        ].join('\n')
+          focusFormats?.dd,
+          focusFormats?.dms,
+          focusFormats?.utm,
+          focusFormats?.mgrs
+        ].filter(Boolean).join('\n')
       : null
   };
 }
@@ -184,8 +194,13 @@ export async function reverseGeocodeFocus(longitude, latitude) {
     langCode: 'en',
     featureTypes: 'PointAddress,StreetAddress,StreetName,POI'
   });
+  const apiKey = getLocalDemoApiKey();
+  if (apiKey) params.set('token', apiKey);
+  const geocodeRoot = apiKey
+    ? 'https://geocode-api.arcgis.com/arcgis/rest/services/World/GeocodeServer'
+    : WORLD_GEOCODER_URL;
   try {
-    const response = await fetch(`${WORLD_GEOCODER_URL}/reverseGeocode?${params}`, {
+    const response = await fetch(`${geocodeRoot}/reverseGeocode?${params}`, {
       signal: AbortSignal.timeout(8000)
     });
     const data = await response.json().catch(() => ({}));

@@ -34,11 +34,6 @@ export function renderMapStage() {
         </div>
         <div class="iqai-v2-map-nav" data-iqai-map-nav hidden></div>
         ${renderOperatorGroundControl()}
-        <div class="iqai-v2-begin" data-iqai-begin>
-          <p class="iqai-v2-begin__kicker">BEGIN</p>
-          <p class="iqai-v2-begin__title">What do you want to know or do?</p>
-          <p class="iqai-v2-begin__hint">Ask IQAI, or open Imagery from LOOK.</p>
-        </div>
         <div class="iqai-v2-imagery-dock" data-iqai-imagery-dock hidden></div>
         <div class="iqai-v2-view-switcher" data-iqai-view-switcher>
           <span>VIEW</span>

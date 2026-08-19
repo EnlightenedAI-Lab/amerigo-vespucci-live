@@ -92,7 +92,8 @@ test('chassis execute uses CapabilityRuntime and ResultCommitter, not AppShell',
   await chassis.executeChassis('view.select', { viewId: VIEW_ID.STREET_360 });
   const after = chassis.stateStore.getSnapshot();
   assert.deepEqual(after.views.activeViewIds, [VIEW_ID.STREET_360]);
-  assert.equal(chassis.viewRegistry.require(VIEW_ID.STREET_360).migrationState, MIGRATION_STATE.UNMIGRATED);
+  assert.equal(chassis.viewRegistry.require(VIEW_ID.STREET_360).migrationState, MIGRATION_STATE.MIGRATED);
+  assert.equal(chassis.viewRegistry.require(VIEW_ID.ANALYZE_3D).migrationState, MIGRATION_STATE.UNAVAILABLE);
 });
 
 test('unmigrated and unavailable capabilities fail closed before adapter execution', async () => {
@@ -101,8 +102,11 @@ test('unmigrated and unavailable capabilities fail closed before adapter executi
     now: () => '2026-08-18T16:00:00.000Z',
     idFactory: () => `deny-${++n}`
   });
+  const mapped = await chassis.executeChassis('map', {});
+  assert.equal(mapped.ok, true);
+  assert.equal(chassis.stateStore.getSnapshot().views.activeViewIds[0], VIEW_ID.MAP);
   await assert.rejects(
-    () => chassis.executeChassis('map', {}),
+    () => chassis.executeChassis('imagery', {}),
     (error) => error.code === 'CAPABILITY_UNMIGRATED'
   );
   await assert.rejects(
@@ -222,8 +226,11 @@ test('visible shell stamps required systems and honest unmigrated labels', () =>
   }
   assert.match(catalog, /UNMIGRATED/);
   assert.match(catalog, /UNAVAILABLE/);
-  assert.match(stage, /NO MAPVIEW THIS WAVE/);
+  assert.match(stage, /DROP PIN/);
+  assert.match(stage, /SECOND VIEW/);
   assert.match(stage, /UNMIGRATED/);
+  assert.doesNotMatch(stage, /NO MAPVIEW THIS WAVE/);
+  assert.doesNotMatch(stage, /What do you want to know or do/);
 });
 
 test('Ask on the chassis remains fail-closed and does not default to GIS', async () => {
@@ -239,7 +246,8 @@ test('Ask on the chassis remains fail-closed and does not default to GIS', async
   const imagery = await chassis.submitAsk({ text: 'imagery' });
   assert.equal(imagery.state, 'UNAVAILABLE');
   const map = await chassis.submitAsk({ text: 'map' });
-  assert.equal(map.state, 'UNAVAILABLE');
+  assert.equal(map.state, 'ROUTED');
+  assert.equal(map.result?.engineExecuted, false);
 });
 
 test('JOB execution enqueues without mutating World State', async () => {

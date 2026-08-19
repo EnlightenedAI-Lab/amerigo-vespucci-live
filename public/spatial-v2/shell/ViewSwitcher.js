@@ -7,6 +7,23 @@ const VIEWS = Object.freeze({
   ANALYZE_3D: '3d-analyze'
 });
 
+export function canonicalViewId(value) {
+  const raw = String(value || '').trim();
+  if (raw === 'MAP' || raw === 'map') return VIEWS.MAP;
+  if (raw === 'STREET 360' || raw === 'street-360') return VIEWS.STREET_360;
+  if (raw === '3D VISUAL' || raw === '3d-visual' || raw === '3D') return VIEWS.VISUAL_3D;
+  if (raw === '3D ANALYZE' || raw === '3d-analyze') return VIEWS.ANALYZE_3D;
+  return raw;
+}
+
+export function worldViewId(canonical) {
+  if (canonical === VIEWS.MAP) return 'MAP';
+  if (canonical === VIEWS.STREET_360) return 'STREET 360';
+  if (canonical === VIEWS.VISUAL_3D) return '3D VISUAL';
+  if (canonical === VIEWS.ANALYZE_3D) return '3D ANALYZE';
+  return canonical;
+}
+
 const NOTICE = Object.freeze({
   SELECT_STREET: 'SELECT A POINT FOR STREET 360',
   SELECT_3D: 'SELECT A POINT FOR 3D VISUAL',
@@ -26,6 +43,7 @@ export function bindViewSwitcher(root, options = {}) {
   const dateLabel = root?.querySelector('[data-iqai-street-360-date]');
   const google3d = options.google3d;
   const street360 = options.street360;
+  const exclusive = options.exclusive !== false;
 
   let activeView = VIEWS.MAP;
   let pendingView = null;
@@ -39,12 +57,19 @@ export function bindViewSwitcher(root, options = {}) {
 
   function paint() {
     if (!switcher) return;
+    const streetOpen = street360?.snapshot?.().open === true;
+    const visualOpen = google3d?.snapshot?.().open === true;
     for (const button of switcher.querySelectorAll('[data-iqai-view]')) {
-      const view = button.getAttribute('data-iqai-view');
+      const view = canonicalViewId(button.getAttribute('data-iqai-view'));
       const reserved = view === VIEWS.ANALYZE_3D;
       button.disabled = reserved || (busy && view !== VIEWS.MAP);
-      button.setAttribute('aria-pressed', view === activeView ? 'true' : 'false');
-      button.classList.toggle('is-active', view === activeView);
+      const pressed = exclusive
+        ? view === activeView
+        : view === VIEWS.MAP
+          || (view === VIEWS.STREET_360 && streetOpen)
+          || (view === VIEWS.VISUAL_3D && visualOpen);
+      button.setAttribute('aria-pressed', pressed ? 'true' : 'false');
+      button.classList.toggle('is-active', pressed);
     }
     const capture = street360?.snapshot?.().capture;
     const blocking = pendingView
@@ -81,10 +106,12 @@ export function bindViewSwitcher(root, options = {}) {
   }
 
   async function showUnavailable(message) {
-    activeView = VIEWS.MAP;
     pendingView = null;
     busy = false;
-    await closeSpecialists(VIEWS.MAP);
+    if (exclusive) {
+      activeView = VIEWS.MAP;
+      await closeSpecialists(VIEWS.MAP);
+    }
     if (notice) {
       notice.hidden = false;
       notice.textContent = message;
@@ -122,7 +149,7 @@ export function bindViewSwitcher(root, options = {}) {
     activeView = VIEWS.STREET_360;
     busy = true;
     paint();
-    await closeSpecialists(VIEWS.STREET_360);
+    if (exclusive) await closeSpecialists(VIEWS.STREET_360);
     try {
       const opened = await street360.open();
       if (opened?.stageState === 'UNAVAILABLE' || opened?.available === false) {
@@ -152,7 +179,7 @@ export function bindViewSwitcher(root, options = {}) {
     activeView = VIEWS.VISUAL_3D;
     busy = true;
     paint();
-    await closeSpecialists(VIEWS.VISUAL_3D);
+    if (exclusive) await closeSpecialists(VIEWS.VISUAL_3D);
     try {
       const opened = await google3d.open();
       if (opened?.stageState === 'ERROR' || opened?.open !== true) {
@@ -185,20 +212,24 @@ export function bindViewSwitcher(root, options = {}) {
   }
 
   async function setView(view) {
+    view = canonicalViewId(view);
     if (view === VIEWS.ANALYZE_3D) return snapshot();
     if (busy && view === activeView) return snapshot();
     if (view === VIEWS.MAP) {
       await openMap();
+      options.onView?.(worldViewId(activeView), snapshot());
       return snapshot();
     }
     if (view === VIEWS.STREET_360) {
       if (activeView === VIEWS.STREET_360 && street360?.snapshot?.().open) return snapshot();
       await openStreet360();
+      options.onView?.(worldViewId(activeView), snapshot());
       return snapshot();
     }
     if (view === VIEWS.VISUAL_3D) {
       if (activeView === VIEWS.VISUAL_3D && google3d?.snapshot?.().open) return snapshot();
       await open3dVisual();
+      options.onView?.(worldViewId(activeView), snapshot());
       return snapshot();
     }
     return snapshot();
@@ -225,6 +256,7 @@ export function bindViewSwitcher(root, options = {}) {
       busy,
       notice: notice?.hidden ? null : notice?.textContent?.trim() || null,
       selectedPoint: selectedPoint(),
+      exclusive,
       street360: street360?.snapshot?.() || null,
       google3d: google3d?.snapshot?.() || null
     };
@@ -233,7 +265,11 @@ export function bindViewSwitcher(root, options = {}) {
   const onClick = (event) => {
     const button = event.target.closest('[data-iqai-view]');
     if (!button || !switcher?.contains(button)) return;
-    const view = button.getAttribute('data-iqai-view');
+    const view = canonicalViewId(button.getAttribute('data-iqai-view'));
+    if (typeof options.onRequestView === 'function') {
+      void options.onRequestView(worldViewId(view));
+      return;
+    }
     void setView(view);
   };
   switcher?.addEventListener('click', onClick);

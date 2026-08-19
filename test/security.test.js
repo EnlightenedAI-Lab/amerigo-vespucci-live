@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { stripSensitiveFields, sanitizeError } from '../src/security.js';
+import { stripSensitiveFields, sanitizeError, frameOptionsForPath } from '../src/security.js';
 
 test('strips token and password fields from objects', () => {
   const input = { name: 'test', token: 'secret', ARCGIS_TOKEN: 'abc', password: 'pwd' };
@@ -31,4 +31,10 @@ test('passes through safe error messages', () => {
 test('truncates overly long error messages', () => {
   const result = sanitizeError(new Error('x'.repeat(300)));
   assert.equal(result.error, 'An upstream data request failed.');
+});
+
+test('same-origin 3D specialist frame may be framed; other paths stay DENY', () => {
+  assert.equal(frameOptionsForPath('/spatial-v2/google-3d-frame.html'), 'SAMEORIGIN');
+  assert.equal(frameOptionsForPath('/spatial-v2/'), 'DENY');
+  assert.equal(frameOptionsForPath('/spatial-v2/index.html'), 'DENY');
 });

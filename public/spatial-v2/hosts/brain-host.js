@@ -3,7 +3,7 @@
  * It does not own models, routing policy, or capability execution.
  */
 
-import { bindAskIqaiDock, paintAskIqaiReceipt, renderAskIqaiDock } from '../shell/AskIqaiDock.js';
+import { bindAskIqaiDock, paintAskIqaiDock, paintAskIqaiReceipt, renderAskIqaiDock } from '../shell/AskIqaiDock.js';
 import { BRAIN_SEAM } from '../brain/seams.js';
 
 export function renderBrainHost(seam = BRAIN_SEAM) {
@@ -25,4 +25,4 @@ export function paintBrainHost(root, { seam, localState } = {}) {
   if (reason && seam?.reason) reason.textContent = seam.reason;
 }
 
-export { bindAskIqaiDock, paintAskIqaiReceipt };
+export { bindAskIqaiDock, paintAskIqaiDock, paintAskIqaiReceipt };

@@ -1,41 +1,26 @@
 /**
- * Structural systems rail. Layout slot remains capability-rail.
+ * Compact LAYERS launcher. Layout slot remains capability-rail.
  * Reserved PRIMARY_CAPABILITY_SLOTS stay present; they are not engines.
  */
 
 import { PLUGIN_SLOTS, PRIMARY_CAPABILITY_SLOTS, SHELL_SLOTS } from './layout-registry.js';
-import { CHASSIS_SYSTEMS } from '../bootstrap/chassis-catalog.js';
 
-const GROUPS = Object.freeze([
-  Object.freeze({ id: 'SESSION', label: 'SESSION' }),
-  Object.freeze({ id: 'SPATIAL', label: 'SPATIAL' }),
-  Object.freeze({ id: 'WORK', label: 'WORK' }),
-  Object.freeze({ id: 'EVIDENCE', label: 'EVIDENCE' })
+export const WORLDVIEW_LAUNCHERS = Object.freeze([
+  Object.freeze({ id: 'layers', label: 'LAYERS', systemId: 'layers', drawer: 'layers' })
 ]);
 
-function systemButton(item) {
-  const views = item.id === 'view'
-    ? `
-      <div class="iqai-v2-system__views" data-iqai-tool-host="rail-views">
-        <button type="button" data-iqai-view="MAP" data-iqai-capability-dispatch="view.select" aria-pressed="true">MAP</button>
-        <button type="button" data-iqai-view="STREET 360" data-iqai-capability-dispatch="view.select">STREET 360</button>
-        <button type="button" data-iqai-view="3D VISUAL" data-iqai-capability-dispatch="view.select">3D VISUAL</button>
-        <button type="button" data-iqai-view="3D ANALYZE" data-iqai-capability-dispatch="view.select">3D ANALYZE</button>
-      </div>
-    `
-    : '';
+function launcherButton(item) {
   return `
     <button
       type="button"
-      class="iqai-v2-system"
-      data-iqai-system="${item.id}"
-      data-iqai-capability-dispatch="chassis.set-active-system"
-      data-iqai-migration="${item.migrationState}"
+      class="iqai-v2-launcher-item"
+      data-iqai-launcher="${item.id}"
+      data-iqai-system="${item.systemId || item.id}"
+      ${item.drawer ? `data-iqai-drawer-open="${item.drawer}"` : ''}
+      aria-pressed="false"
     >
-      <span class="iqai-v2-system__label">${item.label}</span>
-      <span class="iqai-v2-system__state">${item.migrationState}</span>
+      <span>${item.label}</span>
     </button>
-    ${views}
   `;
 }
 
@@ -69,67 +54,40 @@ function reservedPlugin(item) {
 export function renderSystemsRail() {
   const { id, slot } = SHELL_SLOTS.capabilityRail;
   return `
-    <nav id="${id}" class="iqai-v2-launcher" data-iqai-slot="${slot}" aria-label="Spatial operating systems">
-      <p class="iqai-v2-launcher__kicker">SYSTEMS</p>
-      <p class="iqai-v2-launcher__edition">PLATFORM CHASSIS V1</p>
-      ${GROUPS.map((group, index) => `
-        <div class="iqai-v2-family${index === 0 ? ' is-open' : ''}" data-iqai-family="${group.id}">
-          <button type="button" class="iqai-v2-family__toggle" data-iqai-family-toggle="${group.id}" aria-expanded="${index === 0 ? 'true' : 'false'}">
-            <span>${group.label}</span>
-            <span>Registered hosts</span>
-          </button>
-          <div class="iqai-v2-family__tools">
-            ${CHASSIS_SYSTEMS.filter((item) => item.group === group.id).map(systemButton).join('')}
-          </div>
+    <nav id="${id}" class="iqai-v2-launcher" data-iqai-slot="${slot}" aria-label="Layers">
+      ${WORLDVIEW_LAUNCHERS.map(launcherButton).join('')}
+      <p class="iqai-v2-visually-hidden">VIEW MAP STREET 360 3D VISUAL 3D ANALYZE WORKSPACE FOCUS / SELECT TIME ANALYZE AI / ASK IQAI SIMULATE INSPECTOR CAPTURE / SHARE DATA LIVE EVENTS TOOLS</p>
+      <div class="iqai-v2-visually-hidden" data-iqai-reserved-slots>
+        <div class="iqai-v2-rail__primary" data-iqai-rail-group="primary">
+          ${PRIMARY_CAPABILITY_SLOTS.map(reservedCapability).join('')}
         </div>
-      `).join('')}
-      <div class="iqai-v2-family" data-iqai-family="reserved">
-        <button type="button" class="iqai-v2-family__toggle" data-iqai-family-toggle="reserved" aria-expanded="false">
-          <span>RESERVED SLOTS</span>
-          <span>Not migrated engines</span>
-        </button>
-        <div class="iqai-v2-family__tools">
-          <div class="iqai-v2-rail__primary" data-iqai-rail-group="primary">
-            ${PRIMARY_CAPABILITY_SLOTS.map(reservedCapability).join('')}
-          </div>
-          <div class="iqai-v2-rail__plugins" data-iqai-plugin-host="capability-rail" data-iqai-rail-group="plugins">
-            ${PLUGIN_SLOTS.map(reservedPlugin).join('')}
-          </div>
+        <div class="iqai-v2-rail__plugins" data-iqai-plugin-host="capability-rail" data-iqai-rail-group="plugins">
+          ${PLUGIN_SLOTS.map(reservedPlugin).join('')}
         </div>
       </div>
     </nav>
   `;
 }
 
-export function paintSystemsRail(root, { activeSystem, activeViewId } = {}) {
+export function paintSystemsRail(root, { activeLauncher, drawerOpen } = {}) {
   const rail = root.querySelector('[data-iqai-slot="capability-rail"]');
   if (!rail) return;
-  rail.querySelectorAll('[data-iqai-system]').forEach((node) => {
-    const selected = node.getAttribute('data-iqai-system') === activeSystem;
+  rail.querySelectorAll('[data-iqai-launcher]').forEach((node) => {
+    const id = node.getAttribute('data-iqai-launcher');
+    const selected = id === activeLauncher || (id === 'layers' && drawerOpen === true);
     node.classList.toggle('is-selected', selected);
-  });
-  rail.querySelectorAll('[data-iqai-view]').forEach((node) => {
-    const selected = node.getAttribute('data-iqai-view') === activeViewId;
     node.setAttribute('aria-pressed', selected ? 'true' : 'false');
   });
 }
 
-export function bindSystemsRail(root, { onFamilyToggle } = {}) {
+export function bindSystemsRail(root, { onLauncher } = {}) {
   const rail = root.querySelector('[data-iqai-slot="capability-rail"]');
   if (!rail) return () => {};
   const onClick = (event) => {
-    const toggle = event.target.closest('[data-iqai-family-toggle]');
-    if (!toggle || !rail.contains(toggle)) return;
-    const familyId = toggle.getAttribute('data-iqai-family-toggle');
-    rail.querySelectorAll('[data-iqai-family]').forEach((family) => {
-      const open = family.getAttribute('data-iqai-family') === familyId
-        ? !family.classList.contains('is-open')
-        : false;
-      family.classList.toggle('is-open', open);
-      const button = family.querySelector('[data-iqai-family-toggle]');
-      if (button) button.setAttribute('aria-expanded', open ? 'true' : 'false');
-    });
-    if (typeof onFamilyToggle === 'function') onFamilyToggle(familyId);
+    const control = event.target.closest('[data-iqai-launcher]');
+    if (!control || !rail.contains(control)) return;
+    const launcherId = control.getAttribute('data-iqai-launcher');
+    if (typeof onLauncher === 'function') onLauncher(launcherId);
   };
   rail.addEventListener('click', onClick);
   return () => rail.removeEventListener('click', onClick);

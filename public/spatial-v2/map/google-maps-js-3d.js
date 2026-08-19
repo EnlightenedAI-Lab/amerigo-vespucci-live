@@ -38,6 +38,10 @@ let restoreAmdDetection = null;
 let maps3dLib = null;
 let cameraInitGeneration = 0;
 let referenceRestoreGeneration = 0;
+let lastOperatorTilt = GOOGLE_MAPS_JS_3D_TILT_DEG;
+const cameraListeners = new Set();
+let cameraWatchCleanup = null;
+let cameraEmitTimer = null;
 
 function suppressArcgisAmdDetection() {
   const define = window.define;
@@ -75,7 +79,10 @@ function installMapsJsBootstrap(apiKey) {
 }
 
 async function fetchBrowserKey() {
-  const response = await fetch(GOOGLE_MAPS_JS_CONFIG, { cache: 'no-store' });
+  const response = await fetch(GOOGLE_MAPS_JS_CONFIG, {
+    cache: 'no-store',
+    signal: AbortSignal.timeout(8000)
+  });
   const payload = await response.json().catch(() => ({}));
   const key = String(payload?.streetLevelContext?.googleMapsBrowserApiKey || '').trim();
   browserKeyPresent = Boolean(key);
@@ -84,22 +91,28 @@ async function fetchBrowserKey() {
 
 function waitForSteady(element, timeoutMs = 45000) {
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
+    let settled = false;
+    const finish = (ok, error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
       element.removeEventListener('gmp-steadychange', onSteady);
       element.removeEventListener('gmp-error', onError);
-      reject(new Error('Google Map3DElement did not become steady.'));
+      if (ok) resolve();
+      else reject(error || new Error('Google Map3DElement did not become steady.'));
+    };
+    const timer = setTimeout(() => {
+      finish(false, new Error('Google Map3DElement did not become steady.'));
     }, timeoutMs);
     const onError = (event) => {
       lastError = String(event?.message || event?.detail || 'gmp-error');
+      finish(false, new Error(lastError));
     };
     const onSteady = (event) => {
       const steady = event?.isSteady ?? event?.detail?.isSteady;
       if (steady === false) return;
       lastSteady = true;
-      clearTimeout(timer);
-      element.removeEventListener('gmp-error', onError);
-      element.removeEventListener('gmp-steadychange', onSteady);
-      resolve();
+      finish(true);
     };
     element.addEventListener('gmp-error', onError, { once: true });
     element.addEventListener('gmp-steadychange', onSteady);
@@ -115,14 +128,76 @@ function modeName(mode) {
 function cameraSnapshot() {
   if (!map3d) return null;
   const center = map3d.center || {};
+  const tilt = Number(map3d.tilt);
+  if (Number.isFinite(tilt)) lastOperatorTilt = clampTilt(tilt);
   return {
     lat: Number(center.lat),
     lng: Number(center.lng),
     altitude: Number(center.altitude),
-    tilt: Number(map3d.tilt),
+    tilt: Number.isFinite(tilt) ? tilt : lastOperatorTilt,
     heading: Number(map3d.heading),
     range: Number(map3d.range),
     mode: modeName(map3d.mode)
+  };
+}
+
+function emitCamera() {
+  const snapshot = cameraSnapshot();
+  if (!snapshot) return;
+  for (const listener of cameraListeners) {
+    try {
+      listener(snapshot);
+    } catch (error) {
+      console.warn('[IQAI V2] Map3D camera listener failed', error);
+    }
+  }
+}
+
+function scheduleCameraEmit() {
+  clearTimeout(cameraEmitTimer);
+  cameraEmitTimer = setTimeout(emitCamera, 48);
+}
+
+function attachCameraWatch(element) {
+  cameraWatchCleanup?.();
+  if (!element) {
+    cameraWatchCleanup = null;
+    return;
+  }
+  let dragging = false;
+  const onSteady = (event) => {
+    const steady = event?.isSteady ?? event?.detail?.isSteady;
+    lastSteady = steady !== false;
+    if (lastSteady) emitCamera();
+    else scheduleCameraEmit();
+  };
+  const onPointerDown = () => {
+    dragging = true;
+    scheduleCameraEmit();
+  };
+  const onPointerUp = () => {
+    dragging = false;
+    emitCamera();
+  };
+  const onCenter = () => scheduleCameraEmit();
+  element.addEventListener('gmp-steadychange', onSteady);
+  element.addEventListener('gmp-centerchange', onCenter);
+  element.addEventListener('gmp-headingchange', onCenter);
+  element.addEventListener('gmp-rangechange', onCenter);
+  element.addEventListener('pointerdown', onPointerDown);
+  window.addEventListener('pointerup', onPointerUp);
+  const pulse = setInterval(() => {
+    if (dragging || lastSteady === false) scheduleCameraEmit();
+  }, 120);
+  cameraWatchCleanup = () => {
+    clearInterval(pulse);
+    clearTimeout(cameraEmitTimer);
+    element.removeEventListener('gmp-steadychange', onSteady);
+    element.removeEventListener('gmp-centerchange', onCenter);
+    element.removeEventListener('gmp-headingchange', onCenter);
+    element.removeEventListener('gmp-rangechange', onCenter);
+    element.removeEventListener('pointerdown', onPointerDown);
+    window.removeEventListener('pointerup', onPointerUp);
   };
 }
 
@@ -168,6 +243,102 @@ function standardSelectedCamera() {
   };
 }
 
+function offsetMeters(lon1, lat1, lon2, lat2) {
+  const toRad = (degrees) => (degrees * Math.PI) / 180;
+  const radius = 6371000;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat / 2) ** 2
+    + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return 2 * radius * Math.asin(Math.min(1, Math.sqrt(a)));
+}
+
+function cameraFocusOffsetMeters() {
+  const camera = cameraSnapshot();
+  if (!camera || !selectedPoint) return null;
+  if (!Number.isFinite(camera.lat) || !Number.isFinite(camera.lng)) return null;
+  return offsetMeters(
+    selectedPoint.longitude,
+    selectedPoint.latitude,
+    camera.lng,
+    camera.lat
+  );
+}
+
+function updateFocusMarker(point) {
+  if (!marker || !point) return;
+  try {
+    marker.position = {
+      lat: Number(point.latitude),
+      lng: Number(point.longitude),
+      altitude: 40
+    };
+  } catch {
+    // Marker may not accept assignment until the custom element is connected.
+  }
+}
+
+function applyWorldviewCamera(nav) {
+  if (!map3d || !nav) return false;
+  const camera = cameraSnapshot() || {};
+  const latitude = Number(nav.latitude ?? nav.lat);
+  const longitude = Number(nav.longitude ?? nav.lng);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return false;
+  assignLiveCamera({
+    center: {
+      lat: latitude,
+      lng: longitude,
+      altitude: Number.isFinite(camera.altitude) ? camera.altitude : 400
+    },
+    range: Number.isFinite(Number(nav.rangeMeters)) ? Number(nav.rangeMeters) : camera.range,
+    heading: Number.isFinite(Number(nav.heading)) ? Number(nav.heading) : camera.heading,
+    tilt: Number.isFinite(camera.tilt) ? camera.tilt : lastOperatorTilt
+  }, { stopAnimation: true });
+  return true;
+}
+
+async function settleOpenCamera(initToken, nav) {
+  applyWorldviewCamera(nav);
+  updateFocusMarker(selectedPoint);
+  if (initToken !== cameraInitGeneration || !map3d) return;
+  const camera = cameraSnapshot();
+  const offset = camera
+    ? offsetMeters(nav.longitude, nav.latitude, camera.lng, camera.lat)
+    : null;
+  if (offset != null && offset <= 25) return;
+  try {
+    await waitForSteady(map3d, 8000);
+  } catch {
+    // Open assign still stands; tiles may paint after return.
+  }
+  if (initToken === cameraInitGeneration && map3d) {
+    applyWorldviewCamera(nav);
+    updateFocusMarker(selectedPoint);
+  }
+}
+
+function applySelectedPointToMap3d() {
+  if (!map3d || !selectedPoint) return false;
+  assignLiveCamera(standardSelectedCamera());
+  updateFocusMarker(selectedPoint);
+  return true;
+}
+
+async function settleFocusCamera(initToken) {
+  applySelectedPointToMap3d();
+  if (initToken !== cameraInitGeneration || !map3d) return;
+  const offset = cameraFocusOffsetMeters();
+  if (offset != null && offset <= 25) return;
+  try {
+    await waitForSteady(map3d, 8000);
+  } catch {
+    // Focus assign still stands; tiles may paint after return.
+  }
+  if (initToken === cameraInitGeneration && map3d) {
+    applySelectedPointToMap3d();
+  }
+}
+
 function restoreCamera(camera) {
   if (!camera) return;
   assignLiveCamera({
@@ -180,9 +351,9 @@ function restoreCamera(camera) {
   });
 }
 
-function assignLiveCamera(camera) {
+function assignLiveCamera(camera, options = {}) {
   if (!map3d || !camera) return;
-  map3d.stopCameraAnimation?.();
+  if (options.stopAnimation !== false) map3d.stopCameraAnimation?.();
   if (camera.center && Number.isFinite(camera.center.lat) && Number.isFinite(camera.center.lng)) {
     map3d.center = {
       lat: camera.center.lat,
@@ -270,6 +441,7 @@ export function getGoogleMapsJs3dSnapshot() {
     stageCreateCount,
     selectedPoint: selectedPoint ? { ...selectedPoint } : null,
     camera: cameraSnapshot(),
+    cameraFocusOffsetMeters: cameraFocusOffsetMeters(),
     markerPresent: Boolean(marker),
     steady: lastSteady,
     browserKeyPresent,
@@ -282,6 +454,9 @@ export function getGoogleMapsJs3dSnapshot() {
 
 export async function closeGoogleMapsJs3d() {
   generation += 1;
+  cameraWatchCleanup?.();
+  cameraWatchCleanup = null;
+  clearTimeout(cameraEmitTimer);
   try {
     marker?.remove?.();
   } catch {
@@ -299,6 +474,7 @@ export async function closeGoogleMapsJs3d() {
   }
   marker = null;
   map3d = null;
+  selectedPoint = null;
   lastSteady = false;
   cameraInitGeneration += 1;
   referenceRestoreGeneration += 1;
@@ -318,12 +494,19 @@ export async function openGoogleMapsJs3d(options = {}) {
   const token = ++generation;
   lastError = null;
   lastSteady = false;
+  const markerLongitude = Number(options.markerLongitude ?? longitude);
+  const markerLatitude = Number(options.markerLatitude ?? latitude);
   selectedPoint = {
-    longitude,
-    latitude,
+    longitude: Number.isFinite(markerLongitude) ? markerLongitude : longitude,
+    latitude: Number.isFinite(markerLatitude) ? markerLatitude : latitude,
     spatialReferenceWkid: 4326,
-    source: options.source || 'mapview-center'
+    source: options.source || 'drop-pin'
   };
+  const openRange = Number(options.range);
+  const openHeading = Number(options.heading);
+  const openTilt = Number.isFinite(Number(options.tilt))
+    ? clampTilt(options.tilt)
+    : lastOperatorTilt;
 
   const apiKey = await fetchBrowserKey();
   if (!apiKey) {
@@ -360,9 +543,9 @@ export async function openGoogleMapsJs3d(options = {}) {
 
   map3d = new Map3DElement({
     center: { lat: latitude, lng: longitude, altitude: 400 },
-    range: GOOGLE_MAPS_JS_3D_RANGE_METERS,
-    tilt: GOOGLE_MAPS_JS_3D_TILT_DEG,
-    heading: GOOGLE_MAPS_JS_3D_HEADING_DEG,
+    range: Number.isFinite(openRange) && openRange > 0 ? openRange : GOOGLE_MAPS_JS_3D_RANGE_METERS,
+    tilt: openTilt,
+    heading: Number.isFinite(openHeading) ? wrapHeading(openHeading) : GOOGLE_MAPS_JS_3D_HEADING_DEG,
     mode,
     gestureHandling: 'GREEDY',
     defaultUIHidden: false,
@@ -372,20 +555,40 @@ export async function openGoogleMapsJs3d(options = {}) {
   map3d.style.cssText = 'display:block;width:100%;height:100%;';
   if (Marker3DElement) {
     marker = new Marker3DElement({
-      position: { lat: latitude, lng: longitude, altitude: 40 },
+      position: {
+        lat: selectedPoint.latitude,
+        lng: selectedPoint.longitude,
+        altitude: 40
+      },
       altitudeMode: maps3d.AltitudeMode?.RELATIVE_TO_MESH || 'RELATIVE_TO_MESH',
       extruded: true,
       label: 'SELECTED POINT'
     });
-    map3d.append(marker);
+    if (marker && typeof map3d.append === 'function') {
+      map3d.append(marker);
+    }
   }
   container.append(map3d);
   stageCreateCount += 1;
   const initToken = ++cameraInitGeneration;
+  applyWorldviewCamera({
+    latitude,
+    longitude,
+    rangeMeters: Number.isFinite(openRange) && openRange > 0 ? openRange : GOOGLE_MAPS_JS_3D_RANGE_METERS,
+    heading: Number.isFinite(openHeading) ? wrapHeading(openHeading) : GOOGLE_MAPS_JS_3D_HEADING_DEG
+  });
+  updateFocusMarker(selectedPoint);
   await customElements.whenDefined('gmp-map-3d').catch(() => {});
   if (initToken === cameraInitGeneration && map3d) {
     map3d.defaultUIHidden = false;
     map3d.gestureHandling = maps3d.GestureHandling?.GREEDY || 'GREEDY';
+    applyWorldviewCamera({
+      latitude,
+      longitude,
+      rangeMeters: Number.isFinite(openRange) && openRange > 0 ? openRange : GOOGLE_MAPS_JS_3D_RANGE_METERS,
+      heading: Number.isFinite(openHeading) ? wrapHeading(openHeading) : GOOGLE_MAPS_JS_3D_HEADING_DEG
+    });
+    updateFocusMarker(selectedPoint);
   }
   try {
     await waitForSteady(map3d);
@@ -395,7 +598,14 @@ export async function openGoogleMapsJs3d(options = {}) {
   }
   if (initToken === cameraInitGeneration && map3d) {
     map3d.defaultUIHidden = false;
+    await settleOpenCamera(initToken, {
+      latitude,
+      longitude,
+      rangeMeters: Number.isFinite(openRange) && openRange > 0 ? openRange : GOOGLE_MAPS_JS_3D_RANGE_METERS,
+      heading: Number.isFinite(openHeading) ? wrapHeading(openHeading) : GOOGLE_MAPS_JS_3D_HEADING_DEG
+    });
   }
+  attachCameraWatch(map3d);
   map3d?.addEventListener?.('gmp-click', () => {
     map3d?.stopCameraAnimation?.();
   });
@@ -503,6 +713,30 @@ export async function setGoogleMapsJs3dReference(enabled) {
 
 export function getSelectedPoint() {
   return selectedPoint ? { ...selectedPoint } : null;
+}
+
+export function applyWorldviewNavigationToMap3d(nav) {
+  return applyWorldviewCamera(nav);
+}
+
+export function updateGoogleMapsJs3dFocusMarker(point) {
+  if (point && Number.isFinite(Number(point.longitude)) && Number.isFinite(Number(point.latitude))) {
+    selectedPoint = {
+      longitude: Number(point.longitude),
+      latitude: Number(point.latitude),
+      spatialReferenceWkid: 4326,
+      source: point.source || selectedPoint?.source || 'drop-pin'
+    };
+  }
+  updateFocusMarker(selectedPoint);
+  return getGoogleMapsJs3dSnapshot();
+}
+
+export function subscribeGoogleMapsJs3dCamera(listener) {
+  cameraListeners.add(listener);
+  const current = cameraSnapshot();
+  if (current) listener(current);
+  return () => cameraListeners.delete(listener);
 }
 
 export function getGoogleMapsJs3dElement() {

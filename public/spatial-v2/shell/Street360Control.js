@@ -12,8 +12,25 @@ import {
   moveGoogleStreetViewAlongCoverage,
   openGoogleStreetView,
   STREET_360_OPERATOR_UNAVAILABLE,
+  applyWorldviewNavigationToStreetView,
+  subscribeGoogleStreetViewNavigation,
   zoomGoogleStreetView
 } from '../map/google-street-view.js';
+import {
+  WORLDVIEW_NAV_SOURCE,
+  armStreetOperatingScale,
+  beginWorldviewNavigationApply,
+  disarmStreetOperatingScale,
+  endWorldviewNavigationApply,
+  getStreet360LiveCapability,
+  getWorldviewNavigation,
+  isWorldviewNavigationApplying,
+  noteStreetOperatingScaleApplied,
+  proposeWorldviewNavigation,
+  streetOperatingScalePatch,
+  subscribeWorldviewNavigation
+} from '../map/worldview-navigation.js';
+import { observeStreetTraversal } from '../map/worldview-traversal.js';
 
 const STAGE_STATE = Object.freeze({
   IDLE: 'IDLE',
@@ -36,6 +53,8 @@ export function bindStreet360Control(root, options = {}) {
   let selectedFeature = null;
   let mapViewIdentity = null;
   let transition = 0;
+  let streetNavUnsub = null;
+  let worldNavUnsub = null;
 
   const hasSelection = () => Boolean(
     selectedPoint
@@ -63,6 +82,60 @@ export function bindStreet360Control(root, options = {}) {
     return hasSelection();
   }
 
+  function openTarget() {
+    const nav = getWorldviewNavigation();
+    if (nav && isGreaterMontrealLongitudeLatitude(nav.longitude, nav.latitude)) {
+      return {
+        longitude: nav.longitude,
+        latitude: nav.latitude,
+        source: 'worldview-navigation'
+      };
+    }
+    return peerPoint();
+  }
+
+  function detachNavSync() {
+    streetNavUnsub?.();
+    worldNavUnsub?.();
+    streetNavUnsub = null;
+    worldNavUnsub = null;
+    disarmStreetOperatingScale();
+  }
+
+  function attachNavSync() {
+    detachNavSync();
+    armStreetOperatingScale();
+    const capability = getStreet360LiveCapability();
+    if (capability.positionEvents) {
+      streetNavUnsub = subscribeGoogleStreetViewNavigation((position) => {
+        if (stageState !== STAGE_STATE.OPEN) return;
+        if (isWorldviewNavigationApplying(WORLDVIEW_NAV_SOURCE.STREET_360)) return;
+        const scalePatch = streetOperatingScalePatch(getWorldviewNavigation());
+        const committed = proposeWorldviewNavigation(WORLDVIEW_NAV_SOURCE.STREET_360, {
+          longitude: position.longitude,
+          latitude: position.latitude,
+          heading: capability.headingFromPov ? position.heading : undefined,
+          ...scalePatch
+        });
+        if (committed?.accepted) noteStreetOperatingScaleApplied(committed.snapshot);
+        observeStreetTraversal({
+          ...position,
+          programmatic: position.programmatic === true
+        });
+      });
+    }
+    worldNavUnsub = subscribeWorldviewNavigation((nav) => {
+      if (!nav || stageState !== STAGE_STATE.OPEN) return;
+      if (nav.sourceView === WORLDVIEW_NAV_SOURCE.STREET_360) return;
+      beginWorldviewNavigationApply(WORLDVIEW_NAV_SOURCE.STREET_360);
+      try {
+        applyWorldviewNavigationToStreetView(nav);
+      } finally {
+        endWorldviewNavigationApply(WORLDVIEW_NAV_SOURCE.STREET_360, nav.revision);
+      }
+    });
+  }
+
   function specialistVisibleNow() {
     return [
       STAGE_STATE.OPENING,
@@ -71,15 +144,19 @@ export function bindStreet360Control(root, options = {}) {
     ].includes(stageState);
   }
 
+  const keepMapVisible = options.keepMapVisible === true;
+
   function paint() {
     const specialistVisible = specialistVisibleNow();
-    if (well) {
-      if (specialistVisible) well.dataset.iqaiSpecialistView = 'street-360';
-      else if (well.dataset.iqaiSpecialistView === 'street-360') well.dataset.iqaiSpecialistView = '2d';
-    }
-    if (root) {
-      if (specialistVisible) root.dataset.iqaiSpatialView = 'street-360';
-      else if (root.dataset.iqaiSpatialView === 'street-360') root.dataset.iqaiSpatialView = '2d';
+    if (!keepMapVisible) {
+      if (well) {
+        if (specialistVisible) well.dataset.iqaiSpecialistView = 'street-360';
+        else if (well.dataset.iqaiSpecialistView === 'street-360') well.dataset.iqaiSpecialistView = '2d';
+      }
+      if (root) {
+        if (specialistVisible) root.dataset.iqaiSpatialView = 'street-360';
+        else if (root.dataset.iqaiSpatialView === 'street-360') root.dataset.iqaiSpatialView = '2d';
+      }
     }
     if (stageHost) stageHost.hidden = !specialistVisible;
     if (dateLabel) {
@@ -119,7 +196,7 @@ export function bindStreet360Control(root, options = {}) {
   }
 
   function showSpecialistSurface() {
-    if (mapHost) {
+    if (!keepMapVisible && mapHost) {
       mapHost.style.visibility = 'hidden';
       mapHost.style.pointerEvents = 'none';
     }
@@ -134,13 +211,31 @@ export function bindStreet360Control(root, options = {}) {
       stageHost.hidden = true;
       stageHost.innerHTML = '';
     }
-    if (mapHost) {
+    if (!keepMapVisible && mapHost) {
       mapHost.style.visibility = 'visible';
       mapHost.style.pointerEvents = '';
     }
     const view = getMapView();
     view?.resize?.();
     view?.requestRender?.();
+  }
+
+  function waitForLaidOutStage() {
+    return new Promise((resolve) => {
+      const started = Date.now();
+      const tick = () => {
+        if (stageHost && stageHost.offsetWidth > 8 && stageHost.offsetHeight > 8) {
+          resolve(true);
+          return;
+        }
+        if (Date.now() - started > 2000) {
+          resolve(false);
+          return;
+        }
+        requestAnimationFrame(tick);
+      };
+      tick();
+    });
   }
 
   function snapshot() {
@@ -173,10 +268,11 @@ export function bindStreet360Control(root, options = {}) {
     const view = getMapView();
     attachMapView(view);
     applySpatialFocus();
-    if (!mapReady || !hasSelection()) {
+    const target = openTarget();
+    if (!mapReady || !target) {
       return snapshot();
     }
-    if (options.isPeerSpecialistOpen?.() === true) {
+    if (!keepMapVisible && options.isPeerSpecialistOpen?.() === true) {
       await options.closePeerSpecialist?.();
     }
 
@@ -186,9 +282,9 @@ export function bindStreet360Control(root, options = {}) {
 
     try {
       const availability = await checkGoogleStreetView({
-        longitude: selectedPoint.longitude,
-        latitude: selectedPoint.latitude,
-        source: selectedPoint.source
+        longitude: target.longitude,
+        latitude: target.latitude,
+        source: target.source
       });
       if (token !== transition) return snapshot();
       if (!availability.available) {
@@ -199,21 +295,35 @@ export function bindStreet360Control(root, options = {}) {
 
       showSpecialistSurface();
       paint();
+      await waitForLaidOutStage();
       const engine = await openGoogleStreetView({
         container: stageHost,
-        longitude: selectedPoint.longitude,
-        latitude: selectedPoint.latitude,
-        source: selectedPoint.source
+        longitude: target.longitude,
+        latitude: target.latitude,
+        source: target.source,
+        preferPosition: target.source === 'worldview-navigation'
       });
       if (token !== transition) return snapshot();
       if (engine.open !== true || engine.available !== true || engine.error) {
         throw new Error('Street 360 did not become ready.');
       }
       stageState = STAGE_STATE.OPEN;
+      attachNavSync();
+      if (engine.panoramaPosition) {
+        observeStreetTraversal({
+          longitude: engine.panoramaPosition.longitude,
+          latitude: engine.panoramaPosition.latitude,
+          heading: engine.pov?.heading,
+          pitch: engine.pov?.pitch,
+          zoom: engine.zoom,
+          panoId: engine.panoId || null
+        });
+      }
       paint();
       return snapshot();
     } catch (error) {
       if (token === transition) {
+        detachNavSync();
         await closeGoogleStreetView().catch(() => {});
         restoreMapSurface();
         stageState = STAGE_STATE.ERROR;
@@ -228,6 +338,7 @@ export function bindStreet360Control(root, options = {}) {
     const token = ++transition;
     stageState = STAGE_STATE.CLOSING;
     paint();
+    detachNavSync();
     await closeGoogleStreetView();
     if (token !== transition) return snapshot();
     if (restoreMap) restoreMapSurface();
@@ -255,6 +366,7 @@ export function bindStreet360Control(root, options = {}) {
     look: lookGoogleStreetView,
     zoom: zoomGoogleStreetView,
     moveAlongCoverage: moveGoogleStreetViewAlongCoverage,
+    liveCapability: getStreet360LiveCapability,
     snapshot
   });
 }

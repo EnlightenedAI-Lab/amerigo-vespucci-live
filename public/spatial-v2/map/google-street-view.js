@@ -7,6 +7,7 @@
  */
 
 import { isGreaterMontrealLongitudeLatitude } from '../../spatial/montreal-operational-config.js';
+import { beginProgrammaticTraversal } from './worldview-traversal.js';
 
 export const GOOGLE_MAPS_JS_CONFIG = '/api/spatial/config';
 export const STREET_360_SEARCH_RADIUS_METERS = 80;
@@ -33,6 +34,10 @@ let lastLinksCount = 0;
 let panoPresent = false;
 let streetViewLib = null;
 let lastOutdoorPanoId = null;
+let coverageVisitedPanos = [];
+const navigationListeners = new Set();
+let streetApplyGeneration = 0;
+let traversalMuteUntil = 0;
 
 function outdoorSource(google) {
   return streetViewLib?.StreetViewSource?.OUTDOOR
@@ -152,7 +157,7 @@ function latLngOf(value) {
   return { latitude: lat, longitude: lng };
 }
 
-function readPanoramaState() {
+function readPanoramaState(options = {}) {
   if (!panorama) {
     lastPov = null;
     lastZoom = null;
@@ -174,10 +179,33 @@ function readPanoramaState() {
   } catch {
     // Street View may briefly report empty state while links load.
   }
+  if (options.emit !== false) emitStreetNavigation();
+}
+
+function emitStreetNavigation() {
+  const position = lastPanoramaPosition;
+  if (!position) return;
+  const snapshot = {
+    longitude: position.longitude,
+    latitude: position.latitude,
+    heading: Number.isFinite(Number(lastPov?.heading)) ? Number(lastPov.heading) : null,
+    zoom: lastZoom,
+    pitch: Number.isFinite(Number(lastPov?.pitch)) ? Number(lastPov.pitch) : null,
+    panoId: panorama?.getPano?.() || lastOutdoorPanoId || null,
+    panoPresent,
+    programmatic: isStreetViewTraversalMuted()
+  };
+  for (const listener of navigationListeners) {
+    try {
+      listener(snapshot);
+    } catch (error) {
+      console.warn('[IQAI V2] Street 360 navigation listener failed', error);
+    }
+  }
 }
 
 export function getGoogleStreetViewSnapshot() {
-  readPanoramaState();
+  readPanoramaState({ emit: false });
   return {
     open: Boolean(panorama),
     renderer: 'StreetViewPanorama',
@@ -199,13 +227,14 @@ export function getGoogleStreetViewSnapshot() {
     zoom: lastZoom,
     linksCount: lastLinksCount,
     panoPresent,
+    panoId: panorama?.getPano?.() || lastOutdoorPanoId || null,
     stageCreateCount,
     error: lastError,
     searchRadiusMeters: STREET_360_SEARCH_RADIUS_METERS
   };
 }
 
-async function ensureStreetViewLibrary() {
+async function ensureStreetViewLibrary({ holdAmd = false } = {}) {
   const key = await fetchBrowserKey();
   if (!key && !window.google?.maps?.importLibrary) {
     throw new Error('Google Maps browser API key is not configured.');
@@ -234,10 +263,22 @@ async function ensureStreetViewLibrary() {
       throw new Error('Google Street View library failed to initialize.');
     }
     return window.google;
-  } finally {
+  } catch (error) {
     restoreAmdDetection?.();
     restoreAmdDetection = null;
+    throw error;
+  } finally {
+    if (!holdAmd) {
+      restoreAmdDetection?.();
+      restoreAmdDetection = null;
+    }
   }
+}
+
+function googleMapsJsFailedVisually(container) {
+  const node = container?.querySelector?.('.gm-err-container, .gm-err-message, .gm-err-title');
+  if (!node) return false;
+  return /didn't load Google Maps correctly|Oops! Something went wrong/i.test(node.textContent || '');
 }
 
 async function queryPanorama(google, request) {
@@ -311,7 +352,7 @@ export async function checkGoogleStreetView(options = {}) {
   };
 }
 
-function waitForPanoramaReady(instance, google, timeoutMs = 25000) {
+function waitForPanoramaReady(instance, google, container, timeoutMs = 25000) {
   return new Promise((resolve, reject) => {
     let settled = false;
     let listener = null;
@@ -319,12 +360,18 @@ function waitForPanoramaReady(instance, google, timeoutMs = 25000) {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
+      clearInterval(visualTimer);
       if (listener && google.maps.event?.removeListener) {
         google.maps.event.removeListener(listener);
       }
       if (ok) resolve();
       else reject(error || new Error('Street View panorama is not available.'));
     };
+    const visualTimer = setInterval(() => {
+      if (googleMapsJsFailedVisually(container || instance?.getContainer?.())) {
+        finish(false, new Error(STREET_360_OPERATOR_UNAVAILABLE));
+      }
+    }, 200);
     const timer = setTimeout(() => {
       finish(false, new Error('Street View panorama did not become ready.'));
     }, timeoutMs);
@@ -346,23 +393,77 @@ function waitForPanoramaReady(instance, google, timeoutMs = 25000) {
   });
 }
 
+export function muteStreetViewTraversal(ms = 700) {
+  const until = Date.now() + Math.max(0, Number(ms) || 0);
+  traversalMuteUntil = Math.max(traversalMuteUntil, until);
+  beginProgrammaticTraversal(ms);
+}
+
+export function beginProgrammaticStreetApply(ms = 3500) {
+  streetApplyGeneration += 1;
+  muteStreetViewTraversal(ms);
+  return streetApplyGeneration;
+}
+
+export function settleProgrammaticStreetApply(generation = streetApplyGeneration) {
+  if (generation !== streetApplyGeneration) return;
+  muteStreetViewTraversal(480);
+}
+
+export function isStreetViewTraversalMuted() {
+  return Date.now() < traversalMuteUntil;
+}
+
+function destinationAlongHeading(origin, headingDeg, meters) {
+  const lat1 = Number(origin?.latitude) * Math.PI / 180;
+  const lon1 = Number(origin?.longitude) * Math.PI / 180;
+  const bearing = Number(headingDeg) * Math.PI / 180;
+  const angular = Number(meters) / 6371000;
+  if (![lat1, lon1, bearing, angular].every(Number.isFinite)) return null;
+  const lat2 = Math.asin(
+    Math.sin(lat1) * Math.cos(angular)
+    + Math.cos(lat1) * Math.sin(angular) * Math.cos(bearing)
+  );
+  const lon2 = lon1 + Math.atan2(
+    Math.sin(bearing) * Math.sin(angular) * Math.cos(lat1),
+    Math.cos(angular) - Math.sin(lat1) * Math.sin(lat2)
+  );
+  return {
+    latitude: lat2 * 180 / Math.PI,
+    longitude: ((lon2 * 180 / Math.PI + 540) % 360) - 180
+  };
+}
+
 function waitForLinks(instance, google, timeoutMs = 5000) {
   const current = () => {
     try {
-      return instance.getLinks?.() || [];
+      const links = instance.getLinks?.() || [];
+      return Array.isArray(links) ? links : [];
     } catch {
       return [];
     }
   };
   if (current().length) return Promise.resolve(current());
   return new Promise((resolve) => {
-    const timer = setTimeout(() => resolve(current()), timeoutMs);
-    const listener = instance.addListener?.('links_changed', () => {
-      if (current().length) {
-        clearTimeout(timer);
-        google.maps.event?.removeListener?.(listener);
-        resolve(current());
+    let settled = false;
+    const finish = (links) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      clearInterval(poll);
+      if (listener && google?.maps?.event?.removeListener) {
+        google.maps.event.removeListener(listener);
       }
+      resolve(links);
+    };
+    const timer = setTimeout(() => finish(current()), timeoutMs);
+    const poll = setInterval(() => {
+      const links = current();
+      if (links.length) finish(links);
+    }, 150);
+    const listener = instance.addListener?.('links_changed', () => {
+      const links = current();
+      if (links.length) finish(links);
     });
   });
 }
@@ -376,7 +477,7 @@ export async function openGoogleStreetView(options = {}) {
   }
 
   await closeGoogleStreetView();
-  const google = await ensureStreetViewLibrary();
+  const google = await ensureStreetViewLibrary({ holdAmd: true });
   const token = ++generation;
   stageCreateCount += 1;
   const Panorama = streetViewLib?.StreetViewPanorama || google.maps.StreetViewPanorama;
@@ -384,24 +485,33 @@ export async function openGoogleStreetView(options = {}) {
     pov: { heading: 0, pitch: 0 },
     zoom: 1,
     visible: true,
+    disableDefaultUI: true,
     addressControl: false,
     fullscreenControl: false,
     enableCloseButton: false,
     motionTracking: false,
+    motionTrackingControl: false,
     clickToGo: true,
     linksControl: true,
-    panControl: true,
-    zoomControl: true,
-    imageDateControl: false
+    panControl: false,
+    zoomControl: false,
+    imageDateControl: false,
+    showRoadLabels: false
   };
-  if (lastOutdoorPanoId) panoramaOptions.pano = lastOutdoorPanoId;
-  else {
+  if (options.preferPosition === true || !lastOutdoorPanoId) {
     panoramaOptions.position = {
       lat: availability.panorama.latitude,
       lng: availability.panorama.longitude
     };
+  } else {
+    panoramaOptions.pano = lastOutdoorPanoId;
   }
   panorama = new Panorama(container, panoramaOptions);
+  try {
+    google.maps.event?.trigger?.(panorama, 'resize');
+  } catch {
+    // Layout may settle after the first paint.
+  }
   panorama.addListener?.('pov_changed', () => readPanoramaState());
   panorama.addListener?.('zoom_changed', () => readPanoramaState());
   panorama.addListener?.('position_changed', () => readPanoramaState());
@@ -419,9 +529,14 @@ export async function openGoogleStreetView(options = {}) {
     }
   });
 
-  await waitForPanoramaReady(panorama, google);
+  await waitForPanoramaReady(panorama, google, container);
   await waitForLinks(panorama, google);
   if (token !== generation) return getGoogleStreetViewSnapshot();
+  if (googleMapsJsFailedVisually(container)) {
+    lastError = STREET_360_OPERATOR_UNAVAILABLE;
+    await closeGoogleStreetView();
+    throw new Error(STREET_360_OPERATOR_UNAVAILABLE);
+  }
   readPanoramaState();
   lastError = null;
   return getGoogleStreetViewSnapshot();
@@ -436,6 +551,8 @@ export async function closeGoogleStreetView() {
       // ignore
     }
   }
+  restoreAmdDetection?.();
+  restoreAmdDetection = null;
   panorama = null;
   lastPov = null;
   lastZoom = null;
@@ -443,6 +560,7 @@ export async function closeGoogleStreetView() {
   lastLinksCount = 0;
   panoPresent = false;
   lastError = null;
+  coverageVisitedPanos = [];
   return getGoogleStreetViewSnapshot();
 }
 
@@ -465,16 +583,53 @@ export function zoomGoogleStreetView(delta = 1) {
   return getGoogleStreetViewSnapshot();
 }
 
+function headingDeltaDeg(a, b) {
+  return Math.abs(((Number(a) - Number(b) + 540) % 360) - 180);
+}
+
+async function nextOutdoorPanoAlongLook(google, beforePosition, beforePano) {
+  if (!beforePosition) return null;
+  const heading = Number.isFinite(Number(lastPov?.heading)) ? Number(lastPov.heading) : 0;
+  const recent = new Set(coverageVisitedPanos.slice(-16));
+  for (const meters of [18, 36, 55, 80, 120, 170]) {
+    const dest = destinationAlongHeading(beforePosition, heading, meters);
+    if (!dest) continue;
+    const queried = await queryPanorama(google, {
+      location: { lat: dest.latitude, lng: dest.longitude },
+      radius: 55,
+      source: outdoorSource(google)
+    });
+    const pano = queried.result?.location?.pano || queried.result?.location?.panoId || null;
+    if (pano && pano !== beforePano && !recent.has(pano)) return pano;
+  }
+  return null;
+}
+
 export async function moveGoogleStreetViewAlongCoverage() {
   if (!panorama) throw new Error('Street 360 is not open.');
   const google = window.google;
-  const links = await waitForLinks(panorama, google, 4000);
-  if (!Array.isArray(links) || links.length === 0) {
-    return { ...getGoogleStreetViewSnapshot(), moved: false };
-  }
   const beforePano = panorama.getPano?.();
   const beforePosition = lastPanoramaPosition ? { ...lastPanoramaPosition } : null;
-  const next = links.find((link) => link?.pano && link.pano !== beforePano) || links[0];
+  if (beforePano) {
+    coverageVisitedPanos = [...coverageVisitedPanos.filter((id) => id !== beforePano), beforePano].slice(-16);
+  }
+  const recent = new Set(coverageVisitedPanos);
+  const heading = Number.isFinite(Number(lastPov?.heading)) ? Number(lastPov.heading) : 0;
+  const links = await waitForLinks(panorama, google, 4000);
+  const candidates = (Array.isArray(links) ? links : [])
+    .filter((item) => item?.pano && !recent.has(item.pano))
+    .sort((a, b) => headingDeltaDeg(a.heading, heading) - headingDeltaDeg(b.heading, heading));
+  let nextPano = null;
+  if (String(beforePano || '').startsWith('CAo')) {
+    nextPano = await nextOutdoorPanoAlongLook(google, beforePosition, beforePano);
+  }
+  if (!nextPano) nextPano = candidates[0]?.pano || null;
+  if (!nextPano) {
+    nextPano = await nextOutdoorPanoAlongLook(google, beforePosition, beforePano);
+  }
+  if (!nextPano) {
+    return { ...getGoogleStreetViewSnapshot(), moved: false };
+  }
   await new Promise((resolve) => {
     const timer = setTimeout(resolve, 4000);
     const listener = panorama.addListener?.('pano_changed', () => {
@@ -482,8 +637,7 @@ export async function moveGoogleStreetViewAlongCoverage() {
       google?.maps?.event?.removeListener?.(listener);
       resolve();
     });
-    if (next?.pano) panorama.setPano(next.pano);
-    else resolve();
+    panorama.setPano(nextPano);
   });
   readPanoramaState();
   const moved = (panorama.getPano?.() && panorama.getPano() !== beforePano)
@@ -499,4 +653,48 @@ export async function moveGoogleStreetViewAlongCoverage() {
     ...getGoogleStreetViewSnapshot(),
     moved
   };
+}
+
+export function subscribeGoogleStreetViewNavigation(listener) {
+  navigationListeners.add(listener);
+  if (lastPanoramaPosition) {
+    listener({
+      longitude: lastPanoramaPosition.longitude,
+      latitude: lastPanoramaPosition.latitude,
+      heading: Number.isFinite(Number(lastPov?.heading)) ? Number(lastPov.heading) : null,
+      zoom: lastZoom,
+      pitch: Number.isFinite(Number(lastPov?.pitch)) ? Number(lastPov.pitch) : null,
+      panoId: panorama?.getPano?.() || lastOutdoorPanoId || null,
+      panoPresent,
+      programmatic: isStreetViewTraversalMuted()
+    });
+  }
+  return () => navigationListeners.delete(listener);
+}
+
+export function applyWorldviewNavigationToStreetView(nav, options = {}) {
+  if (!panorama || !nav) return false;
+  const latitude = Number(nav.latitude);
+  const longitude = Number(nav.longitude);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return false;
+  const minOffset = Number(options.minOffsetMeters) || 80;
+  const here = lastPanoramaPosition;
+  const offset = here ? offsetMetersBetween(here, { latitude, longitude }) : null;
+  beginProgrammaticStreetApply(offset != null && offset < minOffset ? 900 : 1600);
+  if (offset != null && offset < minOffset) {
+    if (Number.isFinite(Number(nav.heading)) && panorama.setPov) {
+      const pov = panorama.getPov?.() || { heading: 0, pitch: 0 };
+      const delta = Math.abs(((Number(nav.heading) - Number(pov.heading) + 540) % 360) - 180);
+      if (delta > 25) {
+        panorama.setPov({
+          heading: Number(nav.heading),
+          pitch: Number(pov.pitch) || 0
+        });
+      }
+    }
+    return false;
+  }
+  lastOutdoorPanoId = null;
+  panorama.setPosition?.({ lat: latitude, lng: longitude });
+  return true;
 }

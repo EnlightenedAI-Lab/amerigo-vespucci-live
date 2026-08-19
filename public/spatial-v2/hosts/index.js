@@ -8,4 +8,4 @@ export {
   bindContextInspector,
   paintInspectorPane
 } from './inspector-host.js';
-export { renderBrainHost, paintBrainHost, bindAskIqaiDock, paintAskIqaiReceipt } from './brain-host.js';
+export { renderBrainHost, paintBrainHost, bindAskIqaiDock, paintAskIqaiDock, paintAskIqaiReceipt } from './brain-host.js';

@@ -8,6 +8,7 @@
 import { IQAI_SPATIAL_V2_SHELL_VERSION, SHELL_SLOTS } from './layout-registry.js';
 import {
   bindExperienceControls,
+  bindSearchControl,
   bindSystemStatusControl,
   paintExperienceControl,
   paintSystemStatus,
@@ -15,10 +16,13 @@ import {
   startHeaderClock
 } from './CommandHeader.js';
 import { bindSystemsRail, paintSystemsRail, renderSystemsRail } from './SystemsRail.js';
+import { bindLayersDrawer, paintLayersDrawer, renderLayersDrawer } from './LayersDrawer.js';
+import { bindTimeDock, paintTimeDock, renderTimeDock } from './TimeDock.js';
 import {
   bindAskIqaiDock,
   bindContextInspector,
   bindToolHost,
+  paintAskIqaiDock,
   paintAskIqaiReceipt,
   paintBrainHost,
   paintInspectorHost,
@@ -68,8 +72,10 @@ export function renderAppShell() {
     ${renderCommandHeader()}
     ${renderSystemsRail()}
     ${renderMapStageHost()}
+    ${renderLayersDrawer()}
     ${renderInspectorHost()}
     ${renderBrainHost()}
+    ${renderTimeDock()}
   `;
 }
 
@@ -77,23 +83,42 @@ export function mountAppShell(root, host = {}) {
   if (!root) return null;
   root.innerHTML = renderAppShell();
   root.dataset.iqaiChassis = 'platform-chassis-v1';
-  root.dataset.iqaiSheet = 'open';
+  root.dataset.iqaiSheet = 'closed';
+  root.dataset.iqaiWorldview = 'map-first-v1';
+  root.dataset.iqaiAsk = 'closed';
   startHeaderClock(root);
 
   const paint = () => {
     const model = typeof host.getViewModel === 'function' ? host.getViewModel() : {};
     paintExperienceControl(root, model.experience || 'NORMAL');
     paintSystemStatus(root, {
-      mapState: 'SHELL_ONLY',
+      mapState: model.mapState || 'SHELL_ONLY',
       open: model.systemStatusOpen === true
     });
     paintSystemsRail(root, {
-      activeSystem: model.activeSystem,
-      activeViewId: model.activeViewId
+      activeLauncher: model.activeLauncher,
+      drawerOpen: model.drawer === 'layers'
     });
+    paintLayersDrawer(root, {
+      open: model.drawer === 'layers',
+      groups: model.layerGroups || [],
+      addDataOpen: model.addDataOpen === true,
+      addDataResults: model.addDataResults || [],
+      addDataStatus: model.addDataStatus || null
+    });
+    paintTimeDock(root, {
+      open: model.timeDrawerOpen === true,
+      temporal: model.temporal,
+      streetCapture: model.streetCapture
+        || (typeof window !== 'undefined'
+          ? window.__iqaiSpatialV2?.street360?.snapshot?.()?.capture
+          : null)
+    });
+    paintAskIqaiDock(root, { open: model.askOpen === true });
     paintMapStageHost(root, {
       activeViewId: model.activeViewId,
-      view: model.activeView
+      view: model.activeView,
+      mapState: model.mapState
     });
     paintInspectorPane(root, model.inspectorPane || 'situation-slot');
     paintInspectorHost(root, model.inspector || {
@@ -112,13 +137,31 @@ export function mountAppShell(root, host = {}) {
       seam: model.brainSeam,
       localState: model.localModelState || 'NOT CONNECTED'
     });
+    root.dataset.iqaiSheet = model.inspectorOpen === true ? 'open' : 'closed';
     if (model.askReceipt) paintAskIqaiReceipt(root, model.askReceipt);
   };
 
   bindContextInspector(root, {
     onPane: (slot) => host.setInspectorPane?.(slot)
   });
-  bindSystemsRail(root);
+  bindSystemsRail(root, {
+    onLauncher: (launcherId) => host.setLauncher?.(launcherId)
+  });
+  bindLayersDrawer(root, {
+    onClose: () => host.setLauncher?.('layers'),
+    onVisibility: (input) => host.dispatchCapability?.('layers.set-visibility', input),
+    onOpacity: (input) => host.dispatchCapability?.('layers.set-opacity', input),
+    onToggleAddData: () => host.toggleAddData?.(),
+    onSearchAddData: (query) => host.searchAddData?.(query),
+    onAddItem: (item) => host.addSessionItem?.(item)
+  });
+  bindTimeDock(root, {
+    onToggle: () => host.toggleTimeDrawer?.(),
+    onRequestedDay: (day) => host.setRequestedDay?.(day)
+  });
+  bindSearchControl(root, {
+    onSearch: (query) => host.searchPlace?.(query)
+  });
   bindExperienceControls(root, {
     onChange: (experience) => host.setExperience?.(experience)
   });
@@ -129,7 +172,8 @@ export function mountAppShell(root, host = {}) {
     onDispatch: (capabilityId, input) => host.dispatchCapability?.(capabilityId, input)
   });
   bindAskIqaiDock(root, {
-    onSubmit: (request) => host.submitAsk?.(request)
+    onSubmit: (request) => host.submitAsk?.(request),
+    onToggle: () => host.toggleAsk?.()
   });
 
   if (typeof host.subscribe === 'function') host.subscribe(paint);

@@ -1,8 +1,9 @@
 import { HEADER_STATUS_SLOTS, SHELL_SLOTS } from './layout-registry.js';
+import { formatTimeDock } from './TimeDock.js';
 
 function statusCell(slot) {
   const major = slot.emphasis === 'major';
-  const valueId = slot.id === 'time' ? ' id="iqai-v2-time-value"' : '';
+  const valueId = slot.id === 'time' ? ' id="iqai-v2-header-time-value"' : '';
   const shortLabel = slot.shortLabel && slot.shortLabel !== slot.label
     ? `<span class="iqai-v2-status__label-short">${slot.shortLabel}</span>`
     : '';
@@ -30,7 +31,6 @@ export function compactSystemStatusValue(mapState) {
 
 export function renderCommandHeader() {
   const { id, slot } = SHELL_SLOTS.commandHeader;
-  const timeSlot = HEADER_STATUS_SLOTS.find((item) => item.id === 'time');
   const detailSlots = HEADER_STATUS_SLOTS.filter((item) => item.id !== 'time');
 
   return `
@@ -43,58 +43,35 @@ export function renderCommandHeader() {
     >
       <div class="iqai-v2-header__primary" data-iqai-header-primary>
         <div class="iqai-v2-brand">
-          <img class="iqai-v2-brand__logo" src="/spatial/assets/iqai-logo.svg" alt="IQAI" />
           <div class="iqai-v2-brand__lockup">
             <span class="iqai-v2-brand__product">IQAI SPATIAL</span>
-            <span class="iqai-v2-brand__edition">MONTRÉAL</span>
           </div>
         </div>
 
-        <div class="iqai-v2-header__site" data-iqai-header-site>MONTRÉAL</div>
-
-        ${timeSlot ? statusCell(timeSlot) : ''}
+        <form class="iqai-v2-search" data-iqai-search-form autocomplete="off">
+          <label>
+            <span class="iqai-v2-visually-hidden">Search</span>
+            <input
+              class="iqai-v2-search__input"
+              type="search"
+              name="place"
+              placeholder="Search place, address or coordinates"
+              data-iqai-search-input
+            />
+          </label>
+        </form>
 
         <button
           type="button"
-          class="iqai-v2-system-status"
-          data-iqai-system-status
+          class="iqai-v2-ask-toggle"
+          data-iqai-ask-toggle
           aria-expanded="false"
-          aria-controls="iqai-v2-system-status-detail"
-        >
-          <span class="iqai-v2-status__label">SYSTEM STATUS</span>
-          <span class="iqai-v2-status__value" data-iqai-system-status-value data-state="shell-only">SHELL ONLY</span>
-        </button>
-
-        <div class="iqai-v2-header__modes">
-          <button
-            type="button"
-            class="iqai-v2-mode iqai-v2-mode--current"
-            data-iqai-experience="NORMAL"
-            aria-pressed="true"
-          >NORMAL</button>
-          <button
-            type="button"
-            class="iqai-v2-mode"
-            data-iqai-experience="EXPERT"
-            aria-pressed="false"
-          >EXPERT</button>
-          <button
-            type="button"
-            class="iqai-v2-mode iqai-v2-mode--presentation"
-            data-iqai-mode="presentation"
-            title="Presentation mode is reserved. Camera lock, chrome reduction, and replay are not implemented."
-            aria-pressed="false"
-            disabled
-          >PRESENTATION</button>
-        </div>
+          aria-label="Ask IQAI"
+          aria-controls="${SHELL_SLOTS.askIqaiDock.id}"
+        >BRAIN</button>
       </div>
 
-      <div
-        id="iqai-v2-system-status-detail"
-        class="iqai-v2-header__detail"
-        data-iqai-system-status-detail
-        hidden
-      >
+      <div class="iqai-v2-visually-hidden" data-iqai-system-status-detail>
         ${detailSlots.map(statusCell).join('')}
       </div>
     </header>
@@ -149,6 +126,8 @@ export function paintExperienceControl(root, experience) {
     control.classList.toggle('iqai-v2-mode--current', selected);
     control.setAttribute('aria-pressed', selected ? 'true' : 'false');
   });
+  const models = root.querySelector('[data-iqai-model-selector]');
+  if (models) models.hidden = experience !== 'EXPERT';
 }
 
 export function bindSystemStatusControl(root, handlers = {}) {
@@ -174,14 +153,25 @@ export function bindExperienceControls(root, handlers = {}) {
   return () => root.removeEventListener('click', onClick);
 }
 
+export function bindSearchControl(root, handlers = {}) {
+  const form = root.querySelector('[data-iqai-search-form]');
+  if (!form) return () => {};
+  const onSubmit = (event) => {
+    event.preventDefault();
+    const input = form.querySelector('[data-iqai-search-input]');
+    const query = String(input?.value || '').trim();
+    if (query && typeof handlers.onSearch === 'function') handlers.onSearch(query);
+  };
+  form.addEventListener('submit', onSubmit);
+  return () => form.removeEventListener('submit', onSubmit);
+}
+
 export function startHeaderClock(root) {
   const value = root.querySelector('#iqai-v2-time-value');
   if (!value) return () => {};
 
   const tick = () => {
-    value.textContent = formatShellClock();
-    const cell = value.closest('[data-iqai-status]');
-    if (cell) cell.title = `TIME — ${value.textContent}`;
+    value.textContent = formatTimeDock();
   };
   tick();
   const timer = window.setInterval(tick, 1000);

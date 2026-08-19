@@ -1,6 +1,7 @@
 /**
- * Chassis catalog: register frozen views/layers/capabilities as honest
- * CHASSIS / UNMIGRATED / UNAVAILABLE records. Proven engines are not mounted.
+ * Chassis catalog: register frozen views/layers/capabilities.
+ * MAP, DROP PIN, LAYERS, STREET 360, and 3D VISUAL are migrated wrappers.
+ * 3D ANALYZE, imagery Time Engine, and Dual Map remain UNAVAILABLE / UNMIGRATED.
  */
 
 import {
@@ -30,21 +31,21 @@ export const CHASSIS_SYSTEMS = Object.freeze([
     label: 'VIEW',
     group: 'SPATIAL',
     migrationState: MIGRATION_STATE.CHASSIS,
-    detail: 'ViewHost owns lifecycle. Specialist adapters are unmigrated.'
+    detail: 'ViewHost owns MAP lifecycle. STREET 360 and 3D VISUAL are migrated specialist stages. 3D ANALYZE is unavailable.'
   }),
   Object.freeze({
     id: 'focus',
     label: 'FOCUS / SELECT',
     group: 'SPATIAL',
-    migrationState: MIGRATION_STATE.UNMIGRATED,
-    detail: 'FocusRef/ObjectRef chassis exists. DROP PIN remains at the proven baseline.'
+    migrationState: MIGRATION_STATE.MIGRATED,
+    detail: 'DROP PIN writes canonical FocusRef. Map center is not focus.'
   }),
   Object.freeze({
     id: 'layers',
     label: 'LAYERS',
     group: 'SPATIAL',
-    migrationState: MIGRATION_STATE.UNMIGRATED,
-    detail: 'LayerRegistry is live. Authored/runtime layers are not migrated.'
+    migrationState: MIGRATION_STATE.MIGRATED,
+    detail: 'LayerRegistry plus authored WebMap visibility. No Portal writes.'
   }),
   Object.freeze({
     id: 'time',
@@ -104,34 +105,31 @@ export function registerChassisCatalog({
     viewId: VIEW_ID.MAP,
     title: 'MAP',
     lifecycle: VIEW_LIFECYCLE.MOUNT_ONCE,
-    availability: VIEW_AVAILABILITY.UNMIGRATED,
+    availability: VIEW_AVAILABILITY.REGISTERED,
     requiresFocus: false,
     retainsCamera: true,
     retainsSelection: true,
     consumesTime: true,
-    adapterId: null,
-    unavailableReason: 'Persistent MapView remains at the proven baseline and is not mounted in this wave.',
-    migrationState: MIGRATION_STATE.UNMIGRATED
+    adapterId: 'map-view',
+    migrationState: MIGRATION_STATE.MIGRATED
   });
   viewRegistry.register({
     viewId: VIEW_ID.STREET_360,
     title: 'STREET 360',
     lifecycle: VIEW_LIFECYCLE.DEFERRED,
-    availability: VIEW_AVAILABILITY.UNMIGRATED,
+    availability: VIEW_AVAILABILITY.REGISTERED,
     requiresFocus: true,
-    adapterId: null,
-    unavailableReason: 'Street 360 remains at the proven baseline and is not mounted in this wave.',
-    migrationState: MIGRATION_STATE.UNMIGRATED
+    adapterId: 'street-360',
+    migrationState: MIGRATION_STATE.MIGRATED
   });
   viewRegistry.register({
     viewId: VIEW_ID.VISUAL_3D,
     title: '3D VISUAL',
     lifecycle: VIEW_LIFECYCLE.DEFERRED,
-    availability: VIEW_AVAILABILITY.UNMIGRATED,
+    availability: VIEW_AVAILABILITY.REGISTERED,
     requiresFocus: true,
-    adapterId: null,
-    unavailableReason: 'Google Photorealistic 3D remains at the proven baseline and is not mounted in this wave.',
-    migrationState: MIGRATION_STATE.UNMIGRATED
+    adapterId: 'visual-3d',
+    migrationState: MIGRATION_STATE.MIGRATED
   });
   viewRegistry.register({
     viewId: VIEW_ID.ANALYZE_3D,
@@ -160,12 +158,25 @@ export function registerChassisCatalog({
     layerId: 'authored-operational-map',
     title: 'Authored operational map',
     family: LAYER_FAMILY.OPERATIONAL,
-    availability: MIGRATION_STATE.UNMIGRATED,
-    migrationState: MIGRATION_STATE.UNMIGRATED,
+    availability: MIGRATION_STATE.MIGRATED,
+    migrationState: MIGRATION_STATE.MIGRATED,
     source: { catalogOrigin: 'AUTHORED_WEBMAP', providerId: 'arcgis-webmap' },
     compatibleViews: [VIEW_ID.MAP],
     selectable: true,
     analyzable: false,
+    rights: { display: 'ALLOW', analysis: 'DENY', aiUse: 'DENY', export: 'DENY', share: 'DENY', cache: 'DENY' }
+  });
+  layerRegistry.register({
+    layerId: 'session-agol',
+    title: 'Session ArcGIS overlay',
+    family: LAYER_FAMILY.SESSION_INVESTIGATION,
+    availability: MIGRATION_STATE.MIGRATED,
+    migrationState: MIGRATION_STATE.MIGRATED,
+    defaultVisibility: true,
+    selectable: false,
+    analyzable: false,
+    compatibleViews: [VIEW_ID.MAP],
+    source: { catalogOrigin: 'SESSION' },
     rights: { display: 'ALLOW', analysis: 'DENY', aiUse: 'DENY', export: 'DENY', share: 'DENY', cache: 'DENY' }
   });
 
@@ -214,8 +225,82 @@ export function registerChassisCatalog({
       requiredPolicyAction: POLICY_ACTION.DISPLAY,
       effectClass: EFFECT_CLASS.SESSION_MUTATION,
       execution: { mode: EXECUTION_MODE.SYNC, targets: [] },
-      migrationState: MIGRATION_STATE.UNMIGRATED,
-      unavailableReason: 'Persistent MapView remains at the proven baseline and is not migrated.'
+      migrationState: MIGRATION_STATE.MIGRATED,
+      adapterId: 'map'
+    },
+    {
+      id: 'focus.set',
+      owner: 'tool-builder',
+      title: 'Set spatial focus',
+      resultType: 'spatial-focus',
+      requiredPolicyAction: POLICY_ACTION.DISPLAY,
+      effectClass: EFFECT_CLASS.SESSION_MUTATION,
+      undoPolicy: UNDO_POLICY.UNDOABLE,
+      execution: { mode: EXECUTION_MODE.SYNC, targets: [] },
+      migrationState: MIGRATION_STATE.MIGRATED,
+      adapterId: 'focus.set',
+      compatibleViews: [VIEW_ID.MAP]
+    },
+    {
+      id: 'layers.set-visibility',
+      owner: 'tool-builder',
+      title: 'Set layer visibility',
+      resultType: 'layer-visibility',
+      requiredPolicyAction: POLICY_ACTION.DISPLAY,
+      effectClass: EFFECT_CLASS.SESSION_MUTATION,
+      undoPolicy: UNDO_POLICY.UNDOABLE,
+      execution: { mode: EXECUTION_MODE.SYNC, targets: [] },
+      migrationState: MIGRATION_STATE.MIGRATED,
+      adapterId: 'layers.set-visibility',
+      compatibleViews: [VIEW_ID.MAP]
+    },
+    {
+      id: 'layers.sync-authored',
+      owner: 'tool-builder',
+      title: 'Sync authored layers',
+      resultType: 'layer-catalog',
+      requiredPolicyAction: POLICY_ACTION.DISPLAY,
+      effectClass: EFFECT_CLASS.SESSION_MUTATION,
+      execution: { mode: EXECUTION_MODE.SYNC, targets: [] },
+      migrationState: MIGRATION_STATE.MIGRATED,
+      adapterId: 'layers.sync-authored',
+      compatibleViews: [VIEW_ID.MAP]
+    },
+    {
+      id: 'layers.set-opacity',
+      owner: 'tool-builder',
+      title: 'Set layer opacity',
+      resultType: 'layer-opacity',
+      requiredPolicyAction: POLICY_ACTION.DISPLAY,
+      effectClass: EFFECT_CLASS.SESSION_MUTATION,
+      undoPolicy: UNDO_POLICY.UNDOABLE,
+      execution: { mode: EXECUTION_MODE.SYNC, targets: [] },
+      migrationState: MIGRATION_STATE.MIGRATED,
+      adapterId: 'layers.set-opacity',
+      compatibleViews: [VIEW_ID.MAP]
+    },
+    {
+      id: 'layers.add-session',
+      owner: 'tool-builder',
+      title: 'Add session overlay',
+      resultType: 'layer-session',
+      requiredPolicyAction: POLICY_ACTION.DISPLAY,
+      effectClass: EFFECT_CLASS.SESSION_MUTATION,
+      execution: { mode: EXECUTION_MODE.SYNC, targets: [] },
+      migrationState: MIGRATION_STATE.MIGRATED,
+      adapterId: 'layers.add-session',
+      compatibleViews: [VIEW_ID.MAP]
+    },
+    {
+      id: 'temporal.set-requested',
+      owner: 'tool-builder',
+      title: 'Set requested time',
+      resultType: 'temporal-context',
+      requiredPolicyAction: POLICY_ACTION.DISPLAY,
+      effectClass: EFFECT_CLASS.SESSION_MUTATION,
+      execution: { mode: EXECUTION_MODE.SYNC, targets: [] },
+      migrationState: MIGRATION_STATE.MIGRATED,
+      adapterId: 'temporal.set-requested'
     },
     {
       id: 'imagery',

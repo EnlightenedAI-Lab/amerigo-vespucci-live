@@ -42,10 +42,24 @@ export function sanitizeError(error) {
   return { error: message };
 }
 
+/** Same-origin specialist frames. DENY would paint Chrome's blocked-iframe icon. */
+export const SAME_ORIGIN_FRAME_PATHS = Object.freeze([
+  '/spatial-v2/google-3d-frame.html'
+]);
+
+export function frameOptionsForPath(pathname) {
+  const path = String(pathname || '').split('?')[0];
+  return SAME_ORIGIN_FRAME_PATHS.includes(path) ? 'SAMEORIGIN' : 'DENY';
+}
+
 /** Express middleware adding basic HTTP security headers. */
-export function securityHeaders(_req, res, next) {
+export function securityHeaders(req, res, next) {
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'DENY');
+  const frameOptions = frameOptionsForPath(req.path);
+  res.setHeader('X-Frame-Options', frameOptions);
+  if (frameOptions === 'SAMEORIGIN') {
+    res.setHeader('Content-Security-Policy', "frame-ancestors 'self'");
+  }
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('X-XSS-Protection', '0');
   res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');

@@ -17,9 +17,11 @@ import {
   setPointerCoordinates,
   subscribeSpatialFocus
 } from '../map/spatial-focus.js';
+import { liveCursorReadout, scheduleCursorDwell } from '../map/spatial-cursor.js';
 import { setInspectorRegion } from './ContextInspector.js';
 
 const FOCUS_LAYER_ID = 'iqai-v2-spatial-focus';
+const CRS_LABEL = 'EPSG:4326';
 
 function pointFromMapEvent(event) {
   const longitude = Number(event?.mapPoint?.longitude);
@@ -28,20 +30,111 @@ function pointFromMapEvent(event) {
   return { longitude, latitude };
 }
 
+function formatMapScale(scale) {
+  const value = Number(scale);
+  if (!Number.isFinite(value) || value <= 0) return null;
+  return `1 : ${Math.round(value).toLocaleString('en-US')}`;
+}
+
+function collapsedLine(formats, elevation) {
+  if (!formats?.dd) return '';
+  const parts = [formats.dd];
+  const meters = elevation || formats.elevation;
+  if (meters) parts.push(`EL ${String(meters).replace(/^EL\s+/, '')}`);
+  parts.push(CRS_LABEL);
+  return parts.join('   |   ');
+}
+
 export function bindDropPinControl(root, options = {}) {
   const well = root?.querySelector('.iqai-v2-stage__well');
   const mapHost = root?.querySelector('[data-iqai-map-host]');
   const dropButton = root?.querySelector('[data-iqai-drop-pin]');
   const pointerNode = root?.querySelector('[data-iqai-pointer-coords]');
   const receiptNode = root?.querySelector('[data-iqai-spatial-focus-receipt]');
+  const cursorNode = root?.querySelector('[data-iqai-precision-cursor]');
+  const toggleNode = cursorNode?.querySelector('[data-iqai-precision-toggle]');
+  const detailNode = cursorNode?.querySelector('[data-iqai-precision-detail]');
+  const liveNode = cursorNode?.querySelector('[data-iqai-cursor-live]');
+  const scaleNode = cursorNode?.querySelector('[data-iqai-map-scale]');
+  const placeNode = cursorNode?.querySelector('[data-iqai-cursor-place]');
 
   let armed = false;
   let mapReady = false;
   let mapViewIdentity = null;
   let clickHandle = null;
   let moveHandle = null;
+  let scaleHandle = null;
   let focusLayer = null;
   let placementGeneration = 0;
+  let lastLiveFormats = null;
+  let lastElevation = null;
+  let dwellPlace = null;
+  let expanded = false;
+  let pulseTimer = null;
+
+  function setExpanded(next) {
+    expanded = next === true;
+    if (cursorNode) {
+      cursorNode.dataset.iqaiPrecisionExpanded = expanded ? 'true' : 'false';
+      cursorNode.classList.toggle('is-expanded', expanded);
+    }
+    if (toggleNode) toggleNode.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    if (detailNode) detailNode.hidden = !expanded;
+  }
+
+  function paintScale(view) {
+    if (!scaleNode) return;
+    const label = formatMapScale(view?.scale);
+    if (!label) {
+      scaleNode.hidden = true;
+      scaleNode.textContent = '';
+      return;
+    }
+    scaleNode.hidden = false;
+    scaleNode.textContent = label;
+  }
+
+  function paintCursorHud(formats, { showPlace = false } = {}) {
+    if (!cursorNode) return;
+    if (!formats && !scaleNode?.textContent) {
+      cursorNode.hidden = true;
+      return;
+    }
+    if (formats) lastLiveFormats = formats;
+    if (formats?.elevation) lastElevation = formats.elevation;
+    cursorNode.hidden = false;
+    const live = lastLiveFormats;
+    if (liveNode) liveNode.textContent = collapsedLine(live, lastElevation);
+    const set = (name, value) => {
+      const node = cursorNode.querySelector(`[data-iqai-cursor-${name}]`);
+      if (!node) return;
+      if (!value) {
+        node.hidden = true;
+        node.textContent = '';
+        return;
+      }
+      node.hidden = false;
+      node.textContent = value;
+    };
+    set('dd', live?.dd ? `DD  ${live.dd}` : '');
+    set('dms', live?.dms ? `DMS  ${live.dms}` : '');
+    set('utm', live?.utm ? `UTM  ${live.utm}` : '');
+    set('mgrs', live?.mgrs ? `MGRS  ${live.mgrs}` : '');
+    set('elev', lastElevation ? `EL  ${String(lastElevation).replace(/^EL\s+/, '')}` : '');
+    const crs = cursorNode.querySelector('[data-iqai-cursor-crs]');
+    if (crs) crs.textContent = CRS_LABEL;
+    if (placeNode) {
+      const place = showPlace ? (formats?.place || dwellPlace) : null;
+      if (place) {
+        placeNode.hidden = false;
+        placeNode.textContent = place;
+      } else {
+        placeNode.hidden = true;
+        placeNode.textContent = '';
+      }
+    }
+    if (detailNode) detailNode.hidden = !expanded;
+  }
 
   function paintChrome() {
     const snapshot = getSpatialFocusSnapshot();
@@ -51,23 +144,16 @@ export function bindDropPinControl(root, options = {}) {
       dropButton.setAttribute('aria-pressed', armed ? 'true' : 'false');
       dropButton.classList.toggle('is-active', armed);
     }
+    paintCursorHud(lastLiveFormats || snapshot.pointerFormats, { showPlace: Boolean(dwellPlace) });
+    paintScale(getMapView());
     if (pointerNode) {
-      if (snapshot.pointerText) {
-        pointerNode.hidden = false;
-        pointerNode.textContent = snapshot.pointerText;
-      } else {
-        pointerNode.hidden = true;
-        pointerNode.textContent = '';
-      }
+      pointerNode.hidden = true;
+      pointerNode.textContent = snapshot.pointerText || '';
     }
     if (receiptNode) {
       if (snapshot.focus) {
         receiptNode.hidden = false;
-        receiptNode.innerHTML = `
-          <p data-iqai-focus-address>${snapshot.focus.resolvedAddress || ADDRESS_NOT_RESOLVED}</p>
-          <p data-iqai-focus-latitude>${formatLatitude(snapshot.focus.latitude) || ''}</p>
-          <p data-iqai-focus-longitude>${formatLongitude(snapshot.focus.longitude) || ''}</p>
-        `;
+        receiptNode.innerHTML = `<p data-iqai-focus-address>${snapshot.focus.resolvedAddress || ADDRESS_NOT_RESOLVED}</p>`;
       } else {
         receiptNode.hidden = true;
         receiptNode.textContent = '';
@@ -119,7 +205,7 @@ export function bindDropPinControl(root, options = {}) {
     return focusLayer;
   }
 
-  async function paintMarker(focus) {
+  async function paintMarker(focus, { pulse = false } = {}) {
     const layer = await ensureFocusLayer();
     if (!layer) return;
     layer.removeAll?.();
@@ -131,36 +217,59 @@ export function bindDropPinControl(root, options = {}) {
       latitude: focus.latitude,
       spatialReference: { wkid: 4326 }
     });
-    layer.add(new Graphic({
-      geometry,
-      symbol: {
-        type: 'simple-marker',
-        style: 'circle',
-        color: [0, 0, 0, 0],
-        size: 14,
-        outline: { color: [244, 240, 234, 1], width: 2 }
-      }
-    }));
-    layer.add(new Graphic({
-      geometry,
-      symbol: {
-        type: 'simple-marker',
-        style: 'circle',
-        color: [20, 18, 15, 1],
-        size: 4,
-        outline: { color: [244, 240, 234, 1], width: 1 }
-      }
-    }));
+    const rings = [
+      { size: 26, width: 0.9, color: [244, 240, 234, 0.28] },
+      { size: 14, width: 1.15, color: [244, 240, 234, 0.92] }
+    ];
+    for (const ring of rings) {
+      layer.add(new Graphic({
+        geometry,
+        symbol: {
+          type: 'simple-marker',
+          style: 'circle',
+          color: [0, 0, 0, 0],
+          size: ring.size,
+          outline: { color: ring.color, width: ring.width }
+        }
+      }));
+    }
     layer.add(new Graphic({
       geometry,
       symbol: {
         type: 'simple-marker',
         style: 'cross',
-        color: [20, 18, 15, 1],
-        size: 10,
+        color: [244, 240, 234, 1],
+        size: 11,
         outline: { color: [20, 18, 15, 1], width: 1 }
       }
     }));
+    layer.add(new Graphic({
+      geometry,
+      symbol: {
+        type: 'simple-marker',
+        style: 'circle',
+        color: [244, 240, 234, 1],
+        size: 3,
+        outline: { color: [20, 18, 15, 1], width: 1 }
+      }
+    }));
+    if (pulse) {
+      const pulseGraphic = new Graphic({
+        geometry,
+        symbol: {
+          type: 'simple-marker',
+          style: 'circle',
+          color: [0, 0, 0, 0],
+          size: 40,
+          outline: { color: [244, 240, 234, 0.55], width: 1 }
+        }
+      });
+      layer.add(pulseGraphic);
+      if (pulseTimer) clearTimeout(pulseTimer);
+      pulseTimer = setTimeout(() => {
+        try { layer.remove?.(pulseGraphic); } catch { /* graphic may already be gone */ }
+      }, 420);
+    }
   }
 
   async function placeFocus(longitude, latitude, sourceView = 'map') {
@@ -175,8 +284,9 @@ export function bindDropPinControl(root, options = {}) {
       addressState: SPATIAL_FOCUS_ADDRESS_STATE.PENDING
     });
     armed = false;
+    dwellPlace = null;
     paintChrome();
-    void paintMarker(next);
+    void paintMarker(next, { pulse: true });
     options.onPlaced?.(next);
     const token = ++placementGeneration;
     const geocode = await reverseGeocodeFocus(longitude, latitude);
@@ -195,6 +305,7 @@ export function bindDropPinControl(root, options = {}) {
         : SPATIAL_FOCUS_ADDRESS_STATE.NOT_RESOLVED
     });
     paintChrome();
+    options.onPlaced?.(resolved);
     return resolved;
   }
 
@@ -202,32 +313,52 @@ export function bindDropPinControl(root, options = {}) {
     if (!view) return false;
     if (!mapViewIdentity) mapViewIdentity = view;
     mapReady = true;
+    paintScale(view);
+    if (!scaleHandle && typeof view.watch === 'function') {
+      scaleHandle = view.watch('scale', () => paintScale(view));
+    }
     if (!moveHandle && typeof view.on === 'function') {
       moveHandle = view.on('pointer-move', (event) => {
         const mapPoint = view.toMap?.({ x: event.x, y: event.y });
+        paintScale(view);
         if (!mapPoint || !Number.isFinite(mapPoint.longitude) || !Number.isFinite(mapPoint.latitude)) {
           setPointerCoordinates(null, null);
-        } else {
-          setPointerCoordinates(mapPoint.longitude, mapPoint.latitude);
+          dwellPlace = null;
+          paintCursorHud(lastLiveFormats);
+          return;
         }
-        const text = getSpatialFocusSnapshot().pointerText;
-        if (pointerNode) {
-          if (text) {
-            pointerNode.hidden = false;
-            pointerNode.textContent = text;
-          } else {
-            pointerNode.hidden = true;
-            pointerNode.textContent = '';
-          }
-        }
+        setPointerCoordinates(mapPoint.longitude, mapPoint.latitude);
+        dwellPlace = null;
+        const live = liveCursorReadout(mapPoint.latitude, mapPoint.longitude);
+        paintCursorHud(live, { showPlace: false });
+        scheduleCursorDwell(mapPoint.longitude, mapPoint.latitude, (resolved) => {
+          if (!resolved) return;
+          if (resolved.elevation) lastElevation = resolved.elevation;
+          dwellPlace = resolved.place || null;
+          paintCursorHud({
+            ...resolved,
+            elevation: resolved.elevation || lastElevation
+          }, { showPlace: Boolean(dwellPlace) && !getActiveSpatialFocus() });
+        });
       });
     }
     if (!clickHandle && typeof view.on === 'function') {
       clickHandle = view.on('click', (event) => {
-        if (!armed) return;
-        const point = pointFromMapEvent(event);
-        if (!point) return;
-        void placeFocus(point.longitude, point.latitude, options.getActiveView?.() || 'map');
+        if (armed) {
+          const point = pointFromMapEvent(event);
+          if (!point) return;
+          void placeFocus(point.longitude, point.latitude, options.getActiveView?.() || 'map');
+          return;
+        }
+        const longitude = Number(event?.mapPoint?.longitude);
+        const latitude = Number(event?.mapPoint?.latitude);
+        if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) return;
+        scheduleCursorDwell(longitude, latitude, (resolved) => {
+          if (!resolved) return;
+          if (resolved.elevation) lastElevation = resolved.elevation;
+          dwellPlace = resolved.place || null;
+          paintCursorHud(resolved, { showPlace: Boolean(dwellPlace) && !getActiveSpatialFocus() });
+        });
       });
     }
     paintChrome();
@@ -266,6 +397,16 @@ export function bindDropPinControl(root, options = {}) {
   dropButton?.addEventListener('click', (event) => {
     event.preventDefault();
     void toggle();
+  });
+  toggleNode?.addEventListener('click', (event) => {
+    event.preventDefault();
+    setExpanded(!expanded);
+  });
+  cursorNode?.addEventListener('mouseenter', () => {
+    if (detailNode && !expanded) detailNode.hidden = false;
+  });
+  cursorNode?.addEventListener('mouseleave', () => {
+    if (detailNode && !expanded) detailNode.hidden = true;
   });
   subscribeSpatialFocus(() => paintChrome());
   paintChrome();

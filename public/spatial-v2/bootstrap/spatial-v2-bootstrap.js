@@ -19,6 +19,8 @@ import { createViewHost } from '../hosts/view-host.js';
 import { createPanelHost } from '../hosts/panel-host.js';
 import { CHASSIS_SYSTEMS, registerChassisCatalog } from './chassis-catalog.js';
 import { bindChassisAdapters } from './chassis-adapters.js';
+import { bindMapSurfaceAdapters } from './map-surface-adapters.js';
+import { attachWorldviewMapSession } from './worldview-map-session.js';
 import { mountAppShell } from '../shell/AppShell.js';
 import { createAskCapabilityBus } from '../shell/ask-capability-bus.js';
 import { ASK_ROUTE_STATE } from '../shell/ask-capability-bus.js';
@@ -53,13 +55,21 @@ function createAskCapabilities(capabilityRegistry, executeChassis) {
         };
       }
     },
-    unavailableAsk(
-      'map',
-      'Operational map',
-      ['map', 'show map', 'open map'],
-      ['map'],
-      'Persistent MapView remains at the proven baseline and is not migrated.'
-    ),
+    {
+      id: 'map',
+      label: 'Operational map',
+      aliases: ['map', 'show map', 'open map'],
+      quickActionIds: ['map'],
+      isAvailable: true,
+      handle: async () => {
+        await executeChassis('map', {});
+        return {
+          applicationAction: 'CONTEXT_SELECTED',
+          engineExecuted: false,
+          message: 'Operational map context selected. No GIS command was executed.'
+        };
+      }
+    },
     unavailableAsk(
       'imagery',
       'Imagery',
@@ -115,6 +125,7 @@ export function createSpatialV2Chassis(options = {}) {
     chassisRegistrar
   });
   bindChassisAdapters({ chassisRegistrar, capabilityRegistry, stateStore, idFactory });
+  bindMapSurfaceAdapters({ capabilityRegistry, idFactory });
 
   const policyService = createPolicyService({
     now,
@@ -144,8 +155,18 @@ export function createSpatialV2Chassis(options = {}) {
     experience: 'NORMAL',
     systemStatusOpen: false,
     inspectorPane: 'situation-slot',
+    inspectorOpen: false,
     activeSystem: 'workspace',
-    lastAskReceipt: null
+    activeLauncher: null,
+    drawer: null,
+    mapState: 'INITIALIZING',
+    layerGroups: [],
+    lastAskReceipt: null,
+    askOpen: false,
+    timeDrawerOpen: false,
+    addDataOpen: false,
+    addDataResults: [],
+    addDataStatus: null
   };
   const listeners = new Set();
 
@@ -183,9 +204,21 @@ export function createSpatialV2Chassis(options = {}) {
       experience: presentation.experience,
       systemStatusOpen: presentation.systemStatusOpen,
       inspectorPane: presentation.inspectorPane,
+      inspectorOpen: presentation.inspectorOpen === true,
       activeSystem,
+      activeLauncher: presentation.activeLauncher,
+      drawer: presentation.drawer,
+      mapState: presentation.mapState,
+      layerGroups: presentation.layerGroups,
+      askOpen: presentation.askOpen === true,
+      timeDrawerOpen: presentation.timeDrawerOpen === true,
+      addDataOpen: presentation.addDataOpen === true,
+      addDataResults: presentation.addDataResults,
+      addDataStatus: presentation.addDataStatus,
+      temporal: world.temporal,
       activeViewId,
       activeView: viewHost.project(activeViewId, world),
+      streetCapture: null,
       localModelState: 'NOT CONNECTED',
       brainSeam,
       askReceipt: presentation.lastAskReceipt,
@@ -199,10 +232,17 @@ export function createSpatialV2Chassis(options = {}) {
           `View: ${activeViewId} · ${view.availability}`,
           `World revision: ${world.revision}`
         ].join('\n'),
-        selectionState: world.selection.objectRefs.length ? 'SELECTED' : 'RESERVED',
-        selection: world.selection.objectRefs.length
-          ? `${world.selection.objectRefs.length} ObjectRef(s)`
-          : 'No ObjectRef selected. DROP PIN is unmigrated.',
+        selectionState: world.activeFocus ? 'ACTIVE SPATIAL FOCUS' : (world.selection.objectRefs.length ? 'SELECTED' : 'RESERVED'),
+        selection: world.activeFocus
+          ? [
+              'ACTIVE SPATIAL FOCUS',
+              `ADDRESS / PLACE: ${world.activeFocus.address || 'ADDRESS NOT RESOLVED'}`,
+              `sourceView: ${world.activeFocus.sourceView}`,
+              `sourceAction: ${world.activeFocus.sourceAction}`
+            ].join('\n')
+          : (world.selection.objectRefs.length
+            ? `${world.selection.objectRefs.length} ObjectRef(s)`
+            : 'No ObjectRef selected. Use DROP PIN to establish focus.'),
         evidenceState: 'RESERVED',
         evidence: 'No evidence envelopes. Proven specialist results are not migrated.',
         provenanceState: 'CHASSIS',
@@ -264,7 +304,71 @@ export function createSpatialV2Chassis(options = {}) {
       presentation.inspectorPane = slot;
       notify();
     },
+    setLauncher(launcherId) {
+      if (launcherId === 'layers') {
+        presentation.drawer = presentation.drawer === 'layers' ? null : 'layers';
+        presentation.activeLauncher = presentation.drawer === 'layers' ? 'layers' : null;
+        if (presentation.drawer !== 'layers') presentation.addDataOpen = false;
+        if (presentation.drawer === 'layers') {
+          void executeChassis('chassis.set-active-system', { systemId: 'layers' });
+        }
+        notify();
+        return;
+      }
+      presentation.drawer = null;
+      presentation.activeLauncher = launcherId || null;
+      notify();
+    },
+    toggleAsk() {
+      presentation.askOpen = !presentation.askOpen;
+      notify();
+    },
+    toggleTimeDrawer() {
+      presentation.timeDrawerOpen = !presentation.timeDrawerOpen;
+      notify();
+    },
+    toggleAddData() {
+      presentation.addDataOpen = !presentation.addDataOpen;
+      notify();
+    },
+    async setRequestedDay(day) {
+      await executeChassis('temporal.set-requested', { instant: day || null });
+    },
+    async searchPlace(query) {
+      const { searchAndGoTo } = await import('../map/map-foundation.js');
+      return searchAndGoTo(query);
+    },
+    async searchAddData(query) {
+      const { searchPortalItems } = await import('../map/map-foundation.js');
+      const result = await searchPortalItems(query);
+      presentation.addDataResults = result.results || [];
+      presentation.addDataStatus = result.status || (result.ok ? null : 'Search failed.');
+      presentation.addDataOpen = true;
+      notify();
+    },
+    async addSessionItem(item) {
+      const { addSessionPortalItem } = await import('../map/map-foundation.js');
+      const result = await addSessionPortalItem(item);
+      if (result.ok && result.layerId) {
+        await executeChassis('layers.add-session', { instanceId: result.layerId });
+      } else if (result.reason === 'WEBMAP_NOT_SESSION_OVERLAY') {
+        presentation.addDataStatus = 'Web Map items cannot replace the authored WebMap. Session overlay is limited to Feature, Map Image, and Imagery layers.';
+        notify();
+      }
+    },
+    setMapState(mapState) {
+      presentation.mapState = mapState || presentation.mapState;
+      notify();
+    },
+    setLayerGroups(layerGroups) {
+      presentation.layerGroups = Array.isArray(layerGroups) ? layerGroups : [];
+      notify();
+    },
     async dispatchCapability(capabilityId, input = {}) {
+      if (capabilityId === 'layers.set-visibility' || capabilityId === 'layers.set-opacity' || capabilityId === 'layers.add-session' || capabilityId === 'focus.set' || capabilityId === 'layers.sync-authored' || capabilityId === 'map' || capabilityId === 'temporal.set-requested') {
+        await executeChassis(capabilityId, input);
+        return;
+      }
       if (capabilityId === 'chassis.set-active-system' && input.systemId) {
         await executeChassis('chassis.set-active-system', { systemId: input.systemId });
         const system = CHASSIS_SYSTEMS.find((item) => item.id === input.systemId);
@@ -293,8 +397,8 @@ export function bootSpatialV2(root, options = {}) {
   const chassis = createSpatialV2Chassis(options);
   const shell = mountAppShell(root, chassis);
   const api = {
-    version: 'platform-chassis-v1',
-    applicationVersion: 'platform-chassis-shell-v1',
+    version: 'worldview-shell-v1',
+    applicationVersion: 'worldview-map-first-v1',
     chassis: true,
     measure: () => shell.measure(),
     diagnostic: () => chassis.stateStore.getDiagnostic(),
@@ -315,11 +419,12 @@ export function bootSpatialV2(root, options = {}) {
     mapViewCreateCount: 0,
     portalWrites: 'NONE',
     migration: Object.freeze({
-      map: 'UNMIGRATED',
-      street360: 'UNMIGRATED',
-      visual3d: 'UNMIGRATED',
+      map: 'MIGRATED',
+      street360: 'MIGRATED',
+      visual3d: 'MIGRATED',
       analyze3d: 'UNAVAILABLE',
-      dropPin: 'UNMIGRATED',
+      dropPin: 'MIGRATED',
+      layers: 'MIGRATED',
       nearmap: 'UNMIGRATED',
       wayback: 'UNMIGRATED',
       timeEngine: 'UNMIGRATED',
@@ -327,6 +432,7 @@ export function bootSpatialV2(root, options = {}) {
       brain: 'SEAM ONLY'
     })
   };
+  attachWorldviewMapSession(root, chassis, api);
   window.__iqaiSpatialV2 = api;
   return api;
 }

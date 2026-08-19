@@ -52,3 +52,29 @@ test('montreal oauth config exposes WebMap item id', async () => {
   assert.equal(cfg.webmapItemId, '2ec27986ecfb4dd188d058cae620be0d');
   assert.equal(cfg.oauthAppIdConfigured, true);
 });
+
+test('local API key demo mode keeps OAuth fields and suppresses popup', async () => {
+  const previous = process.env.ARCGIS_API_KEY;
+  process.env.ARCGIS_API_KEY = 'test-local-demo-key';
+  const { buildMontrealOAuthPublicConfig } = await import('../src/spatial/montreal-oauth-config.js');
+  try {
+    const local = buildMontrealOAuthPublicConfig({
+      montrealArcgisOAuthAppId: 'test-client',
+      montrealOperationalWebmapId: '2ec27986ecfb4dd188d058cae620be0d'
+    }, 'http://localhost:3047');
+    assert.equal(local.authMode, 'local-api-key');
+    assert.equal(local.popup, false);
+    assert.equal(local.apiKeyConfigured, true);
+    assert.equal(local.oauthAppIdConfigured, true);
+    assert.equal(local.webmapItemId, '2ec27986ecfb4dd188d058cae620be0d');
+    const remote = buildMontrealOAuthPublicConfig({
+      montrealArcgisOAuthAppId: 'test-client'
+    }, 'https://example.invalid');
+    assert.equal(remote.authMode, 'browser-oauth');
+    assert.equal(remote.apiKey, null);
+    assert.equal(remote.popup, true);
+  } finally {
+    if (previous == null) delete process.env.ARCGIS_API_KEY;
+    else process.env.ARCGIS_API_KEY = previous;
+  }
+});
