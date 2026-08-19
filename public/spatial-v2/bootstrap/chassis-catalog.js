@@ -1,7 +1,7 @@
 /**
  * Chassis catalog: register frozen views/layers/capabilities.
- * MAP, DROP PIN, LAYERS, STREET 360, and 3D VISUAL are migrated wrappers.
- * 3D ANALYZE, imagery Time Engine, and Dual Map remain UNAVAILABLE / UNMIGRATED.
+ * MAP, DROP PIN, LAYERS, STREET 360, 3D VISUAL, and 3D ANALYZE are migrated wrappers.
+ * Imagery Time Engine and Dual Map remain UNAVAILABLE / UNMIGRATED.
  */
 
 import {
@@ -31,7 +31,7 @@ export const CHASSIS_SYSTEMS = Object.freeze([
     label: 'VIEW',
     group: 'SPATIAL',
     migrationState: MIGRATION_STATE.CHASSIS,
-    detail: 'ViewHost owns MAP lifecycle. STREET 360 and 3D VISUAL are migrated specialist stages. 3D ANALYZE is unavailable.'
+    detail: 'ViewHost owns MAP lifecycle. STREET 360, 3D VISUAL, and 3D ANALYZE are migrated specialist stages.'
   }),
   Object.freeze({
     id: 'focus',
@@ -134,11 +134,11 @@ export function registerChassisCatalog({
   viewRegistry.register({
     viewId: VIEW_ID.ANALYZE_3D,
     title: '3D ANALYZE',
-    lifecycle: VIEW_LIFECYCLE.REGISTERED,
-    availability: VIEW_AVAILABILITY.UNAVAILABLE,
-    adapterId: null,
-    unavailableReason: '3D ANALYZE has no specialist engine in this wave.',
-    migrationState: MIGRATION_STATE.UNAVAILABLE
+    lifecycle: VIEW_LIFECYCLE.DEFERRED,
+    availability: VIEW_AVAILABILITY.REGISTERED,
+    requiresFocus: false,
+    adapterId: 'analyze-3d',
+    migrationState: MIGRATION_STATE.MIGRATED
   });
 
   layerRegistry.register({

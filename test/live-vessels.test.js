@@ -26,7 +26,7 @@ import {
   __resetVesselTrackingForTests
 } from '../public/spatial/vessels-live.js';
 import { matchVesselsLiveIntent } from '../src/spatial/vessels-live-intent.js';
-import { VESSELS_LAYER_TITLE } from '../src/spatial/aisstream-config.js';
+import { VESSELS_LAYER_TITLE, isAisSpatialStreamEnabled } from '../src/spatial/aisstream-config.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const fixture = JSON.parse(
@@ -160,4 +160,11 @@ test('adapter interface documents fetch normalize getStableId', () => {
   assert.ok(iface.fetchSnapshot);
   assert.ok(iface.normalize);
   assert.ok(iface.getStableId);
+});
+
+test('Spatial V2 chassis disables AISStream autostart unless IQAI_AIS_SPATIAL_STREAM is on', () => {
+  assert.equal(isAisSpatialStreamEnabled({}), false);
+  assert.equal(isAisSpatialStreamEnabled({ IQAI_AIS_SPATIAL_STREAM: '' }), false);
+  assert.equal(isAisSpatialStreamEnabled({ IQAI_AIS_SPATIAL_STREAM: 'off' }), false);
+  assert.equal(isAisSpatialStreamEnabled({ IQAI_AIS_SPATIAL_STREAM: 'on' }), true);
 });

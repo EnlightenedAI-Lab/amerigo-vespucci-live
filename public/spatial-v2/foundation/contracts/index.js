@@ -143,6 +143,22 @@ export {
   validateJob
 } from './job.js';
 export {
+  createAnalyticalHit,
+  validateAnalyticalHit
+} from './analytical-hit.js';
+export {
+  SENSOR_POSE_SOURCE,
+  createSensorPose,
+  validateSensorPose
+} from './sensor-pose.js';
+export {
+  geodesicMeters,
+  enuDeltaMeters,
+  measureAnalyticalHits,
+  createAnalyticalMeasure,
+  validateAnalyticalMeasure
+} from './analytical-measure.js';
+export {
   MODEL_KIND,
   MODEL_LOCALITY,
   MODEL_HEALTH,

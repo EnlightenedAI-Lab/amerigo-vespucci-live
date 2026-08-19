@@ -44,6 +44,7 @@ export function bindWorldViewFrame(root, options = {}) {
   const layoutRoot = root?.querySelector('[data-iqai-layout-switcher]');
   const street360 = options.street360;
   const google3d = options.google3d;
+  const analyze3d = options.analyze3d;
   const viewSwitcher = options.viewSwitcher;
 
   let layout = 1;
@@ -108,15 +109,25 @@ export function bindWorldViewFrame(root, options = {}) {
     }
   }
 
+  function analyzeOpen() {
+    const snap = analyze3d?.snapshot?.() || {};
+    return snap.open === true
+      || ['OPENING', 'OPEN', 'CLOSING', 'UNAVAILABLE'].includes(snap.stageState);
+  }
+
   function paint() {
     if (well) {
       well.dataset.iqaiWorldviewLayout = String(layout);
       well.dataset.iqaiWorldviewMaximized = maximized || '';
-      well.dataset.iqaiSpecialistView = layout === 1 ? '2d' : 'worldview';
+      if (!analyzeOpen()) {
+        well.dataset.iqaiSpecialistView = layout === 1 ? '2d' : 'worldview';
+      }
     }
-    if (root) {
+    if (root && !analyzeOpen()) {
       root.dataset.iqaiWorldviewLayout = String(layout);
       root.dataset.iqaiSpatialView = layout === 1 ? '2d' : 'worldview';
+    } else if (root) {
+      root.dataset.iqaiWorldviewLayout = String(layout);
     }
     const visible = new Set(panesForLayout());
     for (const pane of paneEls()) {
@@ -174,6 +185,13 @@ export function bindWorldViewFrame(root, options = {}) {
     }
   }
 
+  async function closeAnalyze() {
+    const snap = analyze3d?.snapshot?.() || {};
+    if (snap.stageState && snap.stageState !== 'IDLE') {
+      await analyze3d.close({ restoreMap: false });
+    }
+  }
+
   async function applyLayout(nextLayout, nextPair = pairView) {
     if (busy) return snapshot();
     const wanted = Math.max(1, Math.min(4, Number(nextLayout) || 1));
@@ -189,6 +207,7 @@ export function bindWorldViewFrame(root, options = {}) {
       if (wanted === 1) {
         await closeStreet();
         await closeVisual();
+        await closeAnalyze();
         options.onPrimaryMap?.();
       } else if (!hasGeographicContext()) {
         options.armDropPin?.();
@@ -225,6 +244,10 @@ export function bindWorldViewFrame(root, options = {}) {
 
   async function openSupporting(viewId) {
     const view = String(viewId || '').trim();
+    if (view === '3D ANALYZE') return snapshot();
+    if (analyzeOpen() && view !== '3D ANALYZE') {
+      await closeAnalyze();
+    }
     if (view === WORLDVIEW_PANE.STREET_360) {
       if (layout === 1) return applyLayout(2, WORLDVIEW_PANE.STREET_360);
       if (layout === 2 && pairView === WORLDVIEW_PANE.VISUAL_3D) return applyLayout(3);
@@ -296,7 +319,8 @@ export function bindWorldViewFrame(root, options = {}) {
       focus: getActiveSpatialFocus(),
       navigation: getWorldviewNavigation(),
       street360: street360?.snapshot?.() || null,
-      google3d: google3d?.snapshot?.() || null
+      google3d: google3d?.snapshot?.() || null,
+      analyze3d: analyze3d?.snapshot?.() || null
     };
   }
 

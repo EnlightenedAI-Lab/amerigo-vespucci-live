@@ -6,6 +6,18 @@ export const AISSTREAM_SOURCE_NOTE = 'Free community AIS WebSocket API; API key 
 
 export const AISSTREAM_DEFAULT_URL = 'wss://stream.aisstream.io/v0/stream';
 
+/**
+ * Spatial V2 chassis does not own the AISStream provider socket.
+ * Default off. Opt in only with IQAI_AIS_SPATIAL_STREAM=on.
+ */
+export const AIS_SPATIAL_STREAM_ENV = 'IQAI_AIS_SPATIAL_STREAM';
+
+export function isAisSpatialStreamEnabled(env = process.env) {
+  const raw = String(env?.[AIS_SPATIAL_STREAM_ENV] ?? '').trim().toLowerCase();
+  return raw === '1' || raw === 'true' || raw === 'on' || raw === 'yes'
+    || raw === 'enable' || raw === 'enabled';
+}
+
 /** Greater Montréal + Port of Montréal + St. Lawrence approach */
 export const MONTREAL_VESSEL_BOUNDS = {
   minLat: 44.75,

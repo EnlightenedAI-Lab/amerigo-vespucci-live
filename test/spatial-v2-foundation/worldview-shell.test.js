@@ -42,7 +42,7 @@ test('WorldView shell keeps a permanent map-first anatomy without a dashboard', 
   assert.match(html, /data-iqai-view="MAP"/);
   assert.match(html, /data-iqai-view="STREET 360"/);
   assert.match(html, /data-iqai-view="3D VISUAL"/);
-  assert.doesNotMatch(html, /data-iqai-view="3D ANALYZE"/);
+  assert.match(html, /data-iqai-view="3D ANALYZE"/);
   assert.doesNotMatch(html, /data-iqai-view="DUAL MAP"/);
   assert.match(html, /data-iqai-precision-cursor/);
   assert.match(html, /data-iqai-cursor-live/);
@@ -67,6 +67,7 @@ test('AppShell remains composition-only while MAP is wrapped outside it', () => 
   assert.match(session, /bindFocusInstrument/);
   assert.match(session, /bindStreet360Control/);
   assert.match(session, /bindGooglePhotorealistic3dControl/);
+  assert.match(session, /bindAnalyze3dControl/);
   assert.match(session, /bindViewSwitcher/);
   assert.match(session, /bindWorldViewFrame/);
   assert.equal((read('map/map-foundation.js').match(/new MapView\(/g) || []).length, 1);
@@ -88,7 +89,7 @@ test('WorldView 3D reuses the donor in-page Maps JS engine over one MapView', ()
   assert.equal((read('map/map-foundation.js').match(/new MapView\(/g) || []).length, 1);
 });
 
-test('MAP, STREET 360, and 3D VISUAL are migrated; 3D ANALYZE stays unavailable', async () => {
+test('MAP, STREET 360, 3D VISUAL, and 3D ANALYZE are migrated specialists', async () => {
   let n = 0;
   const chassis = createSpatialV2Chassis({
     now: () => '2026-08-18T18:00:00.000Z',
@@ -100,7 +101,7 @@ test('MAP, STREET 360, and 3D VISUAL are migrated; 3D ANALYZE stays unavailable'
   assert.equal(chassis.capabilityRegistry.require('selection.set').migrationState, MIGRATION_STATE.MIGRATED);
   assert.equal(chassis.viewRegistry.require(VIEW_ID.STREET_360).migrationState, MIGRATION_STATE.MIGRATED);
   assert.equal(chassis.viewRegistry.require(VIEW_ID.VISUAL_3D).migrationState, MIGRATION_STATE.MIGRATED);
-  assert.equal(chassis.viewRegistry.require(VIEW_ID.ANALYZE_3D).migrationState, MIGRATION_STATE.UNAVAILABLE);
+  assert.equal(chassis.viewRegistry.require(VIEW_ID.ANALYZE_3D).migrationState, MIGRATION_STATE.MIGRATED);
   const focus = await chassis.executeChassis('focus.set', {
     longitude: -73.56726,
     latitude: 45.50173,

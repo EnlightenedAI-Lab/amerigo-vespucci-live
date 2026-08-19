@@ -596,7 +596,12 @@ export function createServer(state, config, arcgis, options = {}) {
     }
   });
 
-  void import('./spatial/aisstream-client.js').then(({ startAisSpatialStream }) => {
+  void import('./spatial/aisstream-client.js').then(async ({ startAisSpatialStream }) => {
+    const { isAisSpatialStreamEnabled } = await import('./spatial/aisstream-config.js');
+    if (!isAisSpatialStreamEnabled()) {
+      console.warn('[IQAI] AIS spatial stream autostart disabled (IQAI_AIS_SPATIAL_STREAM)');
+      return;
+    }
     startAisSpatialStream({
       aisstreamApiKey: config.aisstreamApiKey || process.env.AISSTREAM_API_KEY,
       aisstreamUrl: config.aisstreamUrl || process.env.AISSTREAM_URL

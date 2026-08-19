@@ -29,8 +29,10 @@ const NOTICE = Object.freeze({
   SELECT_3D: 'SELECT A POINT FOR 3D VISUAL',
   LOADING_STREET: 'LOADING STREET 360…',
   LOADING_3D: 'LOADING 3D VISUAL…',
+  LOADING_ANALYZE: 'LOADING 3D ANALYZE…',
   STREET_UNAVAILABLE: 'STREET 360 NOT AVAILABLE HERE',
-  VISUAL_UNAVAILABLE: '3D VISUAL NOT AVAILABLE HERE'
+  VISUAL_UNAVAILABLE: '3D VISUAL NOT AVAILABLE HERE',
+  ANALYZE_UNAVAILABLE: 'ANALYTICAL 3D COVERAGE UNAVAILABLE'
 });
 
 function isOperatorPoint(point) {
@@ -43,6 +45,7 @@ export function bindViewSwitcher(root, options = {}) {
   const dateLabel = root?.querySelector('[data-iqai-street-360-date]');
   const google3d = options.google3d;
   const street360 = options.street360;
+  const analyze3d = options.analyze3d;
   const exclusive = options.exclusive !== false;
 
   let activeView = VIEWS.MAP;
@@ -59,15 +62,16 @@ export function bindViewSwitcher(root, options = {}) {
     if (!switcher) return;
     const streetOpen = street360?.snapshot?.().open === true;
     const visualOpen = google3d?.snapshot?.().open === true;
+    const analyzeOpen = analyze3d?.snapshot?.().open === true;
     for (const button of switcher.querySelectorAll('[data-iqai-view]')) {
       const view = canonicalViewId(button.getAttribute('data-iqai-view'));
-      const reserved = view === VIEWS.ANALYZE_3D;
-      button.disabled = reserved || (busy && view !== VIEWS.MAP);
+      button.disabled = busy && view !== VIEWS.MAP;
       const pressed = exclusive
         ? view === activeView
         : view === VIEWS.MAP
           || (view === VIEWS.STREET_360 && streetOpen)
-          || (view === VIEWS.VISUAL_3D && visualOpen);
+          || (view === VIEWS.VISUAL_3D && visualOpen)
+          || (view === VIEWS.ANALYZE_3D && analyzeOpen);
       button.setAttribute('aria-pressed', pressed ? 'true' : 'false');
       button.classList.toggle('is-active', pressed);
     }
@@ -78,7 +82,9 @@ export function bindViewSwitcher(root, options = {}) {
         ? NOTICE.LOADING_STREET
         : busy && activeView === VIEWS.VISUAL_3D
           ? NOTICE.LOADING_3D
-          : null;
+          : busy && activeView === VIEWS.ANALYZE_3D
+            ? NOTICE.LOADING_ANALYZE
+            : null;
     if (notice) {
       if (blocking) {
         notice.hidden = false;
@@ -132,6 +138,12 @@ export function bindViewSwitcher(root, options = {}) {
       const snap = google3d?.snapshot?.() || {};
       if (snap.stageState && snap.stageState !== 'IDLE' && snap.stageState !== 'ERROR') {
         await google3d.close({ restoreMap });
+      }
+    }
+    if (except !== VIEWS.ANALYZE_3D) {
+      const snap = analyze3d?.snapshot?.() || {};
+      if (snap.stageState && snap.stageState !== 'IDLE') {
+        await analyze3d.close({ restoreMap });
       }
     }
   }
@@ -196,6 +208,35 @@ export function bindViewSwitcher(root, options = {}) {
     }
   }
 
+  async function openAnalyze3d() {
+    pendingView = null;
+    activeView = VIEWS.ANALYZE_3D;
+    busy = true;
+    paint();
+    await closeSpecialists(VIEWS.ANALYZE_3D);
+    try {
+      const opened = await analyze3d.open();
+      if (opened?.stageState === 'ERROR') {
+        await showUnavailable('3D ANALYZE NOT AVAILABLE');
+        return opened;
+      }
+      activeView = VIEWS.ANALYZE_3D;
+      busy = false;
+      if (opened?.stageState === 'UNAVAILABLE' || opened?.coverageAvailable === false) {
+        if (notice) {
+          notice.hidden = false;
+          notice.textContent = NOTICE.ANALYZE_UNAVAILABLE;
+          notice.dataset.iqaiViewNoticeKind = 'unavailable';
+        }
+      }
+      paint();
+      return opened;
+    } catch {
+      await showUnavailable('3D ANALYZE NOT AVAILABLE');
+      return analyze3d?.snapshot?.() || null;
+    }
+  }
+
   async function openMap() {
     pendingView = null;
     busy = true;
@@ -213,7 +254,6 @@ export function bindViewSwitcher(root, options = {}) {
 
   async function setView(view) {
     view = canonicalViewId(view);
-    if (view === VIEWS.ANALYZE_3D) return snapshot();
     if (busy && view === activeView) return snapshot();
     if (view === VIEWS.MAP) {
       await openMap();
@@ -229,6 +269,12 @@ export function bindViewSwitcher(root, options = {}) {
     if (view === VIEWS.VISUAL_3D) {
       if (activeView === VIEWS.VISUAL_3D && google3d?.snapshot?.().open) return snapshot();
       await open3dVisual();
+      options.onView?.(worldViewId(activeView), snapshot());
+      return snapshot();
+    }
+    if (view === VIEWS.ANALYZE_3D) {
+      if (activeView === VIEWS.ANALYZE_3D && analyze3d?.snapshot?.().open) return snapshot();
+      await openAnalyze3d();
       options.onView?.(worldViewId(activeView), snapshot());
       return snapshot();
     }
@@ -258,7 +304,8 @@ export function bindViewSwitcher(root, options = {}) {
       selectedPoint: selectedPoint(),
       exclusive,
       street360: street360?.snapshot?.() || null,
-      google3d: google3d?.snapshot?.() || null
+      google3d: google3d?.snapshot?.() || null,
+      analyze3d: analyze3d?.snapshot?.() || null
     };
   }
 
@@ -266,6 +313,10 @@ export function bindViewSwitcher(root, options = {}) {
     const button = event.target.closest('[data-iqai-view]');
     if (!button || !switcher?.contains(button)) return;
     const view = canonicalViewId(button.getAttribute('data-iqai-view'));
+    if (view === VIEWS.ANALYZE_3D) {
+      void setView(view);
+      return;
+    }
     if (typeof options.onRequestView === 'function') {
       void options.onRequestView(worldViewId(view));
       return;

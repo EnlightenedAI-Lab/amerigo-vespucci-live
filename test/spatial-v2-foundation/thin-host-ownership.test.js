@@ -93,7 +93,7 @@ test('chassis execute uses CapabilityRuntime and ResultCommitter, not AppShell',
   const after = chassis.stateStore.getSnapshot();
   assert.deepEqual(after.views.activeViewIds, [VIEW_ID.STREET_360]);
   assert.equal(chassis.viewRegistry.require(VIEW_ID.STREET_360).migrationState, MIGRATION_STATE.MIGRATED);
-  assert.equal(chassis.viewRegistry.require(VIEW_ID.ANALYZE_3D).migrationState, MIGRATION_STATE.UNAVAILABLE);
+  assert.equal(chassis.viewRegistry.require(VIEW_ID.ANALYZE_3D).migrationState, MIGRATION_STATE.MIGRATED);
 });
 
 test('unmigrated and unavailable capabilities fail closed before adapter execution', async () => {

@@ -36,6 +36,7 @@ import { applyMapFoundationToStage } from '../shell/MapStage.js';
 import { bindDropPinControl } from '../shell/DropPinControl.js';
 import { bindStreet360Control } from '../shell/Street360Control.js';
 import { bindGooglePhotorealistic3dControl } from '../shell/GooglePhotorealistic3dControl.js';
+import { bindAnalyze3dControl } from '../shell/Analyze3dControl.js';
 import { bindViewSwitcher } from '../shell/ViewSwitcher.js';
 import { bindWorldViewFrame } from '../shell/WorldViewFrame.js';
 import { projectLayerDrawerGroups } from '../shell/LayersDrawer.js';
@@ -96,6 +97,10 @@ export function attachWorldviewMapSession(root, chassis, api) {
     getPeerSelectedPoint: () => getActiveSpatialFocus(),
     keepMapVisible: true
   });
+  const analyze3d = bindAnalyze3dControl(root, {
+    getSpatialFocus: () => getActiveSpatialFocus(),
+    getLocation: () => getWorldviewNavigation()
+  });
   const street360 = bindStreet360Control(root, {
     getSpatialFocus: () => getActiveSpatialFocus(),
     getPeerSelectedPoint: () => getActiveSpatialFocus(),
@@ -115,6 +120,7 @@ export function attachWorldviewMapSession(root, chassis, api) {
       seedWorldviewNavigationFromFocus(focus);
       street360.selectPoint(focus.longitude, focus.latitude, 'drop-pin');
       google3d.selectPoint(focus.longitude, focus.latitude, 'drop-pin');
+      analyze3d.selectPoint(focus.longitude, focus.latitude, 'drop-pin');
       viewSwitcher?.onMapPointSelected(focus);
       void worldViewFrame?.followFocus?.();
       void chassis.executeChassis('focus.set', {
@@ -134,6 +140,7 @@ export function attachWorldviewMapSession(root, chassis, api) {
   const viewSwitcher = bindViewSwitcher(root, {
     google3d,
     street360,
+    analyze3d,
     exclusive: false,
     armDropPin: () => dropPin.arm(),
     onRequestView: (viewId) => worldViewFrame?.openSupporting(viewId),
@@ -145,6 +152,7 @@ export function attachWorldviewMapSession(root, chassis, api) {
   worldViewFrame = bindWorldViewFrame(root, {
     google3d,
     street360,
+    analyze3d,
     viewSwitcher,
     getTemporal: () => chassis.stateStore.getSnapshot().temporal,
     armDropPin: () => dropPin.arm(),
@@ -164,6 +172,7 @@ export function attachWorldviewMapSession(root, chassis, api) {
       dropPin.setMapReady(true);
       street360.setMapReady(true);
       google3d.setMapReady(true);
+      analyze3d.setMapReady(true);
       const view = getMapFoundationController().getView?.();
       if (view && !mapNavAttached) {
         attachWorldviewMapAdapter(view);
@@ -230,6 +239,17 @@ export function attachWorldviewMapSession(root, chassis, api) {
     hide() {},
     show() {}
   });
+  chassis.viewRegistry.bindAdapter(VIEW_ID.ANALYZE_3D, {
+    mount() {
+      return Object.freeze({ viewId: VIEW_ID.ANALYZE_3D, retained: false });
+    },
+    hide() {
+      void analyze3d.close();
+    },
+    show() {
+      void analyze3d.open();
+    }
+  });
 
   showMapView(mapHost);
   api.dropPin = dropPin;
@@ -238,6 +258,7 @@ export function attachWorldviewMapSession(root, chassis, api) {
   api.worldViewFrame = worldViewFrame;
   api.street360 = street360;
   api.google3d = google3d;
+  api.analyze3d = analyze3d;
   api.worldviewNavigation = {
     snapshot: getWorldviewNavigation,
     propose: proposeWorldviewNavigation,
@@ -281,6 +302,7 @@ export function attachWorldviewMapSession(root, chassis, api) {
     worldViewFrame,
     street360,
     google3d,
+    analyze3d,
     getMapViewCreateCount
   });
 }

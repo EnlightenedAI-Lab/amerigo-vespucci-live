@@ -441,7 +441,7 @@ export function bootSpatialV2(root, options = {}) {
       map: 'MIGRATED',
       street360: 'MIGRATED',
       visual3d: 'MIGRATED',
-      analyze3d: 'UNAVAILABLE',
+      analyze3d: 'MIGRATED',
       dropPin: 'MIGRATED',
       layers: 'MIGRATED',
       nearmap: 'UNMIGRATED',

@@ -123,7 +123,7 @@ function defaultViews() {
       [VIEW_ID.MAP]: createViewStateRef({ viewId: VIEW_ID.MAP, lifecycle: VIEW_LIFECYCLE.MOUNT_ONCE }),
       [VIEW_ID.STREET_360]: createViewStateRef({ viewId: VIEW_ID.STREET_360, lifecycle: VIEW_LIFECYCLE.DEFERRED }),
       [VIEW_ID.VISUAL_3D]: createViewStateRef({ viewId: VIEW_ID.VISUAL_3D, lifecycle: VIEW_LIFECYCLE.DEFERRED }),
-      [VIEW_ID.ANALYZE_3D]: createViewStateRef({ viewId: VIEW_ID.ANALYZE_3D, lifecycle: VIEW_LIFECYCLE.REGISTERED })
+      [VIEW_ID.ANALYZE_3D]: createViewStateRef({ viewId: VIEW_ID.ANALYZE_3D, lifecycle: VIEW_LIFECYCLE.DEFERRED })
     }
   };
 }

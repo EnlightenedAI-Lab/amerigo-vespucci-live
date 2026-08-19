@@ -25,7 +25,10 @@ export const SCHEMA_IDS = Object.freeze({
   TEMPORAL_CONTEXT: 'iqai.temporal-context/1.0.0',
   SCENARIO: 'iqai.scenario/1.0.0',
   SPATIAL_REFERENCE: 'iqai.spatial-reference/1.0.0',
-  ACTIVITY_EVENT: 'iqai.activity-event/1.0.0'
+  ACTIVITY_EVENT: 'iqai.activity-event/1.0.0',
+  ANALYTICAL_HIT: 'iqai.spatial.analytical-hit/1.0.0',
+  SENSOR_POSE: 'iqai.spatial.sensor-pose/1.0.0',
+  ANALYTICAL_MEASURE: 'iqai.spatial.analytical-measure/1.0.0'
 });
 
 export function schemaVersionOf(schemaId) {

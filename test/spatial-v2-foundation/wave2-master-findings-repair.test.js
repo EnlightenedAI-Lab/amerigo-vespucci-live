@@ -446,11 +446,11 @@ test('ViewHost cannot diverge from World State and cannot execute unmigrated ada
   );
   assert.throws(
     () => chassis.viewHost.mount(VIEW_ID.ANALYZE_3D),
-    (error) => error.code === 'VIEW_ADAPTER_NOT_EXECUTABLE'
+    (error) => error.code === 'UNKNOWN_ADAPTER'
   );
   assert.throws(
     () => chassis.viewHost.show(VIEW_ID.ANALYZE_3D),
-    (error) => error.code === 'VIEW_ADAPTER_NOT_EXECUTABLE'
+    (error) => error.code === 'UNKNOWN_ADAPTER'
   );
   assert.equal(invoked, 0);
   assert.deepEqual(chassis.stateStore.getSnapshot().views.activeViewIds, world.views.activeViewIds);

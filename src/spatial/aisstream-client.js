@@ -8,7 +8,8 @@ import {
   AIS_CLIENT_REFRESH_MS,
   AIS_POSITION_STALE_SECONDS,
   MONTREAL_VESSEL_BOUNDS,
-  montrealBoundingBoxes
+  montrealBoundingBoxes,
+  isAisSpatialStreamEnabled
 } from './aisstream-config.js';
 import {
   mergeAisStreamMessage,
@@ -191,6 +192,9 @@ class AisSpatialStreamService {
  * @param {object} [config]
  */
 export function startAisSpatialStream(config = {}) {
+  if (!isAisSpatialStreamEnabled()) {
+    return streamService;
+  }
   const mergedConfig = {
     aisstreamApiKey: config.aisstreamApiKey || process.env.AISSTREAM_API_KEY,
     aisstreamUrl: config.aisstreamUrl || process.env.AISSTREAM_URL
@@ -256,7 +260,8 @@ export async function fetchLiveVessels(options = {}) {
     };
   }
 
-  if (!streamService && keyConfigured && !options.skipStreamStart) {
+  const streamEnabled = isAisSpatialStreamEnabled();
+  if (!streamService && keyConfigured && !options.skipStreamStart && streamEnabled) {
     startAisSpatialStream({
       aisstreamApiKey: process.env.AISSTREAM_API_KEY,
       aisstreamUrl: process.env.AISSTREAM_URL
@@ -265,6 +270,18 @@ export async function fetchLiveVessels(options = {}) {
 
   const payload = buildSnapshotPayload({ nowMs: now });
   const streamStatus = streamService?.getStatus?.() || {};
+
+  if (!streamEnabled && !payload.objects.length) {
+    return {
+      ok: true,
+      status: LIVE_OBJECT_FRESHNESS.ERROR,
+      ...payload,
+      error: 'AISStream provider socket disabled in this Spatial V2 runtime',
+      keyConfigured,
+      streamConnected: false,
+      streamAutostart: false
+    };
+  }
 
   if (!payload.objects.length && !streamStatus.connected && !lastSuccessfulSnapshot) {
     return {

@@ -2,7 +2,7 @@
  * ViewHost owns adapter lifecycle, hide/show, and continuity handoff.
  * It never constructs MapView or specialist engines.
  * World State remains the sole canonical view-identity authority.
- * STREET 360 and 3D VISUAL are migrated specialist stages. 3D ANALYZE remains UNAVAILABLE.
+ * STREET 360, 3D VISUAL, and 3D ANALYZE are migrated specialist stages. Dual Map remains unavailable.
  */
 
 import { MIGRATION_STATE, isCapabilityExecutable } from '../foundation/contracts/capability.js';
@@ -232,7 +232,15 @@ export function renderMapStageHost() {
             </div>
           </section>
         </div>
-        <div class="iqai-v2-analyze-3d-stage" data-iqai-view-anchor="3D ANALYZE" hidden></div>
+        <div class="iqai-v2-analyze-3d-stage" data-iqai-analyze-3d-stage data-iqai-view-anchor="3D ANALYZE" hidden>
+          <div class="iqai-v2-analyze-3d-canvas" data-iqai-analyze-3d-canvas></div>
+          <div class="iqai-v2-analyze-3d-readout" data-iqai-analyze-3d-readout>
+            <p class="iqai-v2-analyze-3d-status" data-iqai-analyze-3d-status></p>
+            <p class="iqai-v2-analyze-3d-hit" data-iqai-analyze-3d-hit></p>
+            <p class="iqai-v2-analyze-3d-measure" data-iqai-analyze-3d-measure></p>
+            <p class="iqai-v2-analyze-3d-attrib" data-iqai-analyze-3d-attrib>City of Montréal / Esri Canada / Esri · Downtown Montréal only</p>
+          </div>
+        </div>
         <div class="iqai-v2-second-view" data-iqai-second-view hidden></div>
         <div class="iqai-v2-stage__placeholder" data-iqai-map-placeholder>
           <p class="iqai-v2-stage__kicker">MAP</p>
@@ -257,6 +265,7 @@ export function renderMapStageHost() {
           <button type="button" data-iqai-view="MAP" aria-pressed="true">MAP</button>
           <button type="button" data-iqai-view="3D VISUAL" aria-pressed="false">3D</button>
           <button type="button" data-iqai-view="STREET 360" aria-pressed="false">STREET 360</button>
+          <button type="button" data-iqai-view="3D ANALYZE" aria-pressed="false">3D ANALYZE</button>
         </div>
         <div class="iqai-v2-layout-switcher" data-iqai-layout-switcher aria-label="WorldView layout">
           <button type="button" data-iqai-layout="1" aria-pressed="true">1</button>

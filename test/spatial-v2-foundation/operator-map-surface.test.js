@@ -28,7 +28,7 @@ test('Ask IQAI is closed by default and unavailable views stay honest', () => {
   assert.match(html, /UNMIGRATED NOT MIGRATED/);
   assert.match(html, /data-iqai-view="STREET 360"/);
   assert.match(html, /data-iqai-view="3D VISUAL"/);
-  assert.doesNotMatch(html, /data-iqai-view="3D ANALYZE"/);
+  assert.match(html, /data-iqai-view="3D ANALYZE"/);
   assert.match(html, /data-iqai-second-view hidden/);
   assert.match(html, /data-iqai-sheet="closed"|data-iqai-slot="context-inspector"/);
 });
