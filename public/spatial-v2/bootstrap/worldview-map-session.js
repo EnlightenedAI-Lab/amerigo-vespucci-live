@@ -42,6 +42,7 @@ import { bindViewSwitcher } from '../shell/ViewSwitcher.js';
 import { bindWorldViewFrame } from '../shell/WorldViewFrame.js';
 import { projectLayerDrawerGroups } from '../shell/LayersDrawer.js';
 import { bindFocusInstrument } from '../map/focus/instrument.js';
+import * as opsLayers from '../ops-layers/controller.js';
 
 function hideMapView(host) {
   if (!host) return;
@@ -67,6 +68,7 @@ function refreshLayerGroups(chassis, focusInstrument) {
     instances: world.layers?.byId || {},
     acquisitionLayers: focusInstrument?.drawerRows?.() || []
   }));
+  chassis.setDiscover?.(opsLayers.snapshot());
 }
 
 function woaLayerPayload(focusInstrument, liveCount = 0) {
@@ -246,8 +248,39 @@ export function attachWorldviewMapSession(root, chassis, api) {
           ...woaLayerPayload(focusInstrument, liveLayers.length)
         ]
       }).then(() => refreshLayerGroups(chassis, focusInstrument));
+      void opsLayers.loadCatalog().catch(() => {
+        refreshLayerGroups(chassis, focusInstrument);
+      });
     }
   });
+
+  chassis.setOpsHost?.({
+    applyScene: (sceneId) => opsLayers.applyScene(sceneId),
+    allOff: () => opsLayers.allOff(),
+    restore: () => opsLayers.restoreLayers(),
+    solo: () => {
+      const snap = opsLayers.snapshot();
+      const target = snap.infoLayerId || snap.visible[0];
+      return target ? opsLayers.soloLayer(target) : null;
+    },
+    configure: () => opsLayers.setConfigureOpen(!opsLayers.snapshot().configureOpen),
+    configureSave: async ({ sceneId, layers }) => {
+      opsLayers.saveConfiguredMembership(sceneId, layers);
+      opsLayers.setConfigureOpen(false, sceneId);
+      await opsLayers.applyScene(sceneId);
+    },
+    configureReset: async (sceneId) => {
+      opsLayers.resetConfiguredMembership(sceneId);
+      await opsLayers.applyScene(sceneId);
+    },
+    configureScene: (sceneId) => opsLayers.setConfigureOpen(true, sceneId),
+    layerInfo: (layerId) => {
+      const current = opsLayers.snapshot().infoLayerId;
+      opsLayers.setInfoLayer(current === layerId ? null : layerId);
+    },
+    setVisible: (id, on) => opsLayers.setLayerVisible(id, on)
+  });
+  opsLayers.subscribeOpsLayers(() => refreshLayerGroups(chassis, focusInstrument));
 
   chassis.stateStore.subscribe(() => {
     const world = chassis.stateStore.getSnapshot();
@@ -340,6 +373,17 @@ export function attachWorldviewMapSession(root, chassis, api) {
       void positionOverlay?.refresh?.();
       return next;
     }
+  };
+  api.opsLayers = {
+    snapshot: () => opsLayers.snapshot(),
+    loadCatalog: () => opsLayers.loadCatalog(),
+    setVisible: (id, on) => opsLayers.setLayerVisible(id, on),
+    applyScene: (id) => opsLayers.applyScene(id),
+    allOff: () => opsLayers.allOff(),
+    restore: () => opsLayers.restoreLayers(),
+    solo: (id) => opsLayers.soloLayer(id),
+    saveConfigure: (sceneId, layers) => opsLayers.saveConfiguredMembership(sceneId, layers),
+    resetConfigure: (sceneId) => opsLayers.resetConfiguredMembership(sceneId)
   };
 
   return Object.freeze({

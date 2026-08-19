@@ -104,7 +104,8 @@ export function mountAppShell(root, host = {}) {
       groups: model.layerGroups || [],
       addDataOpen: model.addDataOpen === true,
       addDataResults: model.addDataResults || [],
-      addDataStatus: model.addDataStatus || null
+      addDataStatus: model.addDataStatus || null,
+      discover: model.discover || null
     });
     paintTimeDock(root, {
       open: model.timeDrawerOpen === true,
@@ -153,7 +154,16 @@ export function mountAppShell(root, host = {}) {
     onOpacity: (input) => host.dispatchCapability?.('layers.set-opacity', input),
     onToggleAddData: () => host.toggleAddData?.(),
     onSearchAddData: (query) => host.searchAddData?.(query),
-    onAddItem: (item) => host.addSessionItem?.(item)
+    onAddItem: (item) => host.addSessionItem?.(item),
+    onScene: (sceneId) => host.applyOpsScene?.(sceneId),
+    onAllOff: () => host.opsAllOff?.(),
+    onRestore: () => host.opsRestore?.(),
+    onSolo: () => host.opsSolo?.(),
+    onConfigure: () => host.opsConfigure?.(),
+    onConfigureSave: (input) => host.opsConfigureSave?.(input),
+    onConfigureReset: (sceneId) => host.opsConfigureReset?.(sceneId),
+    onConfigureScene: (sceneId) => host.opsConfigureScene?.(sceneId),
+    onLayerInfo: (layerId) => host.opsLayerInfo?.(layerId)
   });
   bindTimeDock(root, {
     onToggle: () => host.toggleTimeDrawer?.(),

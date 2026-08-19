@@ -3441,5 +3441,133 @@ body.iqai-v2-body {
   fill: rgba(12, 14, 16, 0.85);
 }
 
+.iqai-v2-discover {
+  padding: 0.4rem 0.55rem 0.25rem;
+  border-bottom: 1px solid var(--iqai-v2-chrome-border);
+}
 
+.iqai-v2-discover[hidden] {
+  display: none !important;
+}
+
+.iqai-v2-discover__scenes,
+.iqai-v2-discover__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.28rem;
+  margin-bottom: 0.35rem;
+}
+
+.iqai-v2-discover__scene,
+.iqai-v2-discover__actions button,
+.iqai-v2-layer-info,
+.iqai-v2-discover__config button {
+  min-height: 1.55rem;
+  padding: 0 0.45rem;
+  border: 1px solid rgba(244, 240, 234, 0.18);
+  background: transparent;
+  color: #f4f0ea;
+  font: inherit;
+  font-size: 0.58rem;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+
+.iqai-v2-discover__scene.is-active,
+.iqai-v2-discover__actions button[aria-pressed="true"],
+.iqai-v2-layer-info[aria-pressed="true"] {
+  background: #f4f0ea;
+  color: #0b0d10;
+}
+
+.iqai-v2-discover__scene.is-customized {
+  border-color: rgba(201, 162, 39, 0.7);
+}
+
+.iqai-v2-discover__brief,
+.iqai-v2-discover__info,
+.iqai-v2-discover__config {
+  margin: 0.25rem 0 0.4rem;
+  padding: 0.35rem 0.4rem;
+  border: 1px solid rgba(244, 240, 234, 0.12);
+}
+
+.iqai-v2-discover__brief summary,
+.iqai-v2-discover__info summary,
+.iqai-v2-discover__raw summary {
+  cursor: pointer;
+  font-size: 0.58rem;
+  letter-spacing: 0.12em;
+}
+
+.iqai-v2-discover__brief dl,
+.iqai-v2-discover__info dl {
+  display: grid;
+  grid-template-columns: 7.2rem 1fr;
+  gap: 0.15rem 0.4rem;
+  margin: 0.35rem 0 0;
+  font-size: 0.68rem;
+}
+
+.iqai-v2-discover__brief dt,
+.iqai-v2-discover__info dt {
+  color: rgba(244, 240, 234, 0.52);
+  letter-spacing: 0.06em;
+  font-size: 0.55rem;
+}
+
+.iqai-v2-discover__brief dd,
+.iqai-v2-discover__info dd {
+  margin: 0;
+}
+
+.iqai-v2-discover__truth,
+.iqai-v2-discover__warn,
+.iqai-v2-discover__sentence {
+  margin: 0.3rem 0 0;
+  font-size: 0.62rem;
+  color: rgba(244, 240, 234, 0.72);
+}
+
+.iqai-v2-discover__config-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.15rem 0.4rem;
+  margin: 0.35rem 0;
+  font-size: 0.62rem;
+}
+
+.iqai-v2-discover__config select {
+  width: 100%;
+  background: #0b0d10;
+  color: #f4f0ea;
+  border: 1px solid rgba(244, 240, 234, 0.18);
+}
+
+.iqai-v2-layer-row--discover {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.iqai-v2-layer-status {
+  display: block;
+  margin-top: 0.06rem;
+  font-size: 0.52rem;
+  letter-spacing: 0.08em;
+  color: rgba(244, 240, 234, 0.52);
+}
+
+.iqai-v2-layer-status.is-live {
+  color: #9ad7b5;
+}
+
+.iqai-v2-layer-status.is-blocked {
+  color: #e0b36a;
+}
+
+.iqai-v2-discover__raw pre {
+  max-height: 8rem;
+  overflow: auto;
+  font-size: 0.58rem;
+  white-space: pre-wrap;
+}
 

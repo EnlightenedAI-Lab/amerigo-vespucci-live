@@ -190,9 +190,11 @@ export function createSpatialV2Chassis(options = {}) {
     addDataOpen: false,
     addDataResults: [],
     addDataStatus: null,
-    acquiredInspect: null
+    acquiredInspect: null,
+    discover: null
   };
   const listeners = new Set();
+  let opsHost = null;
 
   async function executeChassis(capabilityId, input = {}) {
     const world = stateStore.getSnapshot();
@@ -239,6 +241,7 @@ export function createSpatialV2Chassis(options = {}) {
       addDataOpen: presentation.addDataOpen === true,
       addDataResults: presentation.addDataResults,
       addDataStatus: presentation.addDataStatus,
+      discover: presentation.discover,
       temporal: world.temporal,
       activeViewId,
       activeView: viewHost.project(activeViewId, world),
@@ -388,7 +391,27 @@ export function createSpatialV2Chassis(options = {}) {
       presentation.layerGroups = Array.isArray(layerGroups) ? layerGroups : [];
       notify();
     },
+    setDiscover(discover) {
+      presentation.discover = discover || null;
+      notify();
+    },
+    setOpsHost(host) {
+      opsHost = host || null;
+    },
+    applyOpsScene(sceneId) { return opsHost?.applyScene?.(sceneId); },
+    opsAllOff() { return opsHost?.allOff?.(); },
+    opsRestore() { return opsHost?.restore?.(); },
+    opsSolo() { return opsHost?.solo?.(); },
+    opsConfigure() { return opsHost?.configure?.(); },
+    opsConfigureSave(input) { return opsHost?.configureSave?.(input); },
+    opsConfigureReset(sceneId) { return opsHost?.configureReset?.(sceneId); },
+    opsConfigureScene(sceneId) { return opsHost?.configureScene?.(sceneId); },
+    opsLayerInfo(layerId) { return opsHost?.layerInfo?.(layerId); },
     async dispatchCapability(capabilityId, input = {}) {
+      if (capabilityId === 'layers.set-visibility' && String(input?.instanceId || '').startsWith('ops-')) {
+        await opsHost?.setVisible?.(String(input.instanceId).slice(4), input.visible === true);
+        return;
+      }
       if (capabilityId === 'layers.set-visibility' || capabilityId === 'layers.set-opacity' || capabilityId === 'layers.add-session' || capabilityId === 'focus.set' || capabilityId === 'selection.set' || capabilityId === 'layers.sync-authored' || capabilityId === 'map' || capabilityId === 'temporal.set-requested') {
         await executeChassis(capabilityId, input);
         return;
