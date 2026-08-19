@@ -63,13 +63,13 @@ export function snapRadiusMeters(zoom) {
 
 export function pointerMetrics(zoom) {
   if (zoom >= 18) {
-    return { gap: 13.2, arm: 5.6, pip: 0.95 };
+    return { gap: 12.4, arm: 8.4, pip: 1.2 };
   }
   if (zoom >= 16) {
-    return { gap: 14.4, arm: 5.2, pip: 0.95 };
+    return { gap: 13.4, arm: 8.0, pip: 1.2 };
   }
   if (zoom >= 13) {
-    return { gap: 15.6, arm: 4.8, pip: 1.0 };
+    return { gap: 14.6, arm: 7.4, pip: 1.25 };
   }
-  return { gap: 16.8, arm: 4.4, pip: 1.05 };
+  return { gap: 15.6, arm: 7.0, pip: 1.3 };
 }

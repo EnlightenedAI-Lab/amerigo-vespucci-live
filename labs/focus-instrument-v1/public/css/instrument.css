@@ -152,7 +152,7 @@ body {
 .fi-reticle .halo {
   fill: none;
   stroke: var(--fi-ground);
-  stroke-width: 2.8;
+  stroke-width: 4.2;
   stroke-linecap: square;
   stroke-linejoin: miter;
 }
@@ -160,7 +160,7 @@ body {
 .fi-reticle .ink {
   fill: none;
   stroke: var(--fi-ink);
-  stroke-width: 1.05;
+  stroke-width: 1.75;
   stroke-linecap: square;
   stroke-linejoin: miter;
 }
@@ -197,7 +197,7 @@ body {
 }
 
 .fi-pointer[data-state="move"] .fi-reticle .ink {
-  stroke-width: 1.05;
+  stroke-width: 1.75;
 }
 
 .fi-pointer[data-state="hover"] .fi-reticle__brackets {
@@ -207,7 +207,7 @@ body {
 
 .fi-pointer[data-state="hover"] .fi-reticle .ink {
   stroke: #ffffff;
-  stroke-width: 1.28;
+  stroke-width: 2.05;
 }
 
 .fi-pointer[data-state="hover"] .fi-dot {
@@ -216,16 +216,16 @@ body {
 
 .fi-pointer[data-state="dwell"] .fi-reticle__brackets {
   opacity: 1;
-  transform: scale(0.68);
+  transform: scale(0.72);
 }
 
 .fi-pointer[data-state="dwell"] .fi-reticle .ink {
   stroke: #ffffff;
-  stroke-width: 1.42;
+  stroke-width: 2.2;
 }
 
 .fi-pointer[data-state="dwell"] .fi-reticle .halo {
-  stroke-width: 3.1;
+  stroke-width: 4.6;
 }
 
 .fi-pointer[data-state="lock"] .fi-reticle__brackets {
@@ -235,7 +235,7 @@ body {
 
 .fi-pointer[data-state="lock"] .fi-reticle .ink {
   stroke: #ffffff;
-  stroke-width: 1.42;
+  stroke-width: 2.2;
 }
 
 @keyframes fi-brackets-lock {
@@ -561,9 +561,13 @@ body {
   min-width: 8.5rem;
   max-width: 14rem;
   background: rgba(8, 12, 16, 0.55);
-  border: 1px solid rgba(154, 215, 236, 0.28);
+  border: 1px solid rgba(47, 212, 106, 0.38);
   color: var(--fi-ink);
   pointer-events: none;
+}
+
+.fi-foot-label__card[data-mode="acquired"] {
+  border-color: rgba(226, 74, 74, 0.5);
 }
 
 .fi-foot-label__card[hidden] { display: none !important; }
@@ -578,7 +582,11 @@ body {
 .fi-foot-label__card span {
   font-size: 0.52rem;
   letter-spacing: 0.16em;
-  color: #9ad7ec;
+  color: #7dffb0;
+}
+
+.fi-foot-label__card[data-mode="acquired"] span {
+  color: #ff9a9a;
 }
 
 .fi-foot-label__card strong {

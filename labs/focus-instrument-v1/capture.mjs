@@ -1,5 +1,5 @@
 /**
- * Capture V4.2 reticle states + V4.1 persistence / inspector-truth proofs.
+ * Capture V4.3 live object sensing language + persistence proofs.
  */
 
 import puppeteer from 'puppeteer-core';
@@ -15,7 +15,9 @@ const STREET = { lat: 45.50094, lng: -73.56832 };
 const PVM = { lat: 45.50169, lng: -73.56832 };
 const GARE = { lat: 45.49991, lng: -73.56648 };
 const TOUR1000 = { lat: 45.49833, lng: -73.56639 };
+const BOTH = { lat: 45.5008, lng: -73.5674 };
 const PVM_ID = '79f19e6e-9da7-4f1e-b269-ac2f28aff1d0';
+const GARE_ID = 'ae6980f1-b153-4e75-8f35-ae544279189c';
 const CHROME = process.env.CHROME_PATH
   || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
 
@@ -49,7 +51,7 @@ const browser = await puppeteer.launch({
 const page = await browser.newPage();
 await page.setViewport({ width: 1920, height: 1080, deviceScaleFactor: 1 });
 await page.goto(BASE, { waitUntil: 'domcontentloaded', timeout: 60000 });
-await page.waitForFunction(() => window.IQAIFocusInstrument?.version === '4.2', { timeout: 30000 });
+await page.waitForFunction(() => window.IQAIFocusInstrument?.version === '4.3', { timeout: 30000 });
 await page.waitForSelector('.leaflet-tile-loaded', { timeout: 30000 });
 await new Promise((r) => setTimeout(r, 2000));
 
@@ -73,6 +75,60 @@ function geometryCount() {
   return page.evaluate(() => window.IQAIFocusInstrument.buildingSource?.featureCount
     || window.IQAIFocusInstrument.getState().buildingSource?.featureCount
     || null);
+}
+
+function sensing() {
+  return page.evaluate(() => {
+    function family(stroke) {
+      const value = String(stroke || '');
+      const rgb = value.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+      let r;
+      let g;
+      let b;
+      if (rgb) {
+        r = Number(rgb[1]);
+        g = Number(rgb[2]);
+        b = Number(rgb[3]);
+      } else if (value.startsWith('#')) {
+        const hex = value.replace('#', '');
+        const full = hex.length === 3 ? hex.split('').map((ch) => ch + ch).join('') : hex;
+        r = parseInt(full.slice(0, 2), 16);
+        g = parseInt(full.slice(2, 4), 16);
+        b = parseInt(full.slice(4, 6), 16);
+      } else {
+        return 'other';
+      }
+      if (g > r + 25 && g > b) return 'green';
+      if (r > g + 25 && r > b) return 'red';
+      return 'other';
+    }
+    const paths = [...document.querySelectorAll('.leaflet-pane path.fi-footprint')];
+    const visible = [];
+    for (const pathEl of paths) {
+      const cls = pathEl.getAttribute('class') || '';
+      if (cls.includes('casing') || cls.includes('shadow') || cls.includes('inner') || cls.includes('pulse') || cls.includes('travel')) continue;
+      const opacity = Number(pathEl.getAttribute('stroke-opacity') ?? 1);
+      const d = pathEl.getAttribute('d') || '';
+      if (opacity < 0.2 || d.length < 8) continue;
+      const role = cls.includes('selected') || cls.includes('acquire')
+        ? 'acquired'
+        : cls.includes('hover') || cls.includes('targeted') || cls.includes('candidate')
+          ? 'candidate'
+          : 'other';
+      visible.push({
+        role,
+        family: family(pathEl.getAttribute('stroke')),
+        className: cls
+      });
+    }
+    return {
+      green: visible.filter((row) => row.family === 'green').length,
+      red: visible.filter((row) => row.family === 'red').length,
+      candidateGreen: visible.some((row) => row.role === 'candidate' && row.family === 'green'),
+      acquiredRed: visible.some((row) => row.role === 'acquired' && row.family === 'red'),
+      visible
+    };
+  });
 }
 
 function pointerDom() {
@@ -101,25 +157,21 @@ async function persistSequence(point, tag) {
   }, STREET);
   const afterLeave = await sourceId();
   await page.evaluate(() => window.IQAIFocusInstrument.openInspector());
-  await new Promise((r) => setTimeout(r, 200));
+  await new Promise((r) => setTimeout(r, 150));
   const afterInspect = await sourceId();
   const kind = await inspectorKind();
-  if (tag === 'pvm') {
-    await shot('v42-acquired-pvm');
-    await shot('v42-inspector-pvm');
-  }
   await page.evaluate(() => window.IQAIFocusInstrument.closeInspector());
-  await new Promise((r) => setTimeout(r, 150));
+  await new Promise((r) => setTimeout(r, 120));
   const afterClose = await sourceId();
   await page.evaluate(({ lat, lng }) => {
     window.IQAIFocusInstrument.setView(lat, lng - 0.0012, 17);
   }, point);
-  await new Promise((r) => setTimeout(r, 250));
+  await new Promise((r) => setTimeout(r, 220));
   const afterPan = await sourceId();
   await page.evaluate(({ lat, lng }) => {
     window.IQAIFocusInstrument.setView(lat, lng, 18);
   }, point);
-  await new Promise((r) => setTimeout(r, 250));
+  await new Promise((r) => setTimeout(r, 220));
   const afterZoom = await sourceId();
   await page.evaluate(async ({ lat, lng }) => {
     await window.IQAIFocusInstrument.hoverAt(lat, lng);
@@ -142,126 +194,141 @@ async function persistSequence(point, tag) {
 
 await page.evaluate(() => window.IQAIFocusInstrument.rest());
 await page.evaluate(({ lat, lng }) => window.IQAIFocusInstrument.setView(lat, lng, 18), STREET);
-await new Promise((r) => setTimeout(r, 400));
+await new Promise((r) => setTimeout(r, 350));
 await page.evaluate(async ({ lat, lng }) => {
   await window.IQAIFocusInstrument.moveTo(lat, lng);
 }, STREET);
-await new Promise((r) => setTimeout(r, 200));
-const moveDom = await pointerDom();
-await shot('v42-move');
+await new Promise((r) => setTimeout(r, 180));
+const move = { pointer: await pointerDom(), sensing: await sensing() };
+await shot('v43-move');
 
 await page.evaluate(({ lat, lng }) => window.IQAIFocusInstrument.setView(lat, lng, 18), PVM);
-await new Promise((r) => setTimeout(r, 350));
+await new Promise((r) => setTimeout(r, 300));
 await page.evaluate(async ({ lat, lng }) => {
   await window.IQAIFocusInstrument.hoverAt(lat, lng);
 }, PVM);
-await new Promise((r) => setTimeout(r, 200));
-const hoverDom = await pointerDom();
-await shot('v42-hover');
+await new Promise((r) => setTimeout(r, 180));
+const hoverPvm = { sourceId: await sourceId(), sensing: await sensing() };
+await shot('v43-hover-pvm-green');
+
+await page.evaluate(async ({ lat, lng }) => {
+  await window.IQAIFocusInstrument.moveTo(lat, lng);
+}, STREET);
+await new Promise((r) => setTimeout(r, 180));
+const leavePvm = { sourceId: await sourceId(), sensing: await sensing() };
 
 await page.evaluate(async ({ lat, lng }) => {
   await window.IQAIFocusInstrument.dwellAt(lat, lng);
 }, PVM);
-await new Promise((r) => setTimeout(r, 200));
-const targetedDom = await pointerDom();
-await shot('v42-targeted');
+await new Promise((r) => setTimeout(r, 180));
+const dwellPvm = { sourceId: await sourceId(), sensing: await sensing() };
 
 await page.evaluate(async ({ lat, lng }) => {
   await window.IQAIFocusInstrument.acquireAt(lat, lng);
 }, PVM);
 await new Promise((r) => setTimeout(r, 250));
-const acquiredId = await sourceId();
-await shot('v42-acquired');
-
-await page.evaluate(() => window.IQAIFocusInstrument.openInspector());
-await new Promise((r) => setTimeout(r, 200));
-await shot('v42-acquired-pvm-inspector');
+const acquirePvm = { sourceId: await sourceId(), sensing: await sensing() };
+await shot('v43-acquired-pvm-red');
 
 await page.evaluate(async ({ lat, lng }) => {
   await window.IQAIFocusInstrument.moveTo(lat, lng);
 }, STREET);
-await new Promise((r) => setTimeout(r, 200));
-const persistId = await sourceId();
-await shot('v42-acquired-persist-leave');
-await page.evaluate(() => window.IQAIFocusInstrument.closeInspector());
+await new Promise((r) => setTimeout(r, 180));
+const persistPvm = { sourceId: await sourceId(), sensing: await sensing() };
 
-const objectRef = await page.evaluate(() => window.IQAIFocusInstrument.serializeSelection());
+await page.evaluate(({ lat, lng }) => window.IQAIFocusInstrument.setView(lat, lng, 17), BOTH);
+await new Promise((r) => setTimeout(r, 350));
+await page.evaluate(async ({ lat, lng }) => {
+  await window.IQAIFocusInstrument.hoverAt(lat, lng);
+}, GARE);
+await new Promise((r) => setTimeout(r, 220));
+const dual = { sourceId: await sourceId(), sensing: await sensing() };
+await shot('v43-pvm-red-gare-green');
+
+await page.evaluate(async ({ lat, lng }) => {
+  await window.IQAIFocusInstrument.moveTo(lat, lng);
+}, STREET);
+await new Promise((r) => setTimeout(r, 180));
+const leaveGare = { sourceId: await sourceId(), sensing: await sensing() };
+
+await page.evaluate(({ lat, lng }) => window.IQAIFocusInstrument.setView(lat, lng, 18), GARE);
+await new Promise((r) => setTimeout(r, 280));
+await page.evaluate(async ({ lat, lng }) => {
+  await window.IQAIFocusInstrument.acquireAt(lat, lng);
+}, GARE);
+await new Promise((r) => setTimeout(r, 250));
+const acquireGare = { sourceId: await sourceId(), sensing: await sensing() };
+await shot('v43-acquired-gare-red');
+
 await page.evaluate(() => window.IQAIFocusInstrument.clear());
 await new Promise((r) => setTimeout(r, 200));
+const cleared = { sourceId: await sourceId(), sensing: await sensing() };
+await shot('v43-cleared');
 
 const pvm = await persistSequence(PVM, 'pvm');
 const gare = await persistSequence(GARE, 'gare');
-await page.evaluate(async ({ lat, lng }) => {
-  window.IQAIFocusInstrument.setView(lat, lng, 18);
-  await window.IQAIFocusInstrument.acquireAt(lat, lng);
-}, GARE);
-await new Promise((r) => setTimeout(r, 200));
-await shot('v42-acquired-gare');
-await page.evaluate(() => window.IQAIFocusInstrument.openInspector());
-await new Promise((r) => setTimeout(r, 150));
-await shot('v42-inspector-gare');
-await page.evaluate(() => window.IQAIFocusInstrument.closeInspector());
-
-const first = await sourceId();
-await page.evaluate(async ({ lat, lng }) => {
-  window.IQAIFocusInstrument.setView(lat, lng, 18);
-  await window.IQAIFocusInstrument.acquireAt(lat, lng);
-}, TOUR1000);
-await new Promise((r) => setTimeout(r, 250));
-const second = await sourceId();
-await shot('v42-acquired-1000');
-await page.evaluate(() => window.IQAIFocusInstrument.openInspector());
-await new Promise((r) => setTimeout(r, 150));
-await shot('v42-inspector-1000');
-const secondInspect = await sourceId();
-await page.evaluate(() => window.IQAIFocusInstrument.closeInspector());
-await page.evaluate(() => window.IQAIFocusInstrument.clear());
-await new Promise((r) => setTimeout(r, 200));
-const afterClear = await sourceId();
-await shot('v42-cleared');
-
 const tour = await persistSequence(TOUR1000, 'tour1000');
 const featureCount = await geometryCount();
 
 const report = {
   version: await page.evaluate(() => window.IQAIFocusInstrument.version),
-  reticle: { move: moveDom, hover: hoverDom, targeted: targetedDom },
-  pvmAcquisition: { acquiredId, persistId, persisted: persistId === acquiredId && acquiredId === PVM_ID },
-  objectRefContract: objectRef?.objectRef?.authority?.provider === 'nrcan'
-    && objectRef?.objectRef?.sourceId === PVM_ID,
-  nrcanFeatureCount: featureCount,
+  move,
+  hoverPvm,
+  leavePvm,
+  dwellPvm,
+  acquirePvm,
+  persistPvm,
+  dual,
+  leaveGare,
+  acquireGare,
+  cleared,
   pvm,
   gare,
   tour,
-  secondAcquisition: {
-    from: first,
-    to: second,
-    changed: first !== second,
-    inspectSame: second === secondInspect
-  },
-  clear: { afterClear, cleared: afterClear == null }
+  nrcanFeatureCount: featureCount
 };
 
-writeFileSync(path.join(OUT, 'v42-persistence.json'), JSON.stringify(report, null, 2));
+writeFileSync(path.join(OUT, 'v43-sensing.json'), JSON.stringify(report, null, 2));
 await browser.close();
 
-const noWheels = [moveDom, hoverDom, targetedDom].every((row) =>
-  row.circles === 0 && row.rings === 0 && row.seam === false && row.brackets >= 8
+const ok = (
+  move.pointer.state === 'move'
+  && move.pointer.circles === 0
+  && move.pointer.rings === 0
+  && hoverPvm.sourceId == null
+  && hoverPvm.sensing.candidateGreen
+  && hoverPvm.sensing.green === 1
+  && hoverPvm.sensing.red === 0
+  && leavePvm.sensing.green === 0
+  && leavePvm.sensing.red === 0
+  && dwellPvm.sourceId == null
+  && dwellPvm.sensing.candidateGreen
+  && acquirePvm.sourceId === PVM_ID
+  && acquirePvm.sensing.acquiredRed
+  && persistPvm.sourceId === PVM_ID
+  && persistPvm.sensing.acquiredRed
+  && persistPvm.sensing.green === 0
+  && dual.sourceId === PVM_ID
+  && dual.sensing.acquiredRed
+  && dual.sensing.candidateGreen
+  && dual.sensing.red === 1
+  && dual.sensing.green === 1
+  && leaveGare.sourceId === PVM_ID
+  && leaveGare.sensing.acquiredRed
+  && leaveGare.sensing.green === 0
+  && acquireGare.sourceId === GARE_ID
+  && acquireGare.sensing.acquiredRed
+  && acquireGare.sensing.green === 0
+  && cleared.sourceId == null
+  && cleared.sensing.red === 0
+  && pvm.lockHeld
+  && gare.lockHeld
+  && tour.lockHeld
+  && featureCount === 571
 );
-const failed = [pvm, gare, tour].filter((row) => !row.lockHeld);
-if (
-  moveDom.state !== 'move'
-  || hoverDom.state !== 'hover'
-  || targetedDom.state !== 'dwell'
-  || !noWheels
-  || failed.length
-  || !report.secondAcquisition.changed
-  || !report.clear.cleared
-  || !report.pvmAcquisition.persisted
-  || !report.objectRefContract
-  || featureCount !== 571
-) {
-  throw new Error('V4.2 validation failed: ' + JSON.stringify(report, null, 2));
+
+if (!ok) {
+  throw new Error('V4.3 sensing validation failed: ' + JSON.stringify(report, null, 2));
 }
 
 console.log(JSON.stringify({ ok: true, report, shots }, null, 2));

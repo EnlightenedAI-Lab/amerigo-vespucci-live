@@ -508,7 +508,7 @@ function onPointerSample(latlng, containerPoint) {
     setPointerState(marks.pointer, 'dwell');
     enrichContext(pointerGeo, resolved);
     const derived = hoverObject();
-    if (hoverHit && !acquiredObject) {
+    if (hoverHit) {
       footprints.setDwell(hoverHit.item.feature, {
         name: derived && derived.name !== 'Building' ? derived.name : null
       });
@@ -741,7 +741,7 @@ function containerPointOf(lat, lng) {
 }
 
 window.IQAIFocusInstrument = {
-  version: '4.2',
+  version: '4.3',
   origin: ORIGIN,
   geometrySource: buildingCollection.attribution,
   buildingSource: buildingCollection.source,
@@ -848,7 +848,8 @@ window.IQAIFocusInstrument = {
     hoverHit = buildings.findAt(lat, lng, 14);
     const resolved = await resolveContext(lat, lng);
     enrichContext({ lat, lng }, resolved);
-    setMode(hoverHit ? 'targeted' : 'idle');
+    if (acquiredObject) setMode(inspectorOpen ? 'inspecting' : 'acquired');
+    else setMode(hoverHit ? 'targeted' : 'idle');
     setPointerState(marks.pointer, 'dwell');
     const derived = hoverObject();
     if (hoverHit) {
