@@ -223,8 +223,8 @@
     "reason": "added",
     "set": {
       "contract": "iqai.lab.collectedset.v1",
-      "setId": "iqai-set-ec2b76a51ac7",
-      "createdAt": "2026-08-19T14:44:14.496Z",
+      "setId": "iqai-set-dc1d06b2eeec",
+      "createdAt": "2026-08-19T15:57:21.195Z",
       "objectRefs": [
         {
           "contract": "iqai.lab.objectref.v1",
@@ -256,7 +256,7 @@
             "name": "Place Ville Marie",
             "kind": "iqai-catalog-overlay"
           },
-          "collectedAt": "2026-08-19T14:44:22.052Z",
+          "collectedAt": "2026-08-19T15:57:28.919Z",
           "row": {
             "object_key": "nrcan:building:79f19e6e-9da7-4f1e-b269-ac2f28aff1d0",
             "object_class": "building",
@@ -293,8 +293,8 @@
     "reason": "duplicate",
     "set": {
       "contract": "iqai.lab.collectedset.v1",
-      "setId": "iqai-set-ec2b76a51ac7",
-      "createdAt": "2026-08-19T14:44:14.496Z",
+      "setId": "iqai-set-dc1d06b2eeec",
+      "createdAt": "2026-08-19T15:57:21.195Z",
       "objectRefs": [
         {
           "contract": "iqai.lab.objectref.v1",
@@ -326,7 +326,7 @@
             "name": "Place Ville Marie",
             "kind": "iqai-catalog-overlay"
           },
-          "collectedAt": "2026-08-19T14:44:22.052Z",
+          "collectedAt": "2026-08-19T15:57:28.919Z",
           "row": {
             "object_key": "nrcan:building:79f19e6e-9da7-4f1e-b269-ac2f28aff1d0",
             "object_class": "building",
@@ -435,8 +435,8 @@
     "reason": "added",
     "set": {
       "contract": "iqai.lab.collectedset.v1",
-      "setId": "iqai-set-ec2b76a51ac7",
-      "createdAt": "2026-08-19T14:44:14.496Z",
+      "setId": "iqai-set-dc1d06b2eeec",
+      "createdAt": "2026-08-19T15:57:21.195Z",
       "objectRefs": [
         {
           "contract": "iqai.lab.objectref.v1",
@@ -468,7 +468,7 @@
             "name": "Place Ville Marie",
             "kind": "iqai-catalog-overlay"
           },
-          "collectedAt": "2026-08-19T14:44:22.052Z",
+          "collectedAt": "2026-08-19T15:57:28.919Z",
           "row": {
             "object_key": "nrcan:building:79f19e6e-9da7-4f1e-b269-ac2f28aff1d0",
             "object_class": "building",
@@ -527,7 +527,7 @@
             "name": "Gare Centrale",
             "kind": "iqai-catalog-overlay"
           },
-          "collectedAt": "2026-08-19T14:44:25.789Z",
+          "collectedAt": "2026-08-19T15:57:32.671Z",
           "row": {
             "object_key": "nrcan:building:ae6980f1-b153-4e75-8f35-ae544279189c",
             "object_class": "building",
@@ -584,7 +584,7 @@
     },
     "set": {
       "contract": "iqai.lab.collectedset.v1",
-      "setId": "iqai-set-ec2b76a51ac7",
+      "setId": "iqai-set-dc1d06b2eeec",
       "count": 3,
       "sourceIds": [
         "79f19e6e-9da7-4f1e-b269-ac2f28aff1d0",
@@ -596,7 +596,7 @@
   "hairlinesAfterClear": 2,
   "collected": {
     "contract": "iqai.lab.collectedset.v1",
-    "setId": "iqai-set-ec2b76a51ac7",
+    "setId": "iqai-set-dc1d06b2eeec",
     "count": 3,
     "sourceIds": [
       "79f19e6e-9da7-4f1e-b269-ac2f28aff1d0",
