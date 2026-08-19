@@ -1,0 +1,221 @@
+{
+  "mode": "acquired",
+  "pointer": {
+    "lat": 45.49991,
+    "lng": -73.56648
+  },
+  "focus": {
+    "lat": 45.49991,
+    "lng": -73.56648,
+    "place": "Gare Centrale — 895 Rue de la Gauchetière O, Montréal, QC",
+    "placeSource": "iqai-catalog-overlay",
+    "elevationMeters": 63,
+    "elevationSource": "open-meteo",
+    "acquiredAt": "2026-08-19T12:04:08.046Z"
+  },
+  "reference": {
+    "lat": 45.50478,
+    "lng": -73.57717
+  },
+  "snap": {
+    "feature": {
+      "id": "gare",
+      "name": "Gare Centrale",
+      "kind": "station",
+      "lat": 45.49991,
+      "lng": -73.56648,
+      "address": "895 Rue de la Gauchetière O, Montréal, QC"
+    },
+    "range": 0
+  },
+  "context": {
+    "place": "Gare Centrale — 895 Rue de la Gauchetière O, Montréal, QC",
+    "placeSource": "iqai-catalog-overlay",
+    "elevationMeters": 63,
+    "elevationSource": "open-meteo",
+    "snap": {
+      "feature": {
+        "id": "gare",
+        "name": "Gare Centrale",
+        "kind": "station",
+        "lat": 45.49991,
+        "lng": -73.56648,
+        "address": "895 Rue de la Gauchetière O, Montréal, QC"
+      },
+      "range": 0
+    },
+    "building": {
+      "type": "Feature",
+      "id": "nrcan/ae6980f1-b153-4e75-8f35-ae544279189c",
+      "properties": {
+        "feature_id": "ae6980f1-b153-4e75-8f35-ae544279189c",
+        "md_id": "AUTO_BUILDING_OPTI",
+        "acqtech": 1360,
+        "acqtech_en": "Lidar",
+        "provider": 463,
+        "provideren": "Provincial-Territorial",
+        "datemin": "20180907",
+        "datemax": "20181115",
+        "haccmin": 2,
+        "haccmax": 2,
+        "vaccmin": 1,
+        "vaccmax": 1,
+        "heightmin": 0.19,
+        "heightmax": 84.31,
+        "elevmin": 26.92,
+        "elevmax": 34.25,
+        "bldgarea": 11718.37754338,
+        "comment": "Detection of Lidar points classified as ground in the building. Détection de points Lidar classifiés sol dans le bâtiment.",
+        "qltylvl": 24,
+        "qltylvl_en": "Good",
+        "md_id_src": "AUTO_BUILDING_20201207_FLEUVE_ST_LAURENT_2018",
+        "objectId": "nrcan/ae6980f1-b153-4e75-8f35-ae544279189c",
+        "objectKind": "building",
+        "source": "NRCan Automatically Extracted Buildings",
+        "sourceLayer": "Optimized Buildings Layer (auto_building_opti_2)",
+        "sourceUuid": "7a5cda52-c7df-427f-9ced-26f19a8a64d6",
+        "sourceCrs": "EPSG:4617"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -73.56767946933681,
+              45.499551843408305
+            ],
+            [
+              -73.56687936903906,
+              45.49916614337059
+            ],
+            [
+              -73.56685036903161,
+              45.49919714337703
+            ],
+            [
+              -73.5667640689996,
+              45.499157143373225
+            ],
+            [
+              -73.56652866893917,
+              45.499411343425976
+            ],
+            [
+              -73.56657476895627,
+              45.49943264342799
+            ],
+            [
+              -73.56636546890236,
+              45.49965654347451
+            ],
+            [
+              -73.56634676889544,
+              45.49964784347367
+            ],
+            [
+              -73.56580936876362,
+              45.50031154360852
+            ],
+            [
+              -73.56655426904119,
+              45.500675743644535
+            ],
+            [
+              -73.56762146932039,
+              45.4995936434177
+            ],
+            [
+              -73.56763316932474,
+              45.49959934341826
+            ],
+            [
+              -73.56767946933681,
+              45.499551843408305
+            ]
+          ]
+        ]
+      }
+    }
+  },
+  "inspectorOpen": false,
+  "geometrySource": "NRCan Automatically Extracted Buildings · Optimized Buildings Layer",
+  "buildingSource": {
+    "dataset": "Automatically Extracted Buildings",
+    "uuid": "7a5cda52-c7df-427f-9ced-26f19a8a64d6",
+    "layer": "Optimized Buildings Layer auto_building_opti_2",
+    "distribution": "GeoParquet vector",
+    "url": "https://ftp.maps.canada.ca/pub/nrcan_rncan/extraction/auto_building/auto_building_opti_2/auto_building_opti_2.parquet",
+    "nativeCrs": "EPSG:4617",
+    "outputCrs": "EPSG:4326",
+    "bbox": [
+      -73.578,
+      45.495,
+      -73.554,
+      45.51
+    ],
+    "featureCount": 571,
+    "skipped": 0
+  },
+  "hover": {
+    "id": "nrcan/ae6980f1-b153-4e75-8f35-ae544279189c",
+    "relation": "inside",
+    "range": 0
+  },
+  "object": {
+    "objectId": "nrcan/ae6980f1-b153-4e75-8f35-ae544279189c",
+    "kind": "building",
+    "source": "NRCan Automatically Extracted Buildings",
+    "sourceLayer": "Optimized Buildings Layer (auto_building_opti_2)",
+    "name": "Gare Centrale",
+    "multipart": false,
+    "sourceAttributes": {
+      "featureId": "ae6980f1-b153-4e75-8f35-ae544279189c",
+      "buildingArea": 11718.37754338,
+      "heightMin": 0.19,
+      "heightMax": 84.31,
+      "elevMin": 26.92,
+      "elevMax": 34.25,
+      "quality": "Good",
+      "qualityCode": 24,
+      "comment": "Detection of Lidar points classified as ground in the building. Détection de points Lidar classifiés sol dans le bâtiment.",
+      "acquisition": "Lidar",
+      "provider": "Provincial-Territorial",
+      "dateMin": "20180907",
+      "dateMax": "20181115",
+      "hAccMin": 2,
+      "hAccMax": 2,
+      "vAccMin": 1,
+      "vAccMax": 1
+    },
+    "derived": {
+      "area": 11719.433109222746,
+      "perimeter": 467.3292453241332,
+      "centroid": {
+        "lat": 45.49961674480152,
+        "lng": -73.56680060387943
+      },
+      "bbox": [
+        -73.56767946933681,
+        45.499157143373225,
+        -73.56580936876362,
+        45.500675743644535
+      ]
+    }
+  },
+  "zoom": 18,
+  "scale": 1581.95394386726,
+  "formats": {
+    "latitude": 45.49991,
+    "longitude": -73.56648,
+    "dd": "45.499910° N   73.566480° W",
+    "dms": "45° 29′ 59.68″ N  73° 33′ 59.33″ W",
+    "utm": "18T  611996 E  5039486 N",
+    "mgrs": "18T XR 11996 39485",
+    "epsg": "EPSG:4326  ·  EPSG:32618",
+    "elevation": "63 m",
+    "elevationMeters": 63,
+    "elevationSource": "open-meteo",
+    "place": "Gare Centrale — 895 Rue de la Gauchetière O, Montréal, QC",
+    "placeSource": "iqai-catalog-overlay"
+  }
+}

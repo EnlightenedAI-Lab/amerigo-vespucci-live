@@ -1,0 +1,205 @@
+{
+  "mode": "acquired",
+  "pointer": {
+    "lat": 45.49833,
+    "lng": -73.56639
+  },
+  "focus": {
+    "lat": 45.49833,
+    "lng": -73.56639,
+    "place": "1000 de La Gauchetière — 1000 Rue de la Gauchetière O, Montréal, QC",
+    "placeSource": "iqai-catalog-overlay",
+    "elevationMeters": 65,
+    "elevationSource": "open-meteo",
+    "acquiredAt": "2026-08-19T12:04:10.016Z"
+  },
+  "reference": {
+    "lat": 45.50478,
+    "lng": -73.57717
+  },
+  "snap": {
+    "feature": {
+      "id": "tour-1000",
+      "name": "1000 de La Gauchetière",
+      "kind": "tower",
+      "lat": 45.49833,
+      "lng": -73.56639,
+      "address": "1000 Rue de la Gauchetière O, Montréal, QC"
+    },
+    "range": 0
+  },
+  "context": {
+    "place": "1000 de La Gauchetière — 1000 Rue de la Gauchetière O, Montréal, QC",
+    "placeSource": "iqai-catalog-overlay",
+    "elevationMeters": 65,
+    "elevationSource": "open-meteo",
+    "snap": {
+      "feature": {
+        "id": "tour-1000",
+        "name": "1000 de La Gauchetière",
+        "kind": "tower",
+        "lat": 45.49833,
+        "lng": -73.56639,
+        "address": "1000 Rue de la Gauchetière O, Montréal, QC"
+      },
+      "range": 0
+    },
+    "building": {
+      "type": "Feature",
+      "id": "nrcan/7aae143c-1218-4ca0-be18-913687208f27",
+      "properties": {
+        "feature_id": "7aae143c-1218-4ca0-be18-913687208f27",
+        "md_id": "AUTO_BUILDING_OPTI",
+        "acqtech": 1360,
+        "acqtech_en": "Lidar",
+        "provider": 463,
+        "provideren": "Provincial-Territorial",
+        "datemin": "20180907",
+        "datemax": "20181115",
+        "haccmin": 2,
+        "haccmax": 2,
+        "vaccmin": 1,
+        "vaccmax": 1,
+        "heightmin": 0.3,
+        "heightmax": 213.92,
+        "elevmin": 18.17,
+        "elevmax": 27.6,
+        "bldgarea": 7923.24659449,
+        "comment": "Detection of Lidar points classified as ground in the building. Détection de points Lidar classifiés sol dans le bâtiment.",
+        "qltylvl": 24,
+        "qltylvl_en": "Good",
+        "md_id_src": "AUTO_BUILDING_20201207_FLEUVE_ST_LAURENT_2018",
+        "objectId": "nrcan/7aae143c-1218-4ca0-be18-913687208f27",
+        "objectKind": "building",
+        "source": "NRCan Automatically Extracted Buildings",
+        "sourceLayer": "Optimized Buildings Layer (auto_building_opti_2)",
+        "sourceUuid": "7a5cda52-c7df-427f-9ced-26f19a8a64d6",
+        "sourceCrs": "EPSG:4617"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -73.56706986902739,
+              45.49814014318552
+            ],
+            [
+              -73.56607566865912,
+              45.49768334314252
+            ],
+            [
+              -73.56542926848175,
+              45.49822694326051
+            ],
+            [
+              -73.56644706886331,
+              45.49875604331519
+            ],
+            [
+              -73.56654486888925,
+              45.49866154329521
+            ],
+            [
+              -73.56659316890529,
+              45.4986584432929
+            ],
+            [
+              -73.5669681690029,
+              45.49827194321211
+            ],
+            [
+              -73.56695366899753,
+              45.498265043211426
+            ],
+            [
+              -73.56706986902739,
+              45.49814014318552
+            ]
+          ]
+        ]
+      }
+    }
+  },
+  "inspectorOpen": false,
+  "geometrySource": "NRCan Automatically Extracted Buildings · Optimized Buildings Layer",
+  "buildingSource": {
+    "dataset": "Automatically Extracted Buildings",
+    "uuid": "7a5cda52-c7df-427f-9ced-26f19a8a64d6",
+    "layer": "Optimized Buildings Layer auto_building_opti_2",
+    "distribution": "GeoParquet vector",
+    "url": "https://ftp.maps.canada.ca/pub/nrcan_rncan/extraction/auto_building/auto_building_opti_2/auto_building_opti_2.parquet",
+    "nativeCrs": "EPSG:4617",
+    "outputCrs": "EPSG:4326",
+    "bbox": [
+      -73.578,
+      45.495,
+      -73.554,
+      45.51
+    ],
+    "featureCount": 571,
+    "skipped": 0
+  },
+  "hover": {
+    "id": "nrcan/7aae143c-1218-4ca0-be18-913687208f27",
+    "relation": "inside",
+    "range": 0
+  },
+  "object": {
+    "objectId": "nrcan/7aae143c-1218-4ca0-be18-913687208f27",
+    "kind": "building",
+    "source": "NRCan Automatically Extracted Buildings",
+    "sourceLayer": "Optimized Buildings Layer (auto_building_opti_2)",
+    "name": "1000 de La Gauchetière",
+    "multipart": false,
+    "sourceAttributes": {
+      "featureId": "7aae143c-1218-4ca0-be18-913687208f27",
+      "buildingArea": 7923.24659449,
+      "heightMin": 0.3,
+      "heightMax": 213.92,
+      "elevMin": 18.17,
+      "elevMax": 27.6,
+      "quality": "Good",
+      "qualityCode": 24,
+      "comment": "Detection of Lidar points classified as ground in the building. Détection de points Lidar classifiés sol dans le bâtiment.",
+      "acquisition": "Lidar",
+      "provider": "Provincial-Territorial",
+      "dateMin": "20180907",
+      "dateMax": "20181115",
+      "hAccMin": 2,
+      "hAccMax": 2,
+      "vAccMin": 1,
+      "vAccMax": 1
+    },
+    "derived": {
+      "area": 7923.995780698892,
+      "perimeter": 357.1850575032145,
+      "centroid": {
+        "lat": 45.498332931878586,
+        "lng": -73.5665102183148
+      },
+      "bbox": [
+        -73.56706986902739,
+        45.49768334314252,
+        -73.56542926848175,
+        45.49875604331519
+      ]
+    }
+  },
+  "zoom": 18,
+  "scale": 1581.998335517945,
+  "formats": {
+    "latitude": 45.49833,
+    "longitude": -73.56639,
+    "dd": "45.498330° N   73.566390° W",
+    "dms": "45° 29′ 53.99″ N  73° 33′ 59.00″ W",
+    "utm": "18T  612006 E  5039311 N",
+    "mgrs": "18T XR 12006 39310",
+    "epsg": "EPSG:4326  ·  EPSG:32618",
+    "elevation": "65 m",
+    "elevationMeters": 65,
+    "elevationSource": "open-meteo",
+    "place": "1000 de La Gauchetière — 1000 Rue de la Gauchetière O, Montréal, QC",
+    "placeSource": "iqai-catalog-overlay"
+  }
+}

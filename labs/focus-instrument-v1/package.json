@@ -1,0 +1,14 @@
+{
+  "name": "iqai-focus-instrument-lab",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Standalone IQAI Precision Focus Instrument prototype. Not wired to Spatial V2.",
+  "scripts": {
+    "start": "node server.mjs",
+    "capture": "node capture.mjs"
+  },
+  "devDependencies": {
+    "puppeteer-core": "^24.15.0"
+  }
+}

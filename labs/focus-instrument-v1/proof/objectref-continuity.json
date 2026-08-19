@@ -1,0 +1,153 @@
+{
+  "homeLabel": "HOME",
+  "beforeSourceId": "79f19e6e-9da7-4f1e-b269-ac2f28aff1d0",
+  "afterSourceId": "79f19e6e-9da7-4f1e-b269-ac2f28aff1d0",
+  "afterView": "STREET_360",
+  "identityPath": "source-id-restore",
+  "sameFeatureId": true,
+  "reidentified": false,
+  "inspectorOpen": true,
+  "restoredMode": "inspecting",
+  "objectRef": {
+    "contract": "iqai.lab.objectref.v1",
+    "ok": true,
+    "objectKey": "nrcan:building:79f19e6e-9da7-4f1e-b269-ac2f28aff1d0",
+    "objectClass": "building",
+    "authority": {
+      "provider": "nrcan",
+      "dataset": "NRCan Automatically Extracted Buildings",
+      "datasetUuid": "7a5cda52-c7df-427f-9ced-26f19a8a64d6",
+      "layer": "Optimized Buildings Layer (auto_building_opti_2)"
+    },
+    "sourceId": "79f19e6e-9da7-4f1e-b269-ac2f28aff1d0",
+    "geometry": {
+      "type": "Polygon",
+      "coordinates": [
+        [
+          [
+            -73.5694529700765,
+            45.50148624367933
+          ],
+          [
+            -73.56905806992954,
+            45.50129594366073
+          ],
+          [
+            -73.56903806992428,
+            45.501315543664845
+          ],
+          [
+            -73.56885196985473,
+            45.501222043655424
+          ],
+          [
+            -73.56886996985949,
+            45.50120434365169
+          ],
+          [
+            -73.56847666971325,
+            45.501016343633424
+          ],
+          [
+            -73.56821186964437,
+            45.50129024369065
+          ],
+          [
+            -73.56823456965283,
+            45.50130134369174
+          ],
+          [
+            -73.56809926961748,
+            45.50143874372054
+          ],
+          [
+            -73.5680762696089,
+            45.50142754371943
+          ],
+          [
+            -73.5678127695405,
+            45.50170174377666
+          ],
+          [
+            -73.56819946968417,
+            45.50188554379443
+          ],
+          [
+            -73.56821896968934,
+            45.5018664437904
+          ],
+          [
+            -73.56831286972442,
+            45.501913743795185
+          ],
+          [
+            -73.56830306972184,
+            45.5019232437972
+          ],
+          [
+            -73.56839406975583,
+            45.50196894380182
+          ],
+          [
+            -73.56838516975347,
+            45.50197764380364
+          ],
+          [
+            -73.56878056990055,
+            45.502167443822145
+          ],
+          [
+            -73.56904546996952,
+            45.50189454376508
+          ],
+          [
+            -73.56902216996086,
+            45.501883343764
+          ],
+          [
+            -73.56915446999533,
+            45.50174714373553
+          ],
+          [
+            -73.56918467000655,
+            45.50176154373691
+          ],
+          [
+            -73.5694529700765,
+            45.50148624367933
+          ]
+        ]
+      ],
+      "crs": "EPSG:4326",
+      "nativeCrs": "EPSG:4617"
+    },
+    "anchor": {
+      "lat": 45.501622258229766,
+      "lng": -73.56859924723346
+    },
+    "attributesRef": {
+      "kind": "authority-record",
+      "provider": "nrcan",
+      "sourceId": "79f19e6e-9da7-4f1e-b269-ac2f28aff1d0",
+      "featureId": "79f19e6e-9da7-4f1e-b269-ac2f28aff1d0"
+    },
+    "provenance": {
+      "method": "vector-selection",
+      "inference": false,
+      "visualClassEquivalentToIdentity": false
+    },
+    "overlay": {
+      "name": "Place Ville Marie",
+      "kind": "iqai-catalog-overlay"
+    },
+    "measurements": {
+      "kind": "bearing-range",
+      "from": {
+        "lat": 45.50478,
+        "lng": -73.57717
+      },
+      "brg": 117.72690042878611,
+      "rng": 755.4577586626086
+    }
+  }
+}

@@ -1,0 +1,261 @@
+{
+  "mode": "acquired",
+  "pointer": {
+    "lat": 45.50169,
+    "lng": -73.56832
+  },
+  "focus": {
+    "lat": 45.50169,
+    "lng": -73.56832,
+    "place": "Place Ville Marie — 1 Place Ville Marie, Montréal, QC",
+    "placeSource": "iqai-catalog-overlay",
+    "elevationMeters": 82,
+    "elevationSource": "open-meteo",
+    "acquiredAt": "2026-08-19T12:04:02.582Z"
+  },
+  "reference": {
+    "lat": 45.50478,
+    "lng": -73.57717
+  },
+  "snap": {
+    "feature": {
+      "id": "pvm",
+      "name": "Place Ville Marie",
+      "kind": "tower",
+      "lat": 45.50169,
+      "lng": -73.56832,
+      "address": "1 Place Ville Marie, Montréal, QC"
+    },
+    "range": 0
+  },
+  "context": {
+    "place": "Place Ville Marie — 1 Place Ville Marie, Montréal, QC",
+    "placeSource": "iqai-catalog-overlay",
+    "elevationMeters": 82,
+    "elevationSource": "open-meteo",
+    "snap": {
+      "feature": {
+        "id": "pvm",
+        "name": "Place Ville Marie",
+        "kind": "tower",
+        "lat": 45.50169,
+        "lng": -73.56832,
+        "address": "1 Place Ville Marie, Montréal, QC"
+      },
+      "range": 0
+    },
+    "building": {
+      "type": "Feature",
+      "id": "nrcan/79f19e6e-9da7-4f1e-b269-ac2f28aff1d0",
+      "properties": {
+        "feature_id": "79f19e6e-9da7-4f1e-b269-ac2f28aff1d0",
+        "md_id": "AUTO_BUILDING_OPTI",
+        "acqtech": 1360,
+        "acqtech_en": "Lidar",
+        "provider": 463,
+        "provideren": "Provincial-Territorial",
+        "datemin": "20180907",
+        "datemax": "20181115",
+        "haccmin": 2,
+        "haccmax": 2,
+        "vaccmin": 1,
+        "vaccmax": 1,
+        "heightmin": 0.01,
+        "heightmax": 206.83,
+        "elevmin": 36.27,
+        "elevmax": 37.52,
+        "bldgarea": 8317.04523331,
+        "comment": "Detection of Lidar points classified as ground in the building. Détection de points Lidar classifiés sol dans le bâtiment.",
+        "qltylvl": 24,
+        "qltylvl_en": "Good",
+        "md_id_src": "AUTO_BUILDING_20201207_FLEUVE_ST_LAURENT_2018",
+        "objectId": "nrcan/79f19e6e-9da7-4f1e-b269-ac2f28aff1d0",
+        "objectKind": "building",
+        "source": "NRCan Automatically Extracted Buildings",
+        "sourceLayer": "Optimized Buildings Layer (auto_building_opti_2)",
+        "sourceUuid": "7a5cda52-c7df-427f-9ced-26f19a8a64d6",
+        "sourceCrs": "EPSG:4617"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -73.5694529700765,
+              45.50148624367933
+            ],
+            [
+              -73.56905806992954,
+              45.50129594366073
+            ],
+            [
+              -73.56903806992428,
+              45.501315543664845
+            ],
+            [
+              -73.56885196985473,
+              45.501222043655424
+            ],
+            [
+              -73.56886996985949,
+              45.50120434365169
+            ],
+            [
+              -73.56847666971325,
+              45.501016343633424
+            ],
+            [
+              -73.56821186964437,
+              45.50129024369065
+            ],
+            [
+              -73.56823456965283,
+              45.50130134369174
+            ],
+            [
+              -73.56809926961748,
+              45.50143874372054
+            ],
+            [
+              -73.5680762696089,
+              45.50142754371943
+            ],
+            [
+              -73.5678127695405,
+              45.50170174377666
+            ],
+            [
+              -73.56819946968417,
+              45.50188554379443
+            ],
+            [
+              -73.56821896968934,
+              45.5018664437904
+            ],
+            [
+              -73.56831286972442,
+              45.501913743795185
+            ],
+            [
+              -73.56830306972184,
+              45.5019232437972
+            ],
+            [
+              -73.56839406975583,
+              45.50196894380182
+            ],
+            [
+              -73.56838516975347,
+              45.50197764380364
+            ],
+            [
+              -73.56878056990055,
+              45.502167443822145
+            ],
+            [
+              -73.56904546996952,
+              45.50189454376508
+            ],
+            [
+              -73.56902216996086,
+              45.501883343764
+            ],
+            [
+              -73.56915446999533,
+              45.50174714373553
+            ],
+            [
+              -73.56918467000655,
+              45.50176154373691
+            ],
+            [
+              -73.5694529700765,
+              45.50148624367933
+            ]
+          ]
+        ]
+      }
+    }
+  },
+  "inspectorOpen": true,
+  "geometrySource": "NRCan Automatically Extracted Buildings · Optimized Buildings Layer",
+  "buildingSource": {
+    "dataset": "Automatically Extracted Buildings",
+    "uuid": "7a5cda52-c7df-427f-9ced-26f19a8a64d6",
+    "layer": "Optimized Buildings Layer auto_building_opti_2",
+    "distribution": "GeoParquet vector",
+    "url": "https://ftp.maps.canada.ca/pub/nrcan_rncan/extraction/auto_building/auto_building_opti_2/auto_building_opti_2.parquet",
+    "nativeCrs": "EPSG:4617",
+    "outputCrs": "EPSG:4326",
+    "bbox": [
+      -73.578,
+      45.495,
+      -73.554,
+      45.51
+    ],
+    "featureCount": 571,
+    "skipped": 0
+  },
+  "hover": {
+    "id": "nrcan/79f19e6e-9da7-4f1e-b269-ac2f28aff1d0",
+    "relation": "inside",
+    "range": 0
+  },
+  "object": {
+    "objectId": "nrcan/79f19e6e-9da7-4f1e-b269-ac2f28aff1d0",
+    "kind": "building",
+    "source": "NRCan Automatically Extracted Buildings",
+    "sourceLayer": "Optimized Buildings Layer (auto_building_opti_2)",
+    "name": "Place Ville Marie",
+    "multipart": false,
+    "sourceAttributes": {
+      "featureId": "79f19e6e-9da7-4f1e-b269-ac2f28aff1d0",
+      "buildingArea": 8317.04523331,
+      "heightMin": 0.01,
+      "heightMax": 206.83,
+      "elevMin": 36.27,
+      "elevMax": 37.52,
+      "quality": "Good",
+      "qualityCode": 24,
+      "comment": "Detection of Lidar points classified as ground in the building. Détection de points Lidar classifiés sol dans le bâtiment.",
+      "acquisition": "Lidar",
+      "provider": "Provincial-Territorial",
+      "dateMin": "20180907",
+      "dateMax": "20181115",
+      "hAccMin": 2,
+      "hAccMax": 2,
+      "vAccMin": 1,
+      "vAccMax": 1
+    },
+    "derived": {
+      "area": 8317.821609574974,
+      "perimeter": 388.03099001926034,
+      "centroid": {
+        "lat": 45.501622258229766,
+        "lng": -73.56859924723346
+      },
+      "bbox": [
+        -73.5694529700765,
+        45.501016343633424,
+        -73.5678127695405,
+        45.502167443822145
+      ]
+    }
+  },
+  "zoom": 18,
+  "scale": 1581.903931579241,
+  "formats": {
+    "latitude": 45.50169,
+    "longitude": -73.56832,
+    "dd": "45.501690° N   73.568320° W",
+    "dms": "45° 30′ 06.08″ N  73° 34′ 05.95″ W",
+    "utm": "18T  611849 E  5039681 N",
+    "mgrs": "18T XR 11849 39681",
+    "epsg": "EPSG:4326  ·  EPSG:32618",
+    "elevation": "82 m",
+    "elevationMeters": 82,
+    "elevationSource": "open-meteo",
+    "place": "Place Ville Marie — 1 Place Ville Marie, Montréal, QC",
+    "placeSource": "iqai-catalog-overlay"
+  }
+}

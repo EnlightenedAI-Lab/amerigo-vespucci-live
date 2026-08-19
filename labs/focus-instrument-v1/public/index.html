@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>IQAI Spatial — Object Acquisition Lab</title>
+  <link rel="stylesheet" href="./vendor/leaflet.css" />
+  <link rel="stylesheet" href="./css/instrument.css" />
+</head>
+<body>
+  <header class="fi-header">
+    <div class="fi-brand">
+      <span class="fi-brand__mark">IQAI SPATIAL</span>
+      <span class="fi-brand__product">Object Acquisition Lab v4.2</span>
+    </div>
+    <p class="fi-header__source" id="source-line">SOURCE  NRCan Automatically Extracted Buildings</p>
+    <div class="fi-header__mode">
+      <span>OPERATOR STATE</span>
+      <span class="fi-pill" data-mode="idle" id="mode-pill">IDLE</span>
+    </div>
+  </header>
+
+  <main class="fi-stage">
+    <div id="map" role="application" aria-label="Object acquisition map"></div>
+    <div class="fi-overlay" id="instrument-overlay"></div>
+
+    <div class="fi-tools">
+      <button type="button" id="btn-in" title="Zoom in">+</button>
+      <button type="button" id="btn-out" title="Zoom out">−</button>
+      <button type="button" id="btn-home" title="Return map to Place Ville Marie">HOME</button>
+      <button type="button" id="btn-ref" aria-pressed="false" title="Set bearing and range reference">SET REFERENCE</button>
+      <button type="button" id="btn-clear">CLEAR</button>
+      <button type="button" id="btn-inspect" aria-pressed="false">INSPECT</button>
+    </div>
+
+    <aside class="fi-inspector" id="inspector" hidden>
+      <div class="fi-inspector__head">
+        <div>
+          <p class="fi-inspector__kicker">OBJECT</p>
+          <p class="fi-inspector__kind" data-field="kind">BUILDING</p>
+        </div>
+        <button type="button" id="inspector-close">CLOSE</button>
+      </div>
+      <p class="fi-inspector__name" data-field="name">—</p>
+      <p class="fi-inspector__addr" data-field="address" hidden></p>
+      <p class="fi-inspector__status" data-field="status">OBJECT ACQUIRED</p>
+
+      <section class="fi-inspector__block">
+        <h3>IDENTITY</h3>
+        <dl class="fi-insp-grid">
+          <dt>CLASS</dt><dd data-field="class">BUILDING</dd>
+          <dt>OBJECT KEY</dt><dd data-field="object-key">—</dd>
+          <dt>SOURCE ID</dt><dd data-field="feature-id">—</dd>
+        </dl>
+      </section>
+
+      <section class="fi-inspector__block">
+        <h3>SOURCE</h3>
+        <p data-field="source">NRCan Automatically Extracted Buildings</p>
+        <p class="fi-inspector__muted" data-field="source-layer"></p>
+        <p class="fi-inspector__muted" data-field="dataset-uuid"></p>
+      </section>
+
+      <section class="fi-inspector__block">
+        <h3>GEOMETRY</h3>
+        <dl class="fi-insp-grid">
+          <dt>AREA</dt><dd data-field="area-source">—</dd>
+          <dt>AREA</dt><dd data-field="area-derived">—</dd>
+          <dt>PERIMETER</dt><dd data-field="perim">—</dd>
+        </dl>
+      </section>
+
+      <section class="fi-inspector__block">
+        <h3>VERTICAL</h3>
+        <dl class="fi-insp-grid">
+          <dt>HEIGHT MIN</dt><dd data-field="height-min">—</dd>
+          <dt>HEIGHT MAX</dt><dd data-field="height-max">—</dd>
+          <dt>ELEV MIN</dt><dd data-field="elev-min">—</dd>
+          <dt>ELEV MAX</dt><dd data-field="elev-max">—</dd>
+        </dl>
+      </section>
+
+      <section class="fi-inspector__block">
+        <h3>QUALITY</h3>
+        <dl class="fi-insp-grid">
+          <dt>QUALITY</dt><dd data-field="quality">—</dd>
+          <dt>ACQ</dt><dd data-field="acqtech">—</dd>
+          <dt>PROVIDER</dt><dd data-field="provider">—</dd>
+          <dt>DATE MIN</dt><dd data-field="date-min">—</dd>
+          <dt>DATE MAX</dt><dd data-field="date-max">—</dd>
+          <dt>H ACC</dt><dd data-field="hacc">—</dd>
+          <dt>V ACC</dt><dd data-field="vacc">—</dd>
+        </dl>
+        <p class="fi-inspector__muted" data-field="comment" hidden></p>
+      </section>
+
+      <section class="fi-inspector__block">
+        <h3>POSITION</h3>
+        <dl class="fi-insp-grid">
+          <dt>ANCHOR</dt><dd data-field="anchor">—</dd>
+          <dt>DD</dt><dd data-field="dd">—</dd>
+          <dt>UTM</dt><dd data-field="utm">—</dd>
+          <dt>MGRS</dt><dd data-field="mgrs">—</dd>
+          <dt>EPSG</dt><dd data-field="epsg">—</dd>
+        </dl>
+      </section>
+
+      <section class="fi-inspector__block">
+        <h3>PROVENANCE</h3>
+        <p data-field="provenance">NRCan Automatically Extracted Buildings</p>
+        <p class="fi-inspector__muted" data-field="provenance-method"></p>
+      </section>
+
+      <section class="fi-inspector__seam" data-seam="property" hidden></section>
+      <section class="fi-inspector__seam" data-seam="area-context" hidden></section>
+      <section class="fi-inspector__seam" data-seam="places-organizations" hidden></section>
+    </aside>
+
+    <div class="fi-toast" id="toast" hidden></div>
+  </main>
+
+  <script src="./vendor/leaflet.js"></script>
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,79 @@
+{
+  "version": "4.2",
+  "reticle": {
+    "move": {
+      "state": "move",
+      "circles": 0,
+      "rings": 0,
+      "brackets": 8,
+      "seam": false
+    },
+    "hover": {
+      "state": "hover",
+      "circles": 0,
+      "rings": 0,
+      "brackets": 8,
+      "seam": false
+    },
+    "targeted": {
+      "state": "dwell",
+      "circles": 0,
+      "rings": 0,
+      "brackets": 8,
+      "seam": false
+    }
+  },
+  "pvmAcquisition": {
+    "acquiredId": "79f19e6e-9da7-4f1e-b269-ac2f28aff1d0",
+    "persistId": "79f19e6e-9da7-4f1e-b269-ac2f28aff1d0",
+    "persisted": true
+  },
+  "objectRefContract": true,
+  "nrcanFeatureCount": 571,
+  "pvm": {
+    "tag": "pvm",
+    "acquired": "79f19e6e-9da7-4f1e-b269-ac2f28aff1d0",
+    "afterLeave": "79f19e6e-9da7-4f1e-b269-ac2f28aff1d0",
+    "afterInspect": "79f19e6e-9da7-4f1e-b269-ac2f28aff1d0",
+    "inspectorKind": "BUILDING",
+    "afterClose": "79f19e6e-9da7-4f1e-b269-ac2f28aff1d0",
+    "afterPan": "79f19e6e-9da7-4f1e-b269-ac2f28aff1d0",
+    "afterZoom": "79f19e6e-9da7-4f1e-b269-ac2f28aff1d0",
+    "afterHoverOther": "79f19e6e-9da7-4f1e-b269-ac2f28aff1d0",
+    "lockHeld": true
+  },
+  "gare": {
+    "tag": "gare",
+    "acquired": "ae6980f1-b153-4e75-8f35-ae544279189c",
+    "afterLeave": "ae6980f1-b153-4e75-8f35-ae544279189c",
+    "afterInspect": "ae6980f1-b153-4e75-8f35-ae544279189c",
+    "inspectorKind": "BUILDING",
+    "afterClose": "ae6980f1-b153-4e75-8f35-ae544279189c",
+    "afterPan": "ae6980f1-b153-4e75-8f35-ae544279189c",
+    "afterZoom": "ae6980f1-b153-4e75-8f35-ae544279189c",
+    "afterHoverOther": "ae6980f1-b153-4e75-8f35-ae544279189c",
+    "lockHeld": true
+  },
+  "tour": {
+    "tag": "tour1000",
+    "acquired": "7aae143c-1218-4ca0-be18-913687208f27",
+    "afterLeave": "7aae143c-1218-4ca0-be18-913687208f27",
+    "afterInspect": "7aae143c-1218-4ca0-be18-913687208f27",
+    "inspectorKind": "BUILDING",
+    "afterClose": "7aae143c-1218-4ca0-be18-913687208f27",
+    "afterPan": "7aae143c-1218-4ca0-be18-913687208f27",
+    "afterZoom": "7aae143c-1218-4ca0-be18-913687208f27",
+    "afterHoverOther": "7aae143c-1218-4ca0-be18-913687208f27",
+    "lockHeld": true
+  },
+  "secondAcquisition": {
+    "from": "ae6980f1-b153-4e75-8f35-ae544279189c",
+    "to": "7aae143c-1218-4ca0-be18-913687208f27",
+    "changed": true,
+    "inspectSame": true
+  },
+  "clear": {
+    "afterClear": null,
+    "cleared": true
+  }
+}
