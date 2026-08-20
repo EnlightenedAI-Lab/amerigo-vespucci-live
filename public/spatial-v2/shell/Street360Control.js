@@ -11,6 +11,7 @@ import {
   lookGoogleStreetView,
   moveGoogleStreetViewAlongCoverage,
   openGoogleStreetView,
+  setGoogleStreetViewPov,
   STREET_360_OPERATOR_UNAVAILABLE,
   applyWorldviewNavigationToStreetView,
   subscribeGoogleStreetViewNavigation,
@@ -55,6 +56,8 @@ export function bindStreet360Control(root, options = {}) {
   let transition = 0;
   let streetNavUnsub = null;
   let worldNavUnsub = null;
+  let bindMode = 'operator';
+  let cameraTarget = null;
 
   const hasSelection = () => Boolean(
     selectedPoint
@@ -83,6 +86,19 @@ export function bindStreet360Control(root, options = {}) {
   }
 
   function openTarget() {
+    if (bindMode === 'camera' && cameraTarget) {
+      if (!isGreaterMontrealLongitudeLatitude(cameraTarget.longitude, cameraTarget.latitude)) {
+        return null;
+      }
+      return {
+        longitude: Number(cameraTarget.longitude),
+        latitude: Number(cameraTarget.latitude),
+        heading: Number(cameraTarget.heading),
+        pitch: Number(cameraTarget.pitch),
+        source: 'authored-camera',
+        preferPosition: true
+      };
+    }
     const nav = getWorldviewNavigation();
     if (nav && isGreaterMontrealLongitudeLatitude(nav.longitude, nav.latitude)) {
       return {
@@ -260,7 +276,10 @@ export function bindStreet360Control(root, options = {}) {
       mapCenter: {
         longitude: view?.center?.longitude ?? null,
         latitude: view?.center?.latitude ?? null
-      }
+      },
+      bindMode,
+      cameraTarget: cameraTarget ? { ...cameraTarget } : null,
+      providerPixels: Boolean(stageHost?.querySelector?.('.gm-style canvas, .gm-style img'))
     };
   }
 
@@ -300,24 +319,34 @@ export function bindStreet360Control(root, options = {}) {
         container: stageHost,
         longitude: target.longitude,
         latitude: target.latitude,
+        heading: Number.isFinite(Number(target.heading)) ? Number(target.heading) : undefined,
+        pitch: Number.isFinite(Number(target.pitch)) ? Number(target.pitch) : undefined,
         source: target.source,
-        preferPosition: target.source === 'worldview-navigation'
+        preferPosition: target.preferPosition === true
+          || target.source === 'worldview-navigation'
+          || target.source === 'authored-camera'
       });
       if (token !== transition) return snapshot();
       if (engine.open !== true || engine.available !== true || engine.error) {
         throw new Error('Street 360 did not become ready.');
       }
       stageState = STAGE_STATE.OPEN;
-      attachNavSync();
-      if (engine.panoramaPosition) {
-        observeStreetTraversal({
-          longitude: engine.panoramaPosition.longitude,
-          latitude: engine.panoramaPosition.latitude,
-          heading: engine.pov?.heading,
-          pitch: engine.pov?.pitch,
-          zoom: engine.zoom,
-          panoId: engine.panoId || null
-        });
+      if (bindMode === 'camera') {
+        if (Number.isFinite(Number(target.heading)) || Number.isFinite(Number(target.pitch))) {
+          setGoogleStreetViewPov({ heading: target.heading, pitch: target.pitch });
+        }
+      } else {
+        attachNavSync();
+        if (engine.panoramaPosition) {
+          observeStreetTraversal({
+            longitude: engine.panoramaPosition.longitude,
+            latitude: engine.panoramaPosition.latitude,
+            heading: engine.pov?.heading,
+            pitch: engine.pov?.pitch,
+            zoom: engine.zoom,
+            panoId: engine.panoId || null
+          });
+        }
       }
       paint();
       return snapshot();
@@ -346,8 +375,51 @@ export function bindStreet360Control(root, options = {}) {
       stageHost.hidden = true;
       stageHost.innerHTML = '';
     }
+    bindMode = 'operator';
+    cameraTarget = null;
     stageState = STAGE_STATE.IDLE;
     paint();
+    return snapshot();
+  }
+
+  function beginCameraBind(pose) {
+    bindMode = 'camera';
+    cameraTarget = pose ? {
+      cameraId: pose.cameraId || null,
+      longitude: Number(pose.longitude),
+      latitude: Number(pose.latitude),
+      heading: Number(pose.heading),
+      pitch: Number(pose.pitch)
+    } : null;
+    return snapshot();
+  }
+
+  async function openForCamera(pose) {
+    beginCameraBind(pose);
+    return open();
+  }
+
+  function applyCameraPov(pose) {
+    if (bindMode !== 'camera' || !pose) return snapshot();
+    cameraTarget = {
+      ...(cameraTarget || {}),
+      cameraId: pose.cameraId || cameraTarget?.cameraId || null,
+      longitude: Number(pose.longitude),
+      latitude: Number(pose.latitude),
+      heading: Number(pose.heading),
+      pitch: Number(pose.pitch)
+    };
+    setGoogleStreetViewPov({ heading: pose.heading, pitch: pose.pitch });
+    return snapshot();
+  }
+
+  async function releaseCameraBind() {
+    const wasCamera = bindMode === 'camera';
+    bindMode = 'operator';
+    cameraTarget = null;
+    if (wasCamera && (stageState === STAGE_STATE.OPEN || stageState === STAGE_STATE.OPENING || stageState === STAGE_STATE.UNAVAILABLE)) {
+      return close({ restoreMap: false });
+    }
     return snapshot();
   }
 
@@ -363,6 +435,11 @@ export function bindStreet360Control(root, options = {}) {
     selectPoint,
     open,
     close,
+    beginCameraBind,
+    openForCamera,
+    applyCameraPov,
+    releaseCameraBind,
+    bindMode: () => bindMode,
     look: lookGoogleStreetView,
     zoom: zoomGoogleStreetView,
     moveAlongCoverage: moveGoogleStreetViewAlongCoverage,

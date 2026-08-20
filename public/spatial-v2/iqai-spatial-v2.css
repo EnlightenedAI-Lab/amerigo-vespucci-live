@@ -2491,6 +2491,63 @@ body.iqai-v2-body {
   cursor: pointer;
 }
 
+.iqai-v2-place-camera-editor.is-view-camera {
+  width: 16.4rem;
+}
+
+.iqai-v2-place-camera-editor [data-iqai-view-camera] {
+  background: transparent;
+  color: #f4f0ea;
+}
+
+.iqai-v2-place-camera-editor [data-iqai-view-camera].is-active,
+.iqai-v2-view-camera-modes button.is-active {
+  background: #f4f0ea;
+  color: #0b0d10;
+}
+
+.iqai-v2-view-camera-panel {
+  margin-top: 0.4rem;
+}
+
+.iqai-v2-view-camera-modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.25rem;
+}
+
+.iqai-v2-view-camera-modes button {
+  margin-top: 0;
+  min-height: 1.35rem;
+  background: transparent;
+  color: #f4f0ea;
+}
+
+.iqai-v2-view-camera-geometric {
+  display: block;
+  width: 100%;
+  height: 8.4rem;
+  margin-top: 0.4rem;
+  border: 1px solid var(--iqai-v2-chrome-border);
+  background: #0c0c0e;
+}
+
+.iqai-v2-view-camera-geometric[hidden],
+.iqai-v2-view-camera-truth[hidden],
+.iqai-v2-view-camera-panel[hidden] {
+  display: none !important;
+}
+
+.iqai-v2-view-camera-truth {
+  margin-top: 0.35rem;
+}
+
+.iqai-v2-view-camera-truth p {
+  color: rgba(244, 240, 234, 0.82);
+  font-weight: 650;
+  letter-spacing: 0.04em;
+}
+
 .iqai-v2-place-camera-editor__note {
   margin-top: 0.35rem !important;
   color: rgba(244, 240, 234, 0.72);
@@ -3570,4 +3627,7 @@ body.iqai-v2-body {
   font-size: 0.58rem;
   white-space: pre-wrap;
 }
+
+
+
 

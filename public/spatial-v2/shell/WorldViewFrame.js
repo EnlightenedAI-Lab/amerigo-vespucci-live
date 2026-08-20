@@ -58,7 +58,11 @@ export function bindWorldViewFrame(root, options = {}) {
   }
 
   function hasGeographicContext() {
-    return Boolean(getActiveSpatialFocus() || getWorldviewNavigation());
+    return Boolean(
+      getActiveSpatialFocus()
+      || getWorldviewNavigation()
+      || street360?.bindMode?.() === 'camera'
+    );
   }
 
   function resizeMap() {

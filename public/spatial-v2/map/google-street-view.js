@@ -481,8 +481,9 @@ export async function openGoogleStreetView(options = {}) {
   const token = ++generation;
   stageCreateCount += 1;
   const Panorama = streetViewLib?.StreetViewPanorama || google.maps.StreetViewPanorama;
+  const requestedPov = povFromSensorPose(options);
   const panoramaOptions = {
-    pov: { heading: 0, pitch: 0 },
+    pov: { heading: requestedPov.heading, pitch: requestedPov.pitch },
     zoom: 1,
     visible: true,
     disableDefaultUI: true,
@@ -532,6 +533,7 @@ export async function openGoogleStreetView(options = {}) {
   await waitForPanoramaReady(panorama, google, container);
   await waitForLinks(panorama, google);
   if (token !== generation) return getGoogleStreetViewSnapshot();
+  if (requestedPov.specified) applyStreetViewPov(requestedPov);
   if (googleMapsJsFailedVisually(container)) {
     lastError = STREET_360_OPERATOR_UNAVAILABLE;
     await closeGoogleStreetView();
@@ -564,14 +566,56 @@ export async function closeGoogleStreetView() {
   return getGoogleStreetViewSnapshot();
 }
 
+function wrapStreetHeading(value) {
+  const heading = Number(value);
+  if (!Number.isFinite(heading)) return 0;
+  return ((heading % 360) + 360) % 360;
+}
+
+function clampStreetPitch(value) {
+  const pitch = Number(value);
+  if (!Number.isFinite(pitch)) return 0;
+  return Math.max(-90, Math.min(90, pitch));
+}
+
+export function povFromSensorPose(input = {}) {
+  const hasHeading = Number.isFinite(Number(input.heading));
+  const hasPitch = Number.isFinite(Number(input.pitch));
+  return {
+    heading: hasHeading ? wrapStreetHeading(input.heading) : 0,
+    pitch: hasPitch ? clampStreetPitch(input.pitch) : 0,
+    specified: hasHeading || hasPitch
+  };
+}
+
+function applyStreetViewPov(pov) {
+  if (!panorama?.setPov || !pov) return false;
+  beginProgrammaticStreetApply(400);
+  panorama.setPov({
+    heading: wrapStreetHeading(pov.heading),
+    pitch: clampStreetPitch(pov.pitch)
+  });
+  readPanoramaState();
+  return true;
+}
+
+export function setGoogleStreetViewPov(input = {}) {
+  if (!panorama) return getGoogleStreetViewSnapshot();
+  const current = panorama.getPov?.() || lastPov || { heading: 0, pitch: 0 };
+  applyStreetViewPov({
+    heading: Number.isFinite(Number(input.heading)) ? input.heading : current.heading,
+    pitch: Number.isFinite(Number(input.pitch)) ? input.pitch : current.pitch
+  });
+  return getGoogleStreetViewSnapshot();
+}
+
 export function lookGoogleStreetView(headingDelta = 45, pitchDelta = 0) {
   if (!panorama) throw new Error('Street 360 is not open.');
   const pov = panorama.getPov?.() || { heading: 0, pitch: 0 };
-  panorama.setPov?.({
-    heading: ((Number(pov.heading) || 0) + Number(headingDelta) + 360) % 360,
-    pitch: Math.max(-90, Math.min(90, (Number(pov.pitch) || 0) + Number(pitchDelta)))
+  applyStreetViewPov({
+    heading: wrapStreetHeading((Number(pov.heading) || 0) + Number(headingDelta)),
+    pitch: clampStreetPitch((Number(pov.pitch) || 0) + Number(pitchDelta))
   });
-  readPanoramaState();
   return getGoogleStreetViewSnapshot();
 }
 

@@ -280,6 +280,28 @@ export function renderMapStageHost() {
             <input data-iqai-place-camera-fov type="number" min="10" max="120" step="1" aria-label="Horizontal field of view">
           </label>
           <button type="button" data-iqai-place-camera-delete>DELETE CAMERA</button>
+          <button type="button" data-iqai-view-camera aria-pressed="false" hidden>VIEW CAMERA</button>
+          <div class="iqai-v2-view-camera-panel" data-iqai-view-camera-panel hidden>
+            <div class="iqai-v2-view-camera-modes">
+              <button type="button" data-iqai-view-camera-mode="geometric" aria-pressed="true">GEOMETRIC</button>
+              <button type="button" data-iqai-view-camera-mode="street360" aria-pressed="false">STREET360</button>
+            </div>
+            <canvas class="iqai-v2-view-camera-geometric" data-iqai-view-camera-geometric width="240" height="140" aria-label="Geometric camera view"></canvas>
+            <div class="iqai-v2-view-camera-truth" data-iqai-view-camera-truth hidden>
+              <p data-iqai-view-camera-status>UNAVAILABLE</p>
+              <p>CAMERA LOCATION</p>
+              <p data-iqai-view-camera-authored>—</p>
+              <p>STREET360 CAPTURE LOCATION</p>
+              <p data-iqai-view-camera-capture>—</p>
+              <p>CAPTURE OFFSET</p>
+              <p data-iqai-view-camera-offset>—</p>
+              <p>CAMERA HFOV: <span data-iqai-view-camera-hfov>—</span></p>
+              <p>HDG <span data-iqai-view-camera-heading>—</span>  PITCH <span data-iqai-view-camera-pitch>—</span></p>
+              <p>STREET360 PROVIDER POV</p>
+              <p>NOT OPTICALLY MATCHED</p>
+              <p>STREET360 CAPTURE HEIGHT IS PROVIDER-DEFINED</p>
+            </div>
+          </div>
           <p class="iqai-v2-place-camera-editor__note">Orientation / FOV direction. Not LOS. Not WorldState.cameras.</p>
         </aside>
         <div class="iqai-v2-view-switcher" data-iqai-view-switcher>

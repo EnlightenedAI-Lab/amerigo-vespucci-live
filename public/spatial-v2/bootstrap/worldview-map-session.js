@@ -35,6 +35,7 @@ import {
 import { applyMapFoundationToStage } from '../shell/MapStage.js';
 import { bindDropPinControl } from '../shell/DropPinControl.js';
 import { bindPlaceCameraControl } from '../shell/PlaceCameraControl.js';
+import { bindViewCameraControl } from '../shell/ViewCameraControl.js';
 import { bindStreet360Control } from '../shell/Street360Control.js';
 import { bindGooglePhotorealistic3dControl } from '../shell/GooglePhotorealistic3dControl.js';
 import { bindAnalyze3dControl } from '../shell/Analyze3dControl.js';
@@ -201,6 +202,10 @@ export function attachWorldviewMapSession(root, chassis, api) {
       void chassis.executeChassis('view.select', { viewId: VIEW_ID.MAP });
     }
   });
+  const viewCamera = bindViewCameraControl(root, {
+    street360,
+    worldViewFrame
+  });
   positionOverlay = bindWorldviewPositionOverlay(root);
 
   subscribeMapFoundation((snapshot) => {
@@ -333,6 +338,7 @@ export function attachWorldviewMapSession(root, chassis, api) {
   showMapView(mapHost);
   api.dropPin = dropPin;
   api.placeCamera = placeCamera;
+  api.viewCamera = viewCamera;
   api.focusInstrument = focusInstrument;
   api.viewSwitcher = viewSwitcher;
   api.worldViewFrame = worldViewFrame;
@@ -389,6 +395,7 @@ export function attachWorldviewMapSession(root, chassis, api) {
   return Object.freeze({
     dropPin,
     placeCamera,
+    viewCamera,
     focusInstrument,
     viewSwitcher,
     worldViewFrame,
