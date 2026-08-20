@@ -3,7 +3,9 @@
  * Instantiates stores, registries, hosts, and adapters. It wires; it does not decide.
  */
 
-import { ACTION_SOURCE, createActionEnvelope, createId, objectRefKey } from '../foundation/contracts/index.js';
+import { ACTION_SOURCE, POLICY_ACTION, createActionEnvelope, createId, failClosed, objectRefKey } from '../foundation/contracts/index.js';
+import { looksLikeAskMap, parseAskMapIntent } from '../brain/ask-map-intent.js';
+import { resolveHereContext } from '../brain/here-context.js';
 import { createStateStore } from '../state/index.js';
 import {
   createCapabilityRegistry,
@@ -22,8 +24,7 @@ import { bindChassisAdapters } from './chassis-adapters.js';
 import { bindMapSurfaceAdapters } from './map-surface-adapters.js';
 import { attachWorldviewMapSession } from './worldview-map-session.js';
 import { mountAppShell } from '../shell/AppShell.js';
-import { createAskCapabilityBus } from '../shell/ask-capability-bus.js';
-import { ASK_ROUTE_STATE } from '../shell/ask-capability-bus.js';
+import { ASK_ROUTE_REASON, ASK_ROUTE_STATE, createAskCapabilityBus } from '../shell/ask-capability-bus.js';
 
 function projectObjectInspector(world, acquiredInspect = null) {
   const refs = world.selection?.objectRefs || [];
@@ -60,7 +61,7 @@ function unavailableAsk(id, label, aliases, quickActionIds, unavailableReason) {
   };
 }
 
-function createAskCapabilities(capabilityRegistry, executeChassis) {
+function createAskCapabilities(capabilityRegistry, executeChassis, { proposeGovernedMapAction } = {}) {
   const inspect = capabilityRegistry.get('chassis.inspect-world');
   return [
     {
@@ -92,6 +93,15 @@ function createAskCapabilities(capabilityRegistry, executeChassis) {
           message: 'Operational map context selected. No GIS command was executed.'
         };
       }
+    },
+    {
+      id: 'map.governed-action',
+      label: 'Governed map action',
+      aliases: [],
+      quickActionIds: [],
+      isAvailable: true,
+      match: ({ text }) => looksLikeAskMap(text),
+      handle: async ({ text }) => proposeGovernedMapAction(text)
     },
     unavailableAsk(
       'imagery',
@@ -148,7 +158,19 @@ export function createSpatialV2Chassis(options = {}) {
     chassisRegistrar
   });
   bindChassisAdapters({ chassisRegistrar, capabilityRegistry, stateStore, idFactory });
-  bindMapSurfaceAdapters({ capabilityRegistry, idFactory });
+  let mapActionExecutor = null;
+  let lastMapAction = null;
+  bindMapSurfaceAdapters({
+    capabilityRegistry,
+    idFactory,
+    getMapActionExecutor: () => async (input) => {
+      if (typeof mapActionExecutor !== 'function') {
+        failClosed('MAP_ACTION_NOT_BOUND', 'Governed map action has no bound MapView executor.');
+      }
+      lastMapAction = await mapActionExecutor(input);
+      return lastMapAction;
+    }
+  });
 
   const policyService = createPolicyService({
     now,
@@ -156,6 +178,8 @@ export function createSpatialV2Chassis(options = {}) {
     knownIdentities: ['operator:session']
   });
   const operatorConfirmationBoundary = policyService.takeOperatorConfirmationBoundary();
+  let hereContextProvider = () => ({});
+  let pendingMapAction = null;
   const getExecutableAdapter = capabilityRegistry.takeRuntimeAdapterLookup();
   const policyGuard = createPolicyGuard(policyService);
   const jobManager = createJobManager({ now, idFactory });
@@ -211,8 +235,89 @@ export function createSpatialV2Chassis(options = {}) {
     return capabilityRuntime.execute(action);
   }
 
+  function snapshotGovernedMapAction() {
+    return {
+      pending: pendingMapAction
+        ? {
+            proposalId: pendingMapAction.proposalId,
+            confirmationTitle: pendingMapAction.intent.confirmationTitle,
+            operation: pendingMapAction.intent.operation,
+            objectClass: pendingMapAction.intent.objectClass,
+            radiusMeters: pendingMapAction.intent.radiusMeters,
+            here: pendingMapAction.here
+          }
+        : null,
+      last: lastMapAction
+        ? {
+            operation: lastMapAction.operation || null,
+            count: lastMapAction.count,
+            source: lastMapAction.source,
+            confirmationTitle: lastMapAction.confirmationTitle,
+            radiusMeters: lastMapAction.radiusMeters,
+            here: lastMapAction.here,
+            nearest: lastMapAction.nearest || null,
+            distanceMeters: lastMapAction.nearest?.distanceMeters
+              ?? lastMapAction.hits?.[0]?.distanceMeters
+              ?? null,
+            paint: lastMapAction.paint || null
+          }
+        : null
+    };
+  }
+
+  function proposeGovernedMapAction(text) {
+    const intent = parseAskMapIntent(text);
+    pendingMapAction = null;
+    lastMapAction = null;
+    if (!intent.supported) {
+      return {
+        applicationAction: 'ASK_MAP_REJECTED',
+        engineExecuted: false,
+        mapExecuted: false,
+        code: intent.code,
+        message: intent.message
+      };
+    }
+    const here = resolveHereContext(hereContextProvider() || {});
+    if (!here.ok) {
+      return {
+        applicationAction: 'ASK_MAP_NEEDS_LOCATION',
+        engineExecuted: false,
+        mapExecuted: false,
+        needsLocation: true,
+        code: here.code,
+        message: here.message
+      };
+    }
+    const proposalId = createId('map-propose', idFactory);
+    pendingMapAction = Object.freeze({
+      proposalId,
+      intent,
+      here,
+      issuedAt: new Date().toISOString()
+    });
+    return {
+      applicationAction: 'ASK_MAP_PROPOSED',
+      engineExecuted: false,
+      mapExecuted: false,
+      needsConfirmation: true,
+      confirmationTitle: intent.confirmationTitle,
+      confirmationDetail: `${here.label} · ${here.latitude.toFixed(5)}, ${here.longitude.toFixed(5)} · Nothing has been drawn.`,
+      proposalId,
+      here,
+      intent: {
+        operation: intent.operation,
+        verb: intent.verb,
+        objectClass: intent.objectClass,
+        radiusMeters: intent.radiusMeters
+      },
+      source: intent.source,
+      message: intent.confirmationTitle
+    };
+  }
+
   const askBus = createAskCapabilityBus({
-    capabilities: createAskCapabilities(capabilityRegistry, executeChassis)
+    capabilities: createAskCapabilities(capabilityRegistry, executeChassis, { proposeGovernedMapAction })
   });
 
   function notify() {
@@ -416,7 +521,7 @@ export function createSpatialV2Chassis(options = {}) {
         await opsHost?.setVisible?.(String(input.instanceId).slice(4), input.visible === true);
         return;
       }
-      if (capabilityId === 'layers.set-visibility' || capabilityId === 'layers.set-opacity' || capabilityId === 'layers.add-session' || capabilityId === 'focus.set' || capabilityId === 'selection.set' || capabilityId === 'layers.sync-authored' || capabilityId === 'map' || capabilityId === 'temporal.set-requested') {
+      if (capabilityId === 'layers.set-visibility' || capabilityId === 'layers.set-opacity' || capabilityId === 'layers.add-session' || capabilityId === 'focus.set' || capabilityId === 'selection.set' || capabilityId === 'layers.sync-authored' || capabilityId === 'map' || capabilityId === 'temporal.set-requested' || capabilityId === 'map.governed-action') {
         await executeChassis(capabilityId, input);
         return;
       }
@@ -440,7 +545,107 @@ export function createSpatialV2Chassis(options = {}) {
     },
     submitAsk(request) {
       return askBus.execute(request);
-    }
+    },
+    async confirmGovernedMapAction() {
+      if (!pendingMapAction) {
+        const receipt = {
+          state: ASK_ROUTE_STATE.FAILED,
+          reason: ASK_ROUTE_REASON.CAPABILITY_FAILED,
+          capabilityId: 'map.governed-action',
+          executed: false,
+          error: 'No pending governed map action. Ask first, then confirm.'
+        };
+        presentation.lastAskReceipt = receipt;
+        notify();
+        return receipt;
+      }
+      const proposal = pendingMapAction;
+      const world = stateStore.getSnapshot();
+      const issuedAt = typeof now === 'function' ? now() : new Date().toISOString();
+      const issuedMs = Date.parse(issuedAt);
+      operatorConfirmationBoundary.recordConfirmationEvent({
+        actorRef: 'operator:session',
+        identityRef: 'operator:session',
+        capabilityId: 'map.governed-action',
+        policyAction: POLICY_ACTION.DISPLAY,
+        resourceRefs: [],
+        sessionId: world.context.sessionId,
+        worldId: world.worlds.activeWorldId,
+        expiresAt: new Date((Number.isFinite(issuedMs) ? issuedMs : Date.now()) + 5 * 60 * 1000).toISOString()
+      });
+      let executed;
+      try {
+        executed = await executeChassis('map.governed-action', {
+          confirmed: true,
+          proposalId: proposal.proposalId,
+          intent: proposal.intent,
+          here: proposal.here
+        });
+      } catch (error) {
+        const receipt = {
+          state: ASK_ROUTE_STATE.FAILED,
+          reason: ASK_ROUTE_REASON.CAPABILITY_FAILED,
+          capabilityId: 'map.governed-action',
+          executed: false,
+          error: String(error?.message || error),
+          result: { mapExecuted: false, confirmationTitle: proposal.intent.confirmationTitle }
+        };
+        presentation.lastAskReceipt = receipt;
+        notify();
+        return receipt;
+      }
+      pendingMapAction = null;
+      const painted = lastMapAction;
+      const sourceLine = `${painted?.source?.provider || 'UNKNOWN'} · ${painted?.source?.dataset || 'UNKNOWN'}`;
+      const nearestId = painted?.nearest?.assetId || painted?.nearest?.sourceId || painted?.hits?.[0]?.sourceId;
+      const nearestDist = painted?.nearest?.distanceMeters ?? painted?.hits?.[0]?.distanceMeters;
+      const message = proposal.intent.operation === 'NEAREST'
+        ? `${proposal.intent.confirmationTitle} · ID_BI ${nearestId || 'UNKNOWN'} · ${Number.isFinite(Number(nearestDist)) ? `${Number(nearestDist).toFixed(1)} m` : 'UNKNOWN'} · ${sourceLine}`
+        : `${proposal.intent.confirmationTitle} · ${painted?.count ?? 0} hydrants · ${sourceLine}`;
+      const receipt = {
+        state: executed?.ok === true ? ASK_ROUTE_STATE.ROUTED : ASK_ROUTE_STATE.FAILED,
+        reason: executed?.ok === true ? ASK_ROUTE_REASON.ACCEPTED : ASK_ROUTE_REASON.CAPABILITY_FAILED,
+        capabilityId: 'map.governed-action',
+        capabilityLabel: 'Governed map action',
+        executed: executed?.ok === true,
+        result: {
+          applicationAction: 'ASK_MAP_EXECUTED',
+          engineExecuted: false,
+          mapExecuted: executed?.ok === true,
+          confirmationTitle: proposal.intent.confirmationTitle,
+          message,
+          count: painted?.count ?? 0,
+          source: painted?.source || null,
+          here: proposal.here,
+          radiusMeters: proposal.intent.radiusMeters,
+          nearest: painted?.nearest || null,
+          distanceMeters: Number.isFinite(Number(nearestDist)) ? Number(nearestDist) : null
+        }
+      };
+      presentation.lastAskReceipt = receipt;
+      notify();
+      return receipt;
+    },
+    cancelGovernedMapAction() {
+      pendingMapAction = null;
+      const receipt = {
+        state: ASK_ROUTE_STATE.UNROUTED,
+        reason: ASK_ROUTE_REASON.NO_CAPABILITY_MATCH,
+        capabilityId: 'map.governed-action',
+        executed: false,
+        result: { message: 'Cancelled. No map action was executed.', mapExecuted: false }
+      };
+      presentation.lastAskReceipt = receipt;
+      notify();
+      return receipt;
+    },
+    setGovernedMapExecutor(fn) {
+      mapActionExecutor = typeof fn === 'function' ? fn : null;
+    },
+    setHereContextProvider(fn) {
+      hereContextProvider = typeof fn === 'function' ? fn : () => ({});
+    },
+    snapshotGovernedMapAction
   });
 }
 
@@ -458,7 +663,14 @@ export function bootSpatialV2(root, options = {}) {
     ask: {
       execute: (request) => chassis.submitAsk(request),
       getLastReceipt: () => chassis.askBus.getLastReceipt(),
-      getCapabilities: () => chassis.askBus.getCapabilities()
+      getCapabilities: () => chassis.askBus.getCapabilities(),
+      confirm: () => chassis.confirmGovernedMapAction(),
+      cancel: () => chassis.cancelGovernedMapAction()
+    },
+    governedMapAction: {
+      snapshot: () => chassis.snapshotGovernedMapAction(),
+      confirm: () => chassis.confirmGovernedMapAction(),
+      cancel: () => chassis.cancelGovernedMapAction()
     },
     registries: {
       capabilities: () => chassis.capabilityRegistry.list(),

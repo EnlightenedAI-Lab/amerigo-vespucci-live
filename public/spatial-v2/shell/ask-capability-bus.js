@@ -44,6 +44,7 @@ function normalizeCapability(capability) {
     unavailableReason: String(
       capability.unavailableReason || 'The requested capability is not available.'
     ),
+    match: typeof capability.match === 'function' ? capability.match : null,
     handle: capability.handle
   });
 }
@@ -118,12 +119,21 @@ export function createAskCapabilityBus({
     };
   };
 
-  const matchCapability = ({ normalizedText, quickActionId }) => {
+  const matchCapability = ({ text, normalizedText, quickActionId, request }) => {
     if (quickActionId) {
       return registry.find((capability) => capability.quickActionIds.includes(quickActionId)) || null;
     }
     if (!normalizedText) return null;
-    return registry.find((capability) => capability.aliases.includes(normalizedText)) || null;
+    const aliasHit = registry.find((capability) => capability.aliases.includes(normalizedText));
+    if (aliasHit) return aliasHit;
+    return registry.find((capability) => {
+      if (typeof capability.match !== 'function') return false;
+      try {
+        return capability.match({ text, normalizedText, request }) === true;
+      } catch {
+        return false;
+      }
+    }) || null;
   };
 
   const execute = async (request = {}) => {
@@ -139,7 +149,12 @@ export function createAskCapabilityBus({
       });
     }
 
-    const capability = matchCapability({ normalizedText, quickActionId });
+    const capability = matchCapability({
+      text: String(request.text ?? '').trim(),
+      normalizedText,
+      quickActionId,
+      request
+    });
     if (!capability) {
       return publish({
         ...pendingReceipt,

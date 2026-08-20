@@ -40,6 +40,14 @@ export function renderAskIqaiDock() {
           <span>Gemini</span>
         </div>
         <p class="iqai-v2-ask__status" data-iqai-ask-status hidden></p>
+        <div class="iqai-v2-ask__confirm" data-iqai-ask-confirm hidden>
+          <p class="iqai-v2-ask__confirm-title" data-iqai-ask-confirm-title></p>
+          <p class="iqai-v2-ask__confirm-detail" data-iqai-ask-confirm-detail></p>
+          <div class="iqai-v2-ask__confirm-actions">
+            <button type="button" data-iqai-ask-confirm-yes>CONFIRM</button>
+            <button type="button" data-iqai-ask-confirm-no>CANCEL</button>
+          </div>
+        </div>
       </form>
     </section>
   `;
@@ -47,6 +55,9 @@ export function renderAskIqaiDock() {
 
 function receiptMessage(receipt) {
   if (!receipt) return 'FAILED — No Ask receipt was produced.';
+  if (receipt.result?.needsConfirmation) {
+    return receipt.result.confirmationTitle || 'SHOW HYDRANTS WITHIN 500 M';
+  }
   if (receipt.state === 'ROUTED') {
     const message = receipt.result?.message || receipt.capabilityLabel || receipt.capabilityId;
     return `ROUTED — ${message}${/[.!?]$/.test(message) ? '' : '.'}`;
@@ -78,10 +89,22 @@ export function paintAskIqaiDock(root, { open = false } = {}) {
 
 export function paintAskIqaiReceipt(root, receipt) {
   const status = root.querySelector('[data-iqai-ask-status]');
-  if (!status) return;
-  status.hidden = false;
-  status.dataset.iqaiAskState = receipt?.state || 'FAILED';
-  status.textContent = receiptMessage(receipt);
+  const confirm = root.querySelector('[data-iqai-ask-confirm]');
+  const title = root.querySelector('[data-iqai-ask-confirm-title]');
+  const detail = root.querySelector('[data-iqai-ask-confirm-detail]');
+  if (status) {
+    status.hidden = false;
+    status.dataset.iqaiAskState = receipt?.result?.needsConfirmation
+      ? 'CONFIRM'
+      : (receipt?.state || 'FAILED');
+    status.textContent = receiptMessage(receipt);
+  }
+  if (confirm) {
+    const pending = receipt?.result?.needsConfirmation === true;
+    confirm.hidden = !pending;
+    if (title) title.textContent = pending ? (receipt.result.confirmationTitle || 'SHOW HYDRANTS WITHIN 500 M') : '';
+    if (detail) detail.textContent = pending ? (receipt.result.confirmationDetail || 'Nothing has been drawn. Confirm to execute on this map.') : '';
+  }
 }
 
 export function bindAskIqaiDock(root, handlers = {}) {
@@ -121,6 +144,33 @@ export function bindAskIqaiDock(root, handlers = {}) {
   };
 
   const onClick = (event) => {
+    const confirmYes = event.target.closest('[data-iqai-ask-confirm-yes]');
+    if (confirmYes && form.contains(confirmYes)) {
+      event.preventDefault();
+      void (async () => {
+        if (typeof handlers.onConfirm !== 'function') return;
+        const receipt = await handlers.onConfirm();
+        paintAskIqaiReceipt(root, receipt);
+      })();
+      return;
+    }
+    const confirmNo = event.target.closest('[data-iqai-ask-confirm-no]');
+    if (confirmNo && form.contains(confirmNo)) {
+      event.preventDefault();
+      void (async () => {
+        if (typeof handlers.onCancel === 'function') {
+          const receipt = await handlers.onCancel();
+          paintAskIqaiReceipt(root, receipt);
+          return;
+        }
+        paintAskIqaiReceipt(root, {
+          state: 'UNROUTED',
+          reason: 'NO_CAPABILITY_MATCH',
+          result: { message: 'Cancelled. No map action was executed.' }
+        });
+      })();
+      return;
+    }
     const chip = event.target.closest('[data-iqai-quick-action]');
     if (chip && form.contains(chip)) {
       const pressed = chip.getAttribute('aria-pressed') === 'true';

@@ -1204,6 +1204,58 @@ body.iqai-v2-body {
   color: var(--iqai-v2-next);
 }
 
+.iqai-v2-ask__status[data-iqai-ask-state="CONFIRM"] {
+  color: #f4f0ea;
+  letter-spacing: 0.12em;
+  font-weight: 800;
+}
+
+.iqai-v2-ask__confirm {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+}
+
+.iqai-v2-ask__confirm[hidden] {
+  display: none;
+}
+
+.iqai-v2-ask__confirm-title {
+  margin: 0;
+  color: #f4f0ea;
+  font-size: var(--iqai-v2-kicker-size);
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+
+.iqai-v2-ask__confirm-detail {
+  margin: 0;
+  color: var(--iqai-v2-muted);
+  font-size: var(--iqai-v2-kicker-size);
+}
+
+.iqai-v2-ask__confirm-actions {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.iqai-v2-ask__confirm-actions button {
+  min-height: 1.7rem;
+  padding: 0.2rem 0.55rem;
+  border: 1px solid var(--iqai-v2-border-strong);
+  background: transparent;
+  color: #f4f0ea;
+  font: inherit;
+  font-size: var(--iqai-v2-kicker-size);
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+}
+
+.iqai-v2-ask__confirm-actions [data-iqai-ask-confirm-yes] {
+  background: #14120f;
+}
+
 .iqai-v2-operator-imagery {
   display: flex;
   flex-direction: column;
@@ -3581,6 +3633,24 @@ body.iqai-v2-body {
 
 .iqai-v2-woa-asset {
   overflow: visible;
+}
+
+#iqai-v2-governed-map-readout {
+  position: absolute;
+  left: 0.7rem;
+  bottom: 0.7rem;
+  z-index: 26;
+  max-width: min(28rem, calc(100% - 1.4rem));
+  padding: 0.45rem 0.6rem;
+  border: 1px solid rgba(0, 168, 201, 0.7);
+  background: rgba(20, 18, 16, 0.86);
+  color: #f4f0ea;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.35;
+  pointer-events: none;
+  white-space: pre-line;
 }
 
 .iqai-v2-woa-asset path,

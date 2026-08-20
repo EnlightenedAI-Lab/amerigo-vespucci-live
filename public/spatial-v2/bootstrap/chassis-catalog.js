@@ -316,6 +316,19 @@ export function registerChassisCatalog({
       adapterId: 'temporal.set-requested'
     },
     {
+      id: 'map.governed-action',
+      owner: 'tool-builder',
+      title: 'Governed map action',
+      resultType: 'governed-map-action',
+      requiredPolicyAction: POLICY_ACTION.DISPLAY,
+      effectClass: EFFECT_CLASS.SESSION_MUTATION,
+      undoPolicy: UNDO_POLICY.UNDOABLE,
+      execution: { mode: EXECUTION_MODE.SYNC, targets: [] },
+      migrationState: MIGRATION_STATE.MIGRATED,
+      adapterId: 'map.governed-action',
+      compatibleViews: [VIEW_ID.MAP]
+    },
+    {
       id: 'imagery',
       owner: 'arcgis',
       title: 'Imagery',

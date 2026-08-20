@@ -741,6 +741,27 @@ export function bindFocusInstrument(root, options = {}) {
     drawerRows: () => (active ? layerSession.drawerRows() : []),
     refreshUev,
     ensureUevAround,
+    async ensureFamilyLoaded(objectClass) {
+      await ensureManifest();
+      const source = registry?.get?.(objectClass);
+      if (!source) return null;
+      await loadFamily(source);
+      return {
+        source,
+        index: indexes[objectClass] || null,
+        count: indexes[objectClass]?.count || 0
+      };
+    },
+    queryWithin(objectClass, latitude, longitude, radiusMeters) {
+      const index = indexes[objectClass];
+      if (!index || typeof index.queryWithin !== 'function') return [];
+      return index.queryWithin(latitude, longitude, radiusMeters);
+    },
+    queryNearest(objectClass, latitude, longitude) {
+      const index = indexes[objectClass];
+      if (!index || typeof index.queryNearest !== 'function') return null;
+      return index.queryNearest(latitude, longitude);
+    },
     async propertyAt(lat, lng) {
       const latitude = Number(lat);
       const longitude = Number(lng);

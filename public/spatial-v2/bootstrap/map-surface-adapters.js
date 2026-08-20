@@ -4,6 +4,7 @@
  */
 
 import {
+  ACTION_SOURCE,
   EFFECT_CLASS,
   TRUTH_CLASS,
   VIEW_ID,
@@ -49,7 +50,7 @@ function viewPatch(action, world, viewId, idFactory) {
   };
 }
 
-export function bindMapSurfaceAdapters({ capabilityRegistry, idFactory }) {
+export function bindMapSurfaceAdapters({ capabilityRegistry, idFactory, getMapActionExecutor } = {}) {
   if (!capabilityRegistry || typeof capabilityRegistry.bindAdapter !== 'function') {
     failClosed('ADAPTER_REGISTRY_REQUIRED', 'Map surface adapters require the public capability registry.');
   }
@@ -317,6 +318,55 @@ export function bindMapSurfaceAdapters({ capabilityRegistry, idFactory }) {
           }
         }
       });
+    }
+  });
+
+  capabilityRegistry.bindAdapter('map.governed-action', '1.0.0', {
+    async execute(action, { world }) {
+      if (action.input?.confirmed !== true) {
+        failClosed(
+          'OPERATOR_CONFIRMATION_REQUIRED',
+          'Governed map actions do not execute silently. Operator confirmation is required.'
+        );
+      }
+      if (action.source !== ACTION_SOURCE.OPERATOR) {
+        failClosed(
+          'MODEL_CANNOT_MINT_GRANT',
+          'Brain cannot mint permission for a map action. Operator confirmation is required.'
+        );
+      }
+      const executor = typeof getMapActionExecutor === 'function' ? getMapActionExecutor() : null;
+      if (typeof executor !== 'function') {
+        failClosed('MAP_ACTION_NOT_BOUND', 'Governed map action has no bound MapView executor.');
+      }
+      const painted = await executor(action.input);
+      const resultId = createId('result', idFactory);
+      return {
+        result: {
+          resultId,
+          resultType: 'governed-map-action',
+          truthClass: TRUTH_CLASS.OBSERVED,
+          evidenceRef: painted?.source?.datasetId || null,
+          provenanceRef: painted?.source?.dataUrl || null,
+          receiptRef: action.actionId,
+          statePatch: {
+            patchId: createId('patch', idFactory),
+            baseRevision: action.baseWorldRevision,
+            actorRef: action.actorRef,
+            source: action.source,
+            capabilityId: action.capabilityId,
+            actionId: action.actionId,
+            effectClass: EFFECT_CLASS.SESSION_MUTATION,
+            fields: {
+              results: {
+                analysisResultRefs: [...(world.results?.analysisResultRefs || [])],
+                aiResultRefs: [...(world.results?.aiResultRefs || []), resultId]
+              }
+            }
+          }
+        },
+        painted
+      };
     }
   });
 }

@@ -394,6 +394,22 @@ export function attachWorldviewMapSession(root, chassis, api) {
   api.viewCamera = viewCamera;
   api.imageryCommand = imageryCommand;
   api.focusInstrument = focusInstrument;
+  chassis.setHereContextProvider(() => ({
+    pin: getActiveSpatialFocus(),
+    incident: null,
+    selectedPoint: null,
+    eoAoi: imageryCommand?.snapshot?.()?.remoteSensing || null
+  }));
+  chassis.setGovernedMapExecutor(async (input) => {
+    const { executeGovernedHydrantAction } = await import('../map/woa/hydrant-within.js');
+    const { paintGovernedMapAction } = await import('../map/governed-map-overlay.js');
+    return executeGovernedHydrantAction({
+      intent: input?.intent,
+      here: input?.here,
+      loadFamily: (objectClass) => focusInstrument?.ensureFamilyLoaded?.(objectClass),
+      paint: (result) => paintGovernedMapAction(result)
+    });
+  });
   api.viewSwitcher = viewSwitcher;
   api.worldViewFrame = worldViewFrame;
   api.street360 = street360;

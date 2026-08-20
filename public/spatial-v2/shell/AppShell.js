@@ -242,6 +242,8 @@ export function mountAppShell(root, host = {}) {
   });
   bindAskIqaiDock(root, {
     onSubmit: (request) => host.submitAsk?.(request),
+    onConfirm: () => host.confirmGovernedMapAction?.(),
+    onCancel: () => host.cancelGovernedMapAction?.(),
     onToggle: () => host.toggleAsk?.()
   });
 

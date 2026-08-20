@@ -145,6 +145,54 @@ export function indexCollection(collection, objectClass) {
       }
       if (near) return { item: near, relation: 'near', range: near.dist, alternatives: [] };
       return null;
+    },
+    queryWithin(latitude, longitude, radiusMeters) {
+      return queryWithin(this, { latitude, longitude, radiusMeters });
+    },
+    queryNearest(latitude, longitude) {
+      return queryNearest(this, { latitude, longitude });
     }
   };
+}
+
+export function queryWithin(index, { latitude, longitude, radiusMeters } = {}) {
+  const lat = Number(latitude);
+  const lng = Number(longitude);
+  const radius = Number(radiusMeters);
+  if (!index || !Number.isFinite(lat) || !Number.isFinite(lng) || !Number.isFinite(radius) || radius <= 0) {
+    return [];
+  }
+  const hits = [];
+  for (const item of index.items || []) {
+    const dist = distanceToFeatureMeters(lat, lng, item.feature);
+    if (!Number.isFinite(dist) || dist > radius) continue;
+    hits.push({
+      ...item,
+      distanceMeters: dist
+    });
+  }
+  hits.sort((a, b) => a.distanceMeters - b.distanceMeters || String(a.sourceId).localeCompare(String(b.sourceId)));
+  return hits;
+}
+
+export function queryNearest(index, { latitude, longitude } = {}) {
+  const lat = Number(latitude);
+  const lng = Number(longitude);
+  if (!index || !Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  let best = null;
+  for (const item of index.items || []) {
+    const dist = distanceToFeatureMeters(lat, lng, item.feature);
+    if (!Number.isFinite(dist)) continue;
+    if (
+      !best
+      || dist < best.distanceMeters
+      || (dist === best.distanceMeters && String(item.sourceId).localeCompare(String(best.sourceId)) < 0)
+    ) {
+      best = {
+        ...item,
+        distanceMeters: dist
+      };
+    }
+  }
+  return best;
 }
