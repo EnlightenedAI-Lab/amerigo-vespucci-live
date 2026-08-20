@@ -7,6 +7,7 @@
 
 import { getActiveSpatialFocus } from '../map/spatial-focus.js';
 import { getMapView } from '../map/map-foundation.js';
+import { resizeGoogleStreetView } from '../map/google-street-view.js';
 import { getWorldviewNavigation, seedWorldviewNavigationFromFocus } from '../map/worldview-navigation.js';
 import { beginProgrammaticTraversal } from '../map/worldview-traversal.js';
 
@@ -51,6 +52,9 @@ export function bindWorldViewFrame(root, options = {}) {
   let pairView = WORLDVIEW_PANE.STREET_360;
   let maximized = null;
   let busy = false;
+  let splitTop = 62;
+  let splitLeft = 63;
+  let dragging = null;
 
   function panesForLayout() {
     if (layout === 2) return [WORLDVIEW_PANE.MAP, pairView];
@@ -65,11 +69,56 @@ export function bindWorldViewFrame(root, options = {}) {
     );
   }
 
+  function seedFromMapIfNeeded() {
+    if (getActiveSpatialFocus() || getWorldviewNavigation()) return;
+    const view = getMapView();
+    const longitude = Number(view?.center?.longitude);
+    const latitude = Number(view?.center?.latitude);
+    if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) return;
+    seedWorldviewNavigationFromFocus({ longitude, latitude });
+  }
+
   function resizeMap() {
     beginProgrammaticTraversal(1200);
+    const mapHost = root?.querySelector('[data-iqai-map-host]');
+    if (mapHost) {
+      mapHost.style.visibility = 'visible';
+      mapHost.setAttribute('data-iqai-map-shown', 'true');
+    }
     const view = getMapView();
     view?.resize?.();
     view?.requestRender?.();
+    resizeGoogleStreetView();
+  }
+
+  function clamp(value, min, max) {
+    return Math.min(max, Math.max(min, value));
+  }
+
+  function applySplitVars() {
+    if (!frame) return;
+    frame.style.setProperty('--iqai-split-top', `${splitTop}%`);
+    frame.style.setProperty('--iqai-split-left', `${splitLeft}%`);
+  }
+
+  function paintSplitters() {
+    const host = well?.querySelector('[data-iqai-splitters]');
+    const row = host?.querySelector('[data-iqai-split="row"]');
+    const col = host?.querySelector('[data-iqai-split="col"]');
+    if (!host) return;
+    const show = layout >= 2 && !maximized && !analyzeOpen();
+    host.hidden = !show;
+    if (row) {
+      row.hidden = layout < 3;
+      row.style.top = `${splitTop}%`;
+    }
+    if (col) {
+      col.hidden = false;
+      col.style.left = `${splitLeft}%`;
+      col.style.top = layout >= 3 ? `${splitTop}%` : '0';
+      col.style.height = layout >= 3 ? `${100 - splitTop}%` : '100%';
+    }
+    applySplitVars();
   }
 
   function paneEls() {
@@ -152,6 +201,7 @@ export function bindWorldViewFrame(root, options = {}) {
       }
     }
     paintTruth();
+    paintSplitters();
     requestAnimationFrame(resizeMap);
   }
 
@@ -213,14 +263,17 @@ export function bindWorldViewFrame(root, options = {}) {
         await closeVisual();
         await closeAnalyze();
         options.onPrimaryMap?.();
-      } else if (!hasGeographicContext()) {
-        options.armDropPin?.();
       } else {
-        const panes = panesForLayout();
-        if (panes.includes(WORLDVIEW_PANE.STREET_360)) await ensureStreet();
-        else await closeStreet();
-        if (panes.includes(WORLDVIEW_PANE.VISUAL_3D)) await ensureVisual();
-        else await closeVisual();
+        seedFromMapIfNeeded();
+        if (!hasGeographicContext()) {
+          options.armDropPin?.();
+        } else {
+          const panes = panesForLayout();
+          if (panes.includes(WORLDVIEW_PANE.STREET_360)) await ensureStreet();
+          else await closeStreet();
+          if (panes.includes(WORLDVIEW_PANE.VISUAL_3D)) await ensureVisual();
+          else await closeVisual();
+        }
       }
     } finally {
       busy = false;
@@ -354,7 +407,43 @@ export function bindWorldViewFrame(root, options = {}) {
       void changePaneView(changeButton.getAttribute('data-iqai-pane-change'));
     }
   };
+
+  const onPointerDown = (event) => {
+    const handle = event.target.closest('[data-iqai-split]');
+    const host = well?.querySelector('[data-iqai-splitters]');
+    if (!handle || !host?.contains(handle) || host.hidden) return;
+    event.preventDefault();
+    dragging = handle.getAttribute('data-iqai-split');
+    handle.setPointerCapture?.(event.pointerId);
+    well?.classList.add('is-splitting');
+  };
+
+  const onPointerMove = (event) => {
+    if (!dragging || !frame) return;
+    const rect = frame.getBoundingClientRect();
+    if (rect.width < 8 || rect.height < 8) return;
+    if (dragging === 'row') {
+      splitTop = clamp(((event.clientY - rect.top) / rect.height) * 100, 28, 78);
+    } else {
+      splitLeft = clamp(((event.clientX - rect.left) / rect.width) * 100, 22, 78);
+    }
+    paintSplitters();
+    requestAnimationFrame(resizeMap);
+  };
+
+  const onPointerUp = () => {
+    if (!dragging) return;
+    dragging = null;
+    well?.classList.remove('is-splitting');
+    requestAnimationFrame(resizeMap);
+    window.setTimeout(resizeMap, 60);
+  };
+
   root?.addEventListener('click', onClick);
+  well?.addEventListener('pointerdown', onPointerDown);
+  well?.addEventListener('pointermove', onPointerMove);
+  well?.addEventListener('pointerup', onPointerUp);
+  well?.addEventListener('pointercancel', onPointerUp);
   paint();
 
   return Object.freeze({

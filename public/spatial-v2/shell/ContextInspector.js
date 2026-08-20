@@ -28,7 +28,13 @@ function inspectorRegion(region, active) {
 export function renderContextInspector() {
   const { id, slot } = SHELL_SLOTS.contextInspector;
   return `
-    <aside id="${id}" class="iqai-v2-inspector" data-iqai-slot="${slot}" aria-label="Contextual intelligence">
+    <aside id="${id}" class="iqai-v2-inspector" data-iqai-slot="${slot}" aria-label="Object / Evidence / Source / Result">
+      <div class="iqai-v2-inspector__commands" data-iqai-observe-commands>
+        <button type="button" class="iqai-v2-inspector__collapse" data-iqai-inspector-collapse aria-label="Collapse inspector">›</button>
+        <button type="button" class="iqai-v2-focus-tool" data-iqai-woa aria-pressed="false" title="World Object Acquisition">WOA</button>
+        <button type="button" class="iqai-v2-trace-tool" data-iqai-add-set title="Add acquired object to collected set">ADD TO SET</button>
+        <button type="button" class="iqai-v2-trace-tool" data-iqai-export-csv title="Export collected set CSV">EXPORT CSV</button>
+      </div>
       <div class="iqai-v2-sheet__tabs" role="tablist" aria-label="Intelligence panes">
         ${SHEET_PANES.map((pane, index) => `
           <button

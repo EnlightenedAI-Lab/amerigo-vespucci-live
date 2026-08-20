@@ -5,6 +5,7 @@ import {
   USER_AGENT,
   MONTREAL_BBOX,
   MONTREAL_AREA_BBOX,
+  MONTREAL_VIEW,
   inBbox,
   layerMeta
 } from './catalog.mjs';
@@ -53,6 +54,8 @@ import {
   fetchCivic311,
   fetchIntersectionCounts
 } from './environment.mjs';
+import { computeSunState, sunGeojson, SUN_METHOD, parseSolarInstant, nearestOnLine, toSolarState } from './sun.mjs';
+import { illuminationPopulationSummary, identifyDa } from './census-da.mjs';
 
 const cache = new Map();
 
@@ -1321,6 +1324,91 @@ async function fetchWildfireFwi() {
   });
 }
 
+function parseBbox(options = {}) {
+  const minLat = Number(options.minLat);
+  const maxLat = Number(options.maxLat);
+  const minLon = Number(options.minLon);
+  const maxLon = Number(options.maxLon);
+  if ([minLat, maxLat, minLon, maxLon].every(Number.isFinite)) {
+    return { minLat, maxLat, minLon, maxLon };
+  }
+  return null;
+}
+
+export async function sunStatePayload(options = {}) {
+  const lat = Number(options.lat);
+  const lon = Number(options.lon);
+  const at = Number.isFinite(lat) && Number.isFinite(lon)
+    ? { lat, lon }
+    : { lat: MONTREAL_VIEW.lat, lon: MONTREAL_VIEW.lon };
+  const date = parseSolarInstant(options.at);
+  const live = options.at == null || options.at === '' || options.at === 'now';
+  const sunState = computeSunState(at.lat, at.lon, date);
+  const solarState = toSolarState(sunState);
+  let da = null;
+  if (options.includeDa) {
+    try {
+      da = await identifyDa(at.lat, at.lon);
+      if (da?.status === 'CURRENT' && da.lat != null) {
+        da.illuminationState = computeSunState(da.lat, da.lon, date).illuminationState;
+      } else if (da?.status === 'CURRENT') {
+        da.illuminationState = sunState.illuminationState;
+      }
+    } catch (error) {
+      da = { status: 'FAILED', message: error?.message || 'DA identify failed' };
+    }
+  }
+  return { live, date, at, sunState, solarState, da };
+}
+
+async function fetchSunDaylight(options = {}) {
+  const meta = layerMeta('sun-daylight');
+  const pack = await sunStatePayload(options);
+  const { live, date, at, sunState, solarState } = pack;
+  const geojson = sunGeojson(date);
+  const nearest = nearestOnLine(geojson.terminator, at.lat, at.lon);
+  const population = await illuminationPopulationSummary({
+    area: options.area || 'montreal',
+    bbox: parseBbox(options),
+    date
+  });
+  const illuminationPopulationSummaryContract = population?.available
+    ? {
+        analysisArea: population.analysisArea,
+        censusYear: population.censusYear,
+        method: population.method,
+        daylightPopulation: population.daylightPopulation,
+        civilPopulation: population.civilPopulation,
+        nauticalPopulation: population.nauticalPopulation,
+        astronomicalPopulation: population.astronomicalPopulation,
+        nightPopulation: population.nightPopulation,
+        totalPopulation: population.totalPopulation
+      }
+    : null;
+  return okPayload(meta, live ? 'COMPUTED' : 'SIMULATED', {
+    geojson,
+    featureCount: geojson.features.length,
+    sunState: {
+      ...sunState,
+      live,
+      timeMode: live ? 'LIVE / NOW' : 'SIMULATED',
+      terminatorNearest: nearest
+    },
+    solarState,
+    illuminationPopulationSummary: illuminationPopulationSummaryContract,
+    terminator: geojson.terminator,
+    population,
+    refreshMs: live ? 60000 : null,
+    refreshCadence: live
+      ? 'Recalculated about every 60 seconds while LIVE; also after map-centre moves'
+      : 'Simulated instant — no live clock refresh',
+    latestSourceTimestamp: sunState.calculatedAt,
+    reusedAdapter: SUN_METHOD,
+    limitation: sunState.limitation,
+    message: `${sunState.illuminationState || sunState.phase} · az ${sunState.azimuthDeg}° · el ${sunState.elevationDeg}° · ${live ? 'LIVE' : 'SIMULATED'}`
+  });
+}
+
 const FETCHERS = {
   fire: fetchFire,
   pdq: fetchPdq,
@@ -1349,7 +1437,8 @@ const FETCHERS = {
   'wildfire-active': fetchWildfireActive,
   'wildfire-hotspots': fetchWildfireHotspots,
   'wildfire-perimeters': fetchWildfirePerimeters,
-  'wildfire-fwi': fetchWildfireFwi
+  'wildfire-fwi': fetchWildfireFwi,
+  'sun-daylight': fetchSunDaylight
 };
 
 export async function fetchLayer(id, options = {}) {
@@ -1396,7 +1485,7 @@ export async function buildCatalog() {
   }
 
   return {
-    title: 'IQAI Montréal operational layers sandbox V1.5',
+    title: 'IQAI Montréal operational layers sandbox V1.7',
     retrievedAt,
     defaultOn: false,
     port: Number(process.env.SANDBOX_PORT || 8793),
@@ -1440,6 +1529,10 @@ export async function buildCatalog() {
         runtimeStatus = 'UNAVAILABLE';
         runtimeNote = 'No proven Québec live speed feed.';
       }
+      if (layer.id === 'sun-daylight') {
+        runtimeStatus = 'COMPUTED';
+        runtimeNote = 'NOAA solar equations at map centre. Not measured weather. Default off.';
+      }
       return {
         id: layer.id,
         title: layer.title,
@@ -1474,3 +1567,4 @@ export async function buildCatalog() {
 }
 
 export { cache };
+export { computeSunState } from './sun.mjs';

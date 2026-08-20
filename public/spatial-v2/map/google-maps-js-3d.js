@@ -265,16 +265,63 @@ function cameraFocusOffsetMeters() {
   );
 }
 
-function updateFocusMarker(point) {
-  if (!marker || !point) return;
+function markerPosition(point) {
+  return {
+    lat: Number(point.latitude),
+    lng: Number(point.longitude),
+    altitude: 36
+  };
+}
+
+function createFocusMarker(point) {
+  if (!map3d || !maps3dLib?.Marker3DElement || !point) return null;
   try {
-    marker.position = {
-      lat: Number(point.latitude),
-      lng: Number(point.longitude),
-      altitude: 40
-    };
+    marker?.remove?.();
   } catch {
-    // Marker may not accept assignment until the custom element is connected.
+    // previous marker may already be gone
+  }
+  marker = new maps3dLib.Marker3DElement({
+    position: markerPosition(point),
+    altitudeMode: maps3dLib.AltitudeMode?.RELATIVE_TO_MESH || 'RELATIVE_TO_MESH',
+    extruded: true,
+    label: String(point.label || 'FOCUS')
+  });
+  try { marker.drawsWhenOccluded = true; } catch { /* optional on this Maps JS build */ }
+  try { marker.sizePreserved = true; } catch { /* optional on this Maps JS build */ }
+  if (typeof map3d.append === 'function') map3d.append(marker);
+  void decorateFocusPin();
+  return marker;
+}
+
+async function decorateFocusPin() {
+  if (!marker || !window.google?.maps?.importLibrary) return;
+  try {
+    const markerLib = await window.google.maps.importLibrary('marker');
+    const PinElement = markerLib?.PinElement;
+    if (!PinElement || !marker) return;
+    const pin = new PinElement({
+      background: '#8cf5ff',
+      borderColor: '#f4f0ea',
+      glyphColor: '#12110f',
+      scale: 1.45
+    });
+    marker.replaceChildren(pin);
+  } catch {
+    // Default Marker3D pin still marks the building.
+  }
+}
+
+function updateFocusMarker(point) {
+  if (!map3d || !point) return;
+  if (!marker) {
+    createFocusMarker(point);
+    return;
+  }
+  try {
+    marker.position = markerPosition(point);
+    if (point.label) marker.label = String(point.label);
+  } catch {
+    createFocusMarker(point);
   }
 }
 
@@ -500,7 +547,8 @@ export async function openGoogleMapsJs3d(options = {}) {
     longitude: Number.isFinite(markerLongitude) ? markerLongitude : longitude,
     latitude: Number.isFinite(markerLatitude) ? markerLatitude : latitude,
     spatialReferenceWkid: 4326,
-    source: options.source || 'drop-pin'
+    source: options.source || 'drop-pin',
+    label: String(options.label || '').trim() || 'FOCUS'
   };
   const openRange = Number(options.range);
   const openHeading = Number(options.heading);
@@ -553,21 +601,7 @@ export async function openGoogleMapsJs3d(options = {}) {
   });
   map3d.defaultUIHidden = false;
   map3d.style.cssText = 'display:block;width:100%;height:100%;';
-  if (Marker3DElement) {
-    marker = new Marker3DElement({
-      position: {
-        lat: selectedPoint.latitude,
-        lng: selectedPoint.longitude,
-        altitude: 40
-      },
-      altitudeMode: maps3d.AltitudeMode?.RELATIVE_TO_MESH || 'RELATIVE_TO_MESH',
-      extruded: true,
-      label: 'SELECTED POINT'
-    });
-    if (marker && typeof map3d.append === 'function') {
-      map3d.append(marker);
-    }
-  }
+  if (Marker3DElement) createFocusMarker(selectedPoint);
   container.append(map3d);
   stageCreateCount += 1;
   const initToken = ++cameraInitGeneration;
@@ -725,7 +759,8 @@ export function updateGoogleMapsJs3dFocusMarker(point) {
       longitude: Number(point.longitude),
       latitude: Number(point.latitude),
       spatialReferenceWkid: 4326,
-      source: point.source || selectedPoint?.source || 'drop-pin'
+      source: point.source || selectedPoint?.source || 'drop-pin',
+      label: point.label || selectedPoint?.label || 'FOCUS'
     };
   }
   updateFocusMarker(selectedPoint);

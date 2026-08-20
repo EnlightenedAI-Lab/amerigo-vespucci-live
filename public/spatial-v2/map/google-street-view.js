@@ -204,6 +204,14 @@ function emitStreetNavigation() {
   }
 }
 
+export function resizeGoogleStreetView() {
+  try {
+    window.google?.maps?.event?.trigger?.(panorama, 'resize');
+  } catch {
+    // Street 360 may not be open.
+  }
+}
+
 export function getGoogleStreetViewSnapshot() {
   readPanoramaState({ emit: false });
   return {

@@ -70,11 +70,12 @@ test('Layers / Discover owns visibility; hidden sources are not selectable', () 
   const session = createLayerSession(sources);
   assert.equal(session.visibilityOwner, VISIBILITY_OWNER);
   assert.equal(session.acquisitionOwner, ACQUISITION_OWNER);
-  assert.equal(session.isVisible('building'), true);
-  assert.equal(session.isSelectable('building'), true);
+  assert.equal(session.isVisible('building'), false);
+  assert.equal(session.isSelectable('building'), false);
   assert.equal(session.isVisible('hydrant'), false);
   assert.equal(session.isSelectable('hydrant'), false);
   assert.equal(session.isVisible('traffic_signal'), false);
+  session.setVisible('building', true);
   session.setVisible('hydrant', true);
   assert.equal(session.isSelectable('hydrant'), true);
   session.setVisible('building', false);
@@ -142,6 +143,8 @@ test('Overlap prefers building over UEV container; chooser is dwell-only', () =>
   const sidewalks = wrapCollection('data/woa/sidewalks.geojson', 'sidewalk');
   const sources = buildRegistry().list();
   const session = createLayerSession(sources);
+  session.setVisible('building', true);
+  session.setVisible('sidewalk', true);
   const indexes = { building: buildings, sidewalk: sidewalks };
   const hits = resolveCandidates(indexes, FIX.overlap.lat, FIX.overlap.lng, session.allow(specificSources(sources)));
   const choice = choosePreview(hits);
@@ -288,4 +291,18 @@ test('NRCan ObjectRef factory still accepts unwrapped Focus V4.6 features', () =
   const ref = objectRefFromNrcanFeature(hit.item.feature, { label: 'Place Ville Marie' });
   assert.equal(ref.kind, 'building');
   assert.match(objectRefKey(ref), /nrcan::building::/);
+});
+
+test('WOA stays lazy until explicit activate; ops drawer does not host WOA rows', () => {
+  const instrument = read('map/focus/instrument.js');
+  const session = read('bootstrap/worldview-map-session.js');
+  const drawer = read('shell/LayersDrawer.js');
+  assert.doesNotMatch(instrument, /void start\(\)/);
+  assert.match(instrument, /async function activate/);
+  assert.match(instrument, /function deactivate/);
+  assert.match(session, /data-iqai-woa/);
+  assert.match(session, /focusInstrument\.activate/);
+  assert.doesNotMatch(session, /if \(view\) focusInstrument\?\.attachView/);
+  assert.match(session, /acquisitionLayers: \[\]/);
+  assert.match(drawer, /woa-acquisition/);
 });

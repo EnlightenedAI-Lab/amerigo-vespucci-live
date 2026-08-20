@@ -7,6 +7,7 @@ import { VIEW_ID } from '../foundation/contracts/index.js';
 import {
   getMapFoundationController,
   getMapViewCreateCount,
+  getMapView,
   initMapFoundation,
   listOperationalLayers,
   setOperationalLayerOpacity,
@@ -41,9 +42,18 @@ import { bindGooglePhotorealistic3dControl } from '../shell/GooglePhotorealistic
 import { bindAnalyze3dControl } from '../shell/Analyze3dControl.js';
 import { bindViewSwitcher } from '../shell/ViewSwitcher.js';
 import { bindWorldViewFrame } from '../shell/WorldViewFrame.js';
+import { bindImageryCommandSurface } from '../shell/ImageryCommandSurface.js';
+import { bindBasemapPicker } from '../shell/BasemapPicker.js';
 import { projectLayerDrawerGroups } from '../shell/LayersDrawer.js';
 import { bindFocusInstrument } from '../map/focus/instrument.js';
+import { initGroundController } from '../imagery/ground-controller.js';
 import * as opsLayers from '../ops-layers/controller.js';
+import { bindOpsSelection } from '../ops-layers/selection.js';
+import { bindSolarIntelligence } from '../ops-layers/solar-ui.js';
+
+async function paintIqaiGroundSurfaces() {
+  await initGroundController();
+}
 
 function hideMapView(host) {
   if (!host) return;
@@ -63,23 +73,12 @@ function showMapView(host) {
 function refreshLayerGroups(chassis, focusInstrument) {
   const liveLayers = listOperationalLayers();
   const world = chassis.stateStore.getSnapshot();
+  chassis.setDiscover?.(opsLayers.snapshot());
   chassis.setLayerGroups(projectLayerDrawerGroups({
     definitions: chassis.layerRegistry.list(),
     liveLayers,
     instances: world.layers?.byId || {},
-    acquisitionLayers: focusInstrument?.drawerRows?.() || []
-  }));
-  chassis.setDiscover?.(opsLayers.snapshot());
-}
-
-function woaLayerPayload(focusInstrument, liveCount = 0) {
-  return (focusInstrument?.drawerRows?.() || []).map((row, order) => ({
-    instanceId: row.instanceId,
-    layerId: 'woa-acquisition',
-    visible: row.visible !== false,
-    opacity: 1,
-    order: liveCount + order,
-    status: 'SESSION'
+    acquisitionLayers: []
   }));
 }
 
@@ -91,6 +90,13 @@ export function attachWorldviewMapSession(root, chassis, api) {
   let mapInstance = null;
   let mapNavAttached = false;
   let positionOverlay = null;
+
+  function ensureWorldviewMapAdapter() {
+    const view = getMapFoundationController().getView?.();
+    if (!view || mapNavAttached) return;
+    attachWorldviewMapAdapter(view);
+    mapNavAttached = true;
+  }
 
   chassis.viewRegistry.bindAdapter(VIEW_ID.MAP, {
     mount() {
@@ -128,12 +134,15 @@ export function attachWorldviewMapSession(root, chassis, api) {
   let worldViewFrame = null;
   let focusInstrument = null;
   let placeCamera = null;
+  let opsSelection = null;
+  let solarIntelligence = null;
   const dropPin = bindDropPinControl(root, {
     getActiveView: () => viewSwitcher?.snapshot?.().activeView || 'map',
     returnToMap: () => worldViewFrame?.setLayout(1) || viewSwitcher?.setView('MAP'),
     hasAcquiredObject: () => focusInstrument?.hasAcquired?.() === true,
     isPlaceCameraArmed: () => placeCamera?.snapshot()?.armed === true,
     disarmPlaceCamera: () => placeCamera?.disarm?.(),
+    resolveProperty: (longitude, latitude) => focusInstrument?.propertyAt?.(latitude, longitude),
     onPlaced: (focus) => {
       if (!focus) return;
       seedWorldviewNavigationFromFocus(focus);
@@ -142,6 +151,9 @@ export function attachWorldviewMapSession(root, chassis, api) {
       analyze3d.selectPoint(focus.longitude, focus.latitude, 'drop-pin');
       viewSwitcher?.onMapPointSelected(focus);
       void worldViewFrame?.followFocus?.();
+      if (root.dataset.iqaiImageSurface !== 'HISTORY') {
+        void worldViewFrame?.openSupporting?.('3D VISUAL');
+      }
       void chassis.executeChassis('focus.set', {
         longitude: focus.longitude,
         latitude: focus.latitude,
@@ -160,23 +172,28 @@ export function attachWorldviewMapSession(root, chassis, api) {
   focusInstrument = bindFocusInstrument(root, {
     chassis,
     isDropPinArmed: () => dropPin.snapshot().armed === true,
-    isPlaceCameraArmed: () => placeCamera?.snapshot()?.armed === true,
-    onReady() {
-      const liveLayers = listOperationalLayers();
-      void chassis.executeChassis('layers.sync-authored', {
-        layers: [
-          ...liveLayers.map((layer, order) => ({
-            instanceId: layer.id,
-            layerId: layer.session ? 'session-agol' : 'authored-operational-map',
-            visible: layer.visible !== false,
-            opacity: layer.opacity,
-            order,
-            status: layer.session ? 'SESSION' : 'AUTHORED'
-          })),
-          ...woaLayerPayload(focusInstrument, liveLayers.length)
-        ]
-      }).then(() => refreshLayerGroups(chassis, focusInstrument));
+    isPlaceCameraArmed: () => placeCamera?.snapshot()?.armed === true
+  });
+  solarIntelligence = bindSolarIntelligence(root);
+  opsSelection = bindOpsSelection(root, {
+    chassis,
+    isInteractionReserved: () => (
+      dropPin.snapshot().armed === true
+      || placeCamera?.snapshot()?.armed === true
+      || focusInstrument?.isActive?.() === true
+      || solarIntelligence?.isPlacePending?.() === true
+    )
+  });
+  root.querySelector('[data-iqai-woa]')?.addEventListener('click', (event) => {
+    event.preventDefault();
+    if (focusInstrument?.isActive?.()) {
+      focusInstrument.deactivate();
+      return;
     }
+    const view = getMapFoundationController().getView?.();
+    void focusInstrument.activate({ families: ['building'] }).then(() => {
+      if (view) focusInstrument.attachView?.(view);
+    });
   });
 
   const viewSwitcher = bindViewSwitcher(root, {
@@ -185,7 +202,11 @@ export function attachWorldviewMapSession(root, chassis, api) {
     analyze3d,
     exclusive: false,
     armDropPin: () => dropPin.arm(),
-    onRequestView: (viewId) => worldViewFrame?.openSupporting(viewId),
+    onRequestView: (viewId) => {
+      if (root.dataset.iqaiImageSurface === 'HISTORY') return;
+      ensureWorldviewMapAdapter();
+      return worldViewFrame?.openSupporting(viewId);
+    },
     onView: () => {
       void chassis.executeChassis('view.select', { viewId: VIEW_ID.MAP });
     }
@@ -206,7 +227,40 @@ export function attachWorldviewMapSession(root, chassis, api) {
     street360,
     worldViewFrame
   });
+  const imageryCommand = bindImageryCommandSurface(root, {
+    getMapViewCreateCount,
+    closeSpecialists: async () => {
+      await street360.close?.({ restoreMap: false }).catch(() => {});
+      await google3d.close?.({ restoreMap: false }).catch(() => {});
+      await analyze3d.close?.({ restoreMap: false }).catch(() => {});
+      await worldViewFrame?.setLayout?.(1);
+    }
+  });
+  bindBasemapPicker(root, {
+    setMapSurface: () => imageryCommand?.setMode?.('MAP')
+  });
   positionOverlay = bindWorldviewPositionOverlay(root);
+
+  const chassisSearch = typeof chassis.searchPlace === 'function'
+    ? chassis.searchPlace.bind(chassis)
+    : null;
+  api.searchPlace = async (query) => {
+    const mode = imageryCommand?.snapshot?.()?.mode;
+    if (mode === 'HISTORY') {
+      await imageryCommand.setMode('MAP').catch(() => {});
+    }
+    const result = chassisSearch ? await chassisSearch(query) : { ok: false };
+    if (!result?.ok) return result;
+    const view = getMapView();
+    if (view && Number(view.zoom) < 17) view.zoom = 18;
+    await dropPin.placeFromSearch({
+      longitude: result.longitude,
+      latitude: result.latitude,
+      address: result.address
+    });
+    return result;
+  };
+  api.dropPin = dropPin;
 
   subscribeMapFoundation((snapshot) => {
     applyMapFoundationToStage(root, snapshot);
@@ -220,12 +274,6 @@ export function attachWorldviewMapSession(root, chassis, api) {
       street360.setMapReady(true);
       google3d.setMapReady(true);
       analyze3d.setMapReady(true);
-      const view = getMapFoundationController().getView?.();
-      if (view && !mapNavAttached) {
-        attachWorldviewMapAdapter(view);
-        mapNavAttached = true;
-      }
-      if (view) focusInstrument?.attachView?.(view);
       if (!positionOverlay) {
         positionOverlay = bindWorldviewPositionOverlay(root);
       }
@@ -239,27 +287,14 @@ export function attachWorldviewMapSession(root, chassis, api) {
       } else {
         chassis.viewHost.show(VIEW_ID.MAP);
       }
-      const liveLayers = listOperationalLayers();
       void chassis.executeChassis('layers.sync-authored', {
-        layers: [
-          ...liveLayers.map((layer, order) => ({
-            instanceId: layer.id,
-            layerId: layer.session ? 'session-agol' : 'authored-operational-map',
-            visible: layer.visible !== false,
-            opacity: layer.opacity,
-            order,
-            status: layer.session ? 'SESSION' : 'AUTHORED'
-          })),
-          ...woaLayerPayload(focusInstrument, liveLayers.length)
-        ]
+        layers: []
       }).then(() => refreshLayerGroups(chassis, focusInstrument));
-      void opsLayers.loadCatalog().catch(() => {
-        refreshLayerGroups(chassis, focusInstrument);
-      });
     }
   });
 
   chassis.setOpsHost?.({
+    loadCatalog: () => opsLayers.loadCatalog(),
     applyScene: (sceneId) => opsLayers.applyScene(sceneId),
     allOff: () => opsLayers.allOff(),
     restore: () => opsLayers.restoreLayers(),
@@ -268,7 +303,9 @@ export function attachWorldviewMapSession(root, chassis, api) {
       const target = snap.infoLayerId || snap.visible[0];
       return target ? opsLayers.soloLayer(target) : null;
     },
+    soloLayer: (layerId) => opsLayers.soloLayer(layerId),
     configure: () => opsLayers.setConfigureOpen(!opsLayers.snapshot().configureOpen),
+    configureClose: () => opsLayers.setConfigureOpen(false),
     configureSave: async ({ sceneId, layers }) => {
       opsLayers.saveConfiguredMembership(sceneId, layers);
       opsLayers.setConfigureOpen(false, sceneId);
@@ -279,12 +316,28 @@ export function attachWorldviewMapSession(root, chassis, api) {
       await opsLayers.applyScene(sceneId);
     },
     configureScene: (sceneId) => opsLayers.setConfigureOpen(true, sceneId),
+    configureSaveCurrent: async () => {
+      const result = opsLayers.saveCurrentScene();
+      if (!result?.ok) return result;
+      opsLayers.setConfigureOpen(false, result.id);
+      await opsLayers.applyScene(result.id);
+      return result;
+    },
+    setWindow: ({ layerId, window }) => opsLayers.setLayerWindow(layerId, window),
+    setCategory: ({ layerId, category }) => opsLayers.setLayerCategory(layerId, category),
+    setRoute: ({ layerId, route }) => opsLayers.setLayerRoute(layerId, route),
+    setCamerasInView: (on) => opsLayers.setCamerasInView(on),
     layerInfo: (layerId) => {
+      if (!layerId) {
+        opsLayers.setInfoLayer(null);
+        return;
+      }
       const current = opsLayers.snapshot().infoLayerId;
       opsLayers.setInfoLayer(current === layerId ? null : layerId);
     },
     setVisible: (id, on) => opsLayers.setLayerVisible(id, on)
   });
+  void opsLayers.loadCatalog();
   opsLayers.subscribeOpsLayers(() => refreshLayerGroups(chassis, focusInstrument));
 
   chassis.stateStore.subscribe(() => {
@@ -339,6 +392,7 @@ export function attachWorldviewMapSession(root, chassis, api) {
   api.dropPin = dropPin;
   api.placeCamera = placeCamera;
   api.viewCamera = viewCamera;
+  api.imageryCommand = imageryCommand;
   api.focusInstrument = focusInstrument;
   api.viewSwitcher = viewSwitcher;
   api.worldViewFrame = worldViewFrame;
@@ -388,20 +442,35 @@ export function attachWorldviewMapSession(root, chassis, api) {
     allOff: () => opsLayers.allOff(),
     restore: () => opsLayers.restoreLayers(),
     solo: (id) => opsLayers.soloLayer(id),
+    setSolarInstant: (value) => opsLayers.setSolarInstant(value),
+    setSolarArea: (area) => opsLayers.setSolarArea(area),
+    setSolarEmphasis: (value) => opsLayers.setSolarEmphasis(value),
+    refreshSolar: () => opsLayers.refreshSolar(),
     saveConfigure: (sceneId, layers) => opsLayers.saveConfiguredMembership(sceneId, layers),
     resetConfigure: (sceneId) => opsLayers.resetConfiguredMembership(sceneId)
+  };
+  api.opsSelection = {
+    snapshot: () => opsSelection?.snapshot?.() || null,
+    clear: () => opsSelection?.clear?.()
+  };
+  api.solarIntelligence = {
+    snapshot: () => solarIntelligence?.snapshot?.() || null,
+    runAction: (name) => solarIntelligence?.runAction?.(name)
   };
 
   return Object.freeze({
     dropPin,
     placeCamera,
     viewCamera,
+    imageryCommand,
     focusInstrument,
     viewSwitcher,
     worldViewFrame,
     street360,
     google3d,
     analyze3d,
+    opsSelection,
+    solarIntelligence,
     getMapViewCreateCount
   });
 }

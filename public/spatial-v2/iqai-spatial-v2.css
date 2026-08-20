@@ -2416,8 +2416,10 @@ body.iqai-v2-body {
   cursor: default;
 }
 
-.iqai-v2-map-host:not(.is-drop-pin):not(.is-place-camera) .esri-view-surface {
-  cursor: none;
+.iqai-v2-map-host:not(.is-drop-pin):not(.is-place-camera),
+.iqai-v2-map-host:not(.is-drop-pin):not(.is-place-camera) .esri-view-surface,
+.iqai-v2-map-host:not(.is-drop-pin):not(.is-place-camera) .esri-view-surface canvas {
+  cursor: default;
 }
 
 .iqai-v2-stage__well.is-place-camera .iqai-v2-map-host,
@@ -3118,7 +3120,8 @@ body.iqai-v2-body {
 
 .iqai-v2-pane__body .iqai-v2-map-host,
 .iqai-v2-pane__body .iqai-v2-google-3d-stage,
-.iqai-v2-pane__body .iqai-v2-street-360-stage {
+.iqai-v2-pane__body .iqai-v2-street-360-stage,
+.iqai-v2-pane__body .iqai-v2-history-stage {
   position: absolute;
   inset: 0;
   z-index: 0;
@@ -3150,13 +3153,14 @@ body.iqai-v2-body {
 }
 
 #iqai-spatial-v2[data-iqai-worldview-layout="2"] .iqai-v2-worldview-frame {
-  grid-template: 1fr / minmax(0, 1.7fr) minmax(0, 1fr);
+  grid-template: 1fr / minmax(8rem, var(--iqai-split-left, 63%)) minmax(8rem, calc(100% - var(--iqai-split-left, 63%)));
 }
 
 #iqai-spatial-v2[data-iqai-worldview-layout="3"] .iqai-v2-worldview-frame {
   grid-template:
-    "primary primary" minmax(0, 1.7fr)
-    "supportA supportB" minmax(0, 1fr) / minmax(0, 1fr) minmax(0, 1fr);
+    "primary primary" minmax(8rem, var(--iqai-split-top, 62%))
+    "supportA supportB" minmax(7rem, calc(100% - var(--iqai-split-top, 62%)))
+    / minmax(8rem, var(--iqai-split-left, 50%)) minmax(8rem, calc(100% - var(--iqai-split-left, 50%)));
 }
 
 #iqai-spatial-v2[data-iqai-worldview-layout="3"] [data-iqai-pane="MAP"] { grid-area: primary; }
@@ -3164,7 +3168,9 @@ body.iqai-v2-body {
 #iqai-spatial-v2[data-iqai-worldview-layout="3"] [data-iqai-pane="STREET 360"] { grid-area: supportB; }
 
 #iqai-spatial-v2[data-iqai-worldview-layout="4"] .iqai-v2-worldview-frame {
-  grid-template: minmax(0, 1fr) minmax(0, 1fr) / minmax(0, 1fr) minmax(0, 1fr);
+  grid-template:
+    minmax(8rem, var(--iqai-split-top, 50%)) minmax(7rem, calc(100% - var(--iqai-split-top, 50%)))
+    / minmax(8rem, var(--iqai-split-left, 50%)) minmax(8rem, calc(100% - var(--iqai-split-left, 50%)));
 }
 
 #iqai-spatial-v2[data-iqai-spatial-view="worldview"] .iqai-v2-google-3d-stage,
@@ -3468,6 +3474,111 @@ body.iqai-v2-body {
   display: none;
 }
 
+.iqai-v2-ops-object {
+  display: grid;
+  gap: 0.8rem;
+  color: #14120f;
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.iqai-v2-ops-object p,
+.iqai-v2-ops-object h3,
+.iqai-v2-ops-object h4 {
+  margin: 0;
+}
+
+.iqai-v2-ops-object__header {
+  display: grid;
+  gap: 0.32rem;
+  padding-bottom: 0.7rem;
+  border-bottom: 1px solid #c9c4ba;
+}
+
+.iqai-v2-ops-object__type {
+  color: #5b554d;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+}
+
+.iqai-v2-ops-object__header h3 {
+  color: #0b0d10;
+  font-size: 1.05rem;
+  font-weight: 750;
+  letter-spacing: 0.01em;
+  line-height: 1.18;
+}
+
+.iqai-v2-ops-object__summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  color: #4e4942;
+  font-size: 0.62rem;
+  font-weight: 650;
+}
+
+.iqai-v2-ops-object__status {
+  padding: 0.16rem 0.34rem;
+  background: #14120f;
+  color: #fff;
+  font-size: 0.54rem;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+}
+
+.iqai-v2-ops-object__details {
+  display: grid;
+  gap: 0.32rem;
+}
+
+.iqai-v2-ops-object__details h4,
+.iqai-v2-ops-object__limitations h4 {
+  color: #14120f;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.iqai-v2-ops-object__row {
+  display: grid;
+  grid-template-columns: minmax(5.6rem, 0.8fr) minmax(0, 1.45fr);
+  gap: 0.65rem;
+  padding: 0.28rem 0;
+  border-bottom: 1px solid #e1ddd5;
+}
+
+.iqai-v2-ops-object__row span {
+  color: #6a645b;
+  font-size: 0.56rem;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+}
+
+.iqai-v2-ops-object__row strong {
+  min-width: 0;
+  color: #14120f;
+  font-size: 0.68rem;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.iqai-v2-ops-object__limitations {
+  display: grid;
+  gap: 0.38rem;
+  padding: 0.58rem 0.65rem;
+  border-left: 3px solid #b84c32;
+  background: #fff3df;
+}
+
+.iqai-v2-ops-object__limitations p {
+  color: #4d382f;
+  font-size: 0.62rem;
+}
+
 .iqai-v2-woa-asset {
   overflow: visible;
 }
@@ -3627,6 +3738,1916 @@ body.iqai-v2-body {
   font-size: 0.58rem;
   white-space: pre-wrap;
 }
+
+/* Imagery command surface V1 — MAP / AERIAL / HISTORY */
+
+.iqai-v2-history-stage {
+  z-index: 3;
+  background: var(--iqai-v2-well);
+}
+
+.iqai-v2-history-stage[hidden] {
+  display: none !important;
+}
+
+.iqai-v2-history-stage canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.iqai-v2-history-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 4;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+  padding: 0.4rem 0.6rem;
+  background: #000;
+  color: #fff;
+  pointer-events: auto;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+}
+
+.iqai-v2-history-bar[hidden] {
+  display: none !important;
+}
+
+.iqai-v2-history-bar a,
+.iqai-v2-history-bar button {
+  color: #fff;
+  background: transparent;
+  border: 1px solid #fff;
+  padding: 0.15rem 0.45rem;
+  font: inherit;
+  letter-spacing: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.iqai-v2-history-bar button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.iqai-v2-history-bar [data-iqai-history-compare][aria-pressed="true"],
+.iqai-v2-history-bar [data-iqai-library-toggle][aria-pressed="true"] {
+  background: #fff;
+  color: #000;
+}
+
+.iqai-v2-history-swipe {
+  display: flex;
+  align-items: center;
+  min-width: 8rem;
+}
+
+.iqai-v2-history-swipe[hidden] {
+  display: none !important;
+}
+
+.iqai-v2-history-swipe input {
+  width: 8rem;
+}
+
+.iqai-v2-history-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  touch-action: none;
+  cursor: grab;
+}
+
+.iqai-v2-history-caption {
+  position: absolute;
+  z-index: 3;
+  max-width: min(22rem, 46%);
+  padding: 0.4rem 0.55rem;
+  background: rgba(0, 0, 0, 0.78);
+  color: #fff;
+  pointer-events: none;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  line-height: 1.35;
+}
+
+.iqai-v2-history-caption[hidden] {
+  display: none !important;
+}
+
+.iqai-v2-history-caption p {
+  margin: 0;
+}
+
+.iqai-v2-history-caption [data-iqai-history-caption-date] {
+  font-size: 0.86rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+.iqai-v2-history-caption[data-iqai-history-caption="a"] {
+  left: 0.6rem;
+  bottom: 0.6rem;
+}
+
+.iqai-v2-history-caption[data-iqai-history-caption="b"] {
+  right: 0.6rem;
+  bottom: 0.6rem;
+  text-align: right;
+}
+
+.iqai-v2-history-stage:has([data-iqai-history-library]:not([hidden])) [data-iqai-history-caption="b"],
+.iqai-v2-pane__body:has([data-iqai-history-library]:not([hidden])) [data-iqai-history-caption="b"] {
+  right: min(23rem, 48%);
+}
+
+.iqai-v2-history-library {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  width: min(22rem, 46vw);
+  background: #000;
+  color: #fff;
+  pointer-events: auto;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+}
+
+#iqai-spatial-v2[data-iqai-image-surface="HISTORY"] .iqai-v2-history-library {
+  top: 2.2rem;
+}
+
+.iqai-v2-history-library[hidden] {
+  display: none !important;
+}
+
+.iqai-v2-history-library__chrome {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.45rem 0.6rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.iqai-v2-history-library__chrome p,
+.iqai-v2-history-library__place,
+.iqai-v2-history-library__row p {
+  margin: 0;
+}
+
+.iqai-v2-history-library__chrome button,
+.iqai-v2-history-library__row button {
+  color: #fff;
+  background: transparent;
+  border: 1px solid #fff;
+  padding: 0.15rem 0.45rem;
+  font: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+}
+
+.iqai-v2-history-library__row button:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.iqai-v2-history-library__place {
+  padding: 0.35rem 0.6rem;
+  opacity: 0.78;
+}
+
+.iqai-v2-history-library__list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.iqai-v2-history-library__row {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.45rem 0.6rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.iqai-v2-history-library__row.is-ground {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.iqai-v2-history-bar [data-iqai-history-now] {
+  margin: 0;
+  margin-right: 0.4rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+.iqai-v2-history-library__group {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.iqai-v2-history-library__group > header {
+  padding: 0.45rem 0.6rem 0.2rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+.iqai-v2-history-library__group.is-best-date > header {
+  color: #fff;
+}
+
+.iqai-v2-history-library__group.is-held {
+  opacity: 0.72;
+}
+
+.iqai-v2-history-library__mosaic {
+  opacity: 0.65;
+}
+
+.iqai-v2-history-library__row.is-best:not(.is-ground) {
+  box-shadow: inset 2px 0 0 #fff;
+}
+
+.iqai-v2-history-library__row.is-catalogue-only {
+  opacity: 0.55;
+}
+
+.iqai-v2-history-library__research {
+  display: block;
+  padding: 0.55rem 0.6rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.25);
+  color: #fff;
+  text-decoration: none;
+}
+
+.iqai-v2-imagery-command {
+  position: absolute;
+  inset: 0;
+  z-index: 7;
+  pointer-events: none;
+}
+
+.iqai-v2-imagery-command__modes,
+.iqai-v2-imagery-command__aerial,
+.iqai-v2-imagery-command__history,
+.iqai-v2-imagery-command__eo,
+.iqai-v2-eo-legend,
+.iqai-v2-eo-probe,
+.iqai-v2-eo-compare,
+.iqai-v2-eo-brain,
+.iqai-v2-imagery-calendar,
+.iqai-v2-imagery-timeline {
+  pointer-events: auto;
+}
+
+.iqai-v2-imagery-command__aerial[hidden],
+.iqai-v2-imagery-command__history[hidden],
+.iqai-v2-imagery-command__eo[hidden],
+.iqai-v2-eo-legend[hidden],
+.iqai-v2-eo-probe[hidden],
+.iqai-v2-eo-compare[hidden],
+.iqai-v2-eo-brain[hidden],
+.iqai-v2-imagery-command__status[hidden],
+.iqai-v2-imagery-command__export[hidden],
+.iqai-v2-imagery-command__details[hidden],
+.iqai-v2-imagery-command__compare[hidden],
+.iqai-v2-imagery-calendar[hidden],
+.iqai-v2-imagery-timeline[hidden] {
+  display: none !important;
+}
+
+.iqai-v2-imagery-command__modes {
+  position: absolute;
+  top: calc(var(--iqai-v2-header-h) + 0.7rem);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 0.12rem;
+  padding: 0.12rem;
+  background: var(--iqai-v2-chrome);
+  border: 1px solid var(--iqai-v2-chrome-border);
+  backdrop-filter: blur(10px);
+}
+
+.iqai-v2-imagery-command__modes button {
+  min-height: 1.55rem;
+  padding: 0 0.7rem;
+  border: 0;
+  background: transparent;
+  color: #f4f0ea;
+  font: inherit;
+  font-size: 0.62rem;
+  font-weight: 750;
+  letter-spacing: 0.14em;
+  cursor: pointer;
+}
+
+.iqai-v2-imagery-command__modes button.is-active,
+.iqai-v2-imagery-command__modes button[aria-pressed="true"] {
+  background: #f4f0ea;
+  color: #0b0d10;
+}
+
+.iqai-v2-imagery-command__aerial {
+  position: absolute;
+  top: calc(var(--iqai-v2-header-h) + 2.55rem);
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 0.22rem 0.5rem;
+  background: var(--iqai-v2-chrome);
+  border: 1px solid var(--iqai-v2-chrome-border);
+  color: #f4f0ea;
+  font-size: 0.58rem;
+  letter-spacing: 0.1em;
+}
+
+.iqai-v2-imagery-command__history {
+  position: absolute;
+  top: calc(var(--iqai-v2-header-h) + 2.55rem);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.28rem;
+  max-width: min(46rem, calc(100% - 8rem));
+  padding: 0.28rem 0.4rem;
+  background: var(--iqai-v2-chrome);
+  border: 1px solid var(--iqai-v2-chrome-border);
+  color: #f4f0ea;
+}
+
+.iqai-v2-imagery-command__eo {
+  position: absolute;
+  top: calc(var(--iqai-v2-header-h) + 2.55rem);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.28rem;
+  max-width: min(46rem, calc(100% - 8rem));
+  padding: 0.28rem 0.4rem;
+  background: var(--iqai-v2-chrome);
+  border: 1px solid var(--iqai-v2-chrome-border);
+  color: #f4f0ea;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+}
+
+.iqai-v2-imagery-command__eo [data-iqai-eo-status],
+.iqai-v2-imagery-command__eo [data-iqai-eo-aoi-label],
+.iqai-v2-imagery-command__eo [data-iqai-eo-capture],
+.iqai-v2-imagery-command__eo [data-iqai-eo-product-label] {
+  flex: 1 1 100%;
+  margin: 0;
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+}
+
+.iqai-v2-imagery-command__eo [data-iqai-eo-capture],
+.iqai-v2-imagery-command__eo [data-iqai-eo-product-label] {
+  color: #8cf5ff;
+  font-weight: 750;
+}
+
+.iqai-v2-eo-map-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.iqai-v2-eo-raster {
+  position: absolute;
+  display: block;
+  opacity: 0.78;
+  image-rendering: auto;
+}
+
+.iqai-v2-eo-box,
+.iqai-v2-eo-draw-box,
+.iqai-v2-eo-compare-box {
+  position: absolute;
+  box-sizing: border-box;
+  border: 2px solid #8cf5ff;
+  background: rgba(140, 245, 255, 0.1);
+}
+
+.iqai-v2-eo-raster.is-stale {
+  opacity: 0.38;
+}
+
+.iqai-v2-eo-compare-box,
+.iqai-v2-eo-draw-box.is-compare {
+  border-color: #ffb347;
+  background: rgba(255, 179, 71, 0.12);
+}
+
+.iqai-v2-eo-pin {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 4;
+}
+
+.iqai-v2-eo-pin span {
+  position: relative;
+  display: block;
+  width: 18px;
+  height: 18px;
+  box-sizing: border-box;
+  border: 1.5px solid #fff;
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.iqai-v2-eo-pin span::before,
+.iqai-v2-eo-pin span::after {
+  content: "";
+  position: absolute;
+  background: #fff;
+}
+
+.iqai-v2-eo-pin span::before {
+  left: 8px;
+  top: -4px;
+  width: 1.5px;
+  height: 26px;
+}
+
+.iqai-v2-eo-pin span::after {
+  top: 8px;
+  left: -4px;
+  width: 26px;
+  height: 1.5px;
+}
+
+.iqai-v2-eo-caption {
+  position: absolute;
+  z-index: 3;
+  padding: 0.18rem 0.4rem;
+  background: rgba(12, 12, 14, 0.88);
+  border: 1px solid rgba(244, 240, 234, 0.35);
+  color: #f4f0ea;
+  font-size: 0.58rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+.iqai-v2-eo-stale {
+  position: absolute;
+  z-index: 5;
+  left: 50%;
+  top: 0.7rem;
+  transform: translateX(-50%);
+  padding: 0.28rem 0.5rem;
+  background: rgba(12, 12, 14, 0.92);
+  border: 1px solid #ffb347;
+  color: #ffb347;
+  font-size: 0.62rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+}
+
+.iqai-v2-eo-probe[hidden],
+.iqai-v2-eo-compare[hidden],
+.iqai-v2-eo-caption[hidden],
+.iqai-v2-eo-stale[hidden],
+.iqai-v2-eo-pin[hidden],
+.iqai-v2-eo-compare-box[hidden] {
+  display: none !important;
+}
+
+.iqai-v2-eo-probe,
+.iqai-v2-eo-compare {
+  position: absolute;
+  z-index: 8;
+  left: 0.75rem;
+  width: min(22rem, calc(100% - 2rem));
+  padding: 0.7rem 0.85rem;
+  background: rgba(12, 12, 14, 0.94);
+  border: 1px solid var(--iqai-v2-chrome-border);
+  color: #f4f0ea;
+  pointer-events: auto;
+}
+
+.iqai-v2-eo-probe {
+  top: calc(var(--iqai-v2-header-h) + 6.4rem);
+}
+
+.iqai-v2-eo-compare {
+  top: calc(var(--iqai-v2-header-h) + 16.4rem);
+}
+
+.iqai-v2-eo-probe__kicker,
+.iqai-v2-eo-compare__kicker {
+  margin: 0 0 0.3rem;
+  letter-spacing: 0.1em;
+  font-size: 0.62rem;
+  color: rgba(244, 240, 234, 0.62);
+}
+
+.iqai-v2-eo-probe p,
+.iqai-v2-eo-compare p {
+  margin: 0.2rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.iqai-v2-eo-probe [data-iqai-eo-probe-value] {
+  font-size: 0.95rem;
+  font-weight: 750;
+}
+
+.iqai-v2-eo-probe button {
+  margin-top: 0.55rem;
+}
+
+.iqai-v2-eo-raster[hidden],
+.iqai-v2-eo-box[hidden],
+.iqai-v2-eo-draw-box[hidden] {
+  display: none !important;
+}
+
+.iqai-v2-eo-legend[hidden] {
+  display: none !important;
+}
+
+.iqai-v2-eo-legend {
+  position: absolute;
+  z-index: 8;
+  left: 0.75rem;
+  bottom: 5.2rem;
+  width: min(22rem, calc(100% - 2rem));
+  padding: 0.7rem 0.85rem;
+  background: rgba(12, 12, 14, 0.92);
+  border: 1px solid var(--iqai-v2-chrome-border);
+  color: #f4f0ea;
+  pointer-events: auto;
+}
+
+.iqai-v2-eo-legend__kicker,
+.iqai-v2-eo-legend__warn {
+  margin: 0;
+  letter-spacing: 0.1em;
+  font-size: 0.62rem;
+}
+
+.iqai-v2-eo-legend__labels,
+.iqai-v2-eo-legend__ticks {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.4rem;
+  margin-top: 0.35rem;
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  color: rgba(244, 240, 234, 0.72);
+}
+
+.iqai-v2-eo-legend__ramp {
+  height: 0.55rem;
+  margin-top: 0.35rem;
+  border: 1px solid rgba(244, 240, 234, 0.35);
+}
+
+.iqai-v2-eo-legend dl {
+  margin: 0.55rem 0 0;
+  display: grid;
+  grid-template-columns: 7.2rem 1fr;
+  gap: 0.2rem 0.6rem;
+  font-size: 0.74rem;
+}
+
+.iqai-v2-eo-legend dt {
+  color: rgba(244, 240, 234, 0.62);
+  letter-spacing: 0.08em;
+}
+
+.iqai-v2-eo-legend dd {
+  margin: 0;
+}
+
+.iqai-v2-eo-legend [data-iqai-eo-meaning],
+.iqai-v2-eo-legend [data-iqai-eo-limits] {
+  margin: 0.45rem 0 0;
+  font-size: 0.68rem;
+  line-height: 1.35;
+  letter-spacing: 0.03em;
+}
+
+.iqai-v2-eo-brain[hidden] {
+  display: none !important;
+}
+
+.iqai-v2-eo-brain {
+  position: absolute;
+  z-index: 8;
+  right: 0.75rem;
+  bottom: 5.2rem;
+  width: min(26rem, calc(100% - 2rem));
+  max-height: min(58vh, 32rem);
+  overflow: auto;
+  padding: 0.7rem 0.85rem;
+  background: rgba(12, 12, 14, 0.94);
+  border: 1px solid var(--iqai-v2-chrome-border);
+  color: #f4f0ea;
+  pointer-events: auto;
+}
+
+.iqai-v2-eo-brain__kicker {
+  margin: 0.7rem 0 0.25rem;
+  letter-spacing: 0.1em;
+  font-size: 0.62rem;
+  color: rgba(244, 240, 234, 0.62);
+}
+
+.iqai-v2-eo-brain__kicker:first-child {
+  margin-top: 0;
+}
+
+.iqai-v2-eo-brain [data-iqai-eo-brain-answer],
+.iqai-v2-eo-brain [data-iqai-eo-brain-meaning],
+.iqai-v2-eo-brain [data-iqai-eo-brain-limit],
+.iqai-v2-eo-brain__question {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.iqai-v2-eo-brain [data-iqai-eo-brain-answer] {
+  font-size: 0.88rem;
+}
+
+.iqai-v2-eo-brain__followups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.35rem;
+}
+
+.iqai-v2-eo-brain__followups button {
+  appearance: none;
+  min-height: 1.55rem;
+  padding: 0.25rem 0.45rem;
+  border: 1px solid var(--iqai-v2-chrome-border);
+  background: transparent;
+  color: #f4f0ea;
+  font: inherit;
+  font-size: 0.58rem;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+
+.iqai-v2-eo-brain__followups button[aria-pressed="true"] {
+  background: #f4f0ea;
+  color: #161513;
+  border-color: #f4f0ea;
+}
+
+.iqai-v2-eo-brain__details {
+  margin-top: 0.7rem;
+}
+
+.iqai-v2-eo-brain__details summary {
+  cursor: pointer;
+  letter-spacing: 0.1em;
+  font-size: 0.62rem;
+}
+
+.iqai-v2-eo-brain__details pre {
+  margin: 0.4rem 0 0;
+  max-height: 10rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  font-size: 0.62rem;
+}
+
+.iqai-v2-imagery-command__eo-aoi,
+.iqai-v2-imagery-command__eo-products {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.28rem;
+}
+
+.iqai-v2-imagery-command__eo button {
+  min-height: 1.45rem;
+  padding: 0 0.45rem;
+  border: 1px solid var(--iqai-v2-chrome-border);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+
+.iqai-v2-imagery-command__eo button[data-iqai-eo-product][aria-pressed="true"],
+.iqai-v2-imagery-command__eo button[data-iqai-eo-product].is-selected {
+  background: #f4f0ea;
+  color: #161513;
+  border-color: #f4f0ea;
+}
+
+.iqai-v2-imagery-command__eo button[aria-pressed="true"],
+.iqai-v2-imagery-command__eo button[data-iqai-eo-run][aria-pressed="true"],
+.iqai-v2-imagery-command__eo button[data-iqai-eo-run].is-analyzing {
+  border-color: var(--iqai-v2-accent);
+}
+
+.iqai-v2-imagery-command__eo button[data-iqai-eo-run] {
+  min-width: 8.5rem;
+  font-weight: 800;
+}
+
+.iqai-v2-imagery-command__eo button[data-iqai-eo-run][aria-pressed="true"],
+.iqai-v2-imagery-command__eo button[data-iqai-eo-run].is-analyzing {
+  background: var(--iqai-v2-accent);
+  color: #161513;
+}
+
+.iqai-v2-imagery-command__eo button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.iqai-v2-imagery-command__eo [data-iqai-eo-status][data-iqai-eo-error="true"] {
+  color: #ffb4a8;
+}
+
+.iqai-v2-imagery-command__date {
+  min-height: 1.55rem;
+  padding: 0 0.55rem;
+  border: 1px solid var(--iqai-v2-accent);
+  background: transparent;
+  color: #f4f0ea;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+
+.iqai-v2-imagery-command__cal,
+.iqai-v2-imagery-command__source,
+.iqai-v2-imagery-command__play button,
+.iqai-v2-imagery-command [data-iqai-history-capture] {
+  min-height: 1.45rem;
+  padding: 0 0.45rem;
+  border: 1px solid var(--iqai-v2-chrome-border);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.55rem;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+}
+
+.iqai-v2-imagery-command__status,
+.iqai-v2-imagery-command__export {
+  margin: 0;
+  width: 100%;
+  text-align: center;
+  font-size: 0.55rem;
+  letter-spacing: 0.08em;
+  color: rgba(244, 240, 234, 0.78);
+}
+
+.iqai-v2-imagery-command__details {
+  display: grid;
+  grid-template-columns: 8.2rem 1fr;
+  gap: 0.12rem 0.4rem;
+  width: 100%;
+  margin: 0.2rem 0 0;
+  font-size: 0.55rem;
+}
+
+.iqai-v2-imagery-command__details dt {
+  color: rgba(244, 240, 234, 0.55);
+  letter-spacing: 0.08em;
+}
+
+.iqai-v2-imagery-command__details dd {
+  margin: 0;
+}
+
+.iqai-v2-imagery-command__compare {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  width: 100%;
+  font-size: 0.55rem;
+}
+
+.iqai-v2-imagery-command__compare select {
+  background: #0b0d10;
+  color: #f4f0ea;
+  border: 1px solid var(--iqai-v2-chrome-border);
+}
+
+.iqai-v2-imagery-timeline {
+  position: absolute;
+  left: 5.6rem;
+  right: 1rem;
+  bottom: 0.35rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.18rem;
+  pointer-events: auto;
+}
+
+.iqai-v2-imagery-timeline button {
+  min-height: 1.35rem;
+  padding: 0 0.4rem;
+  border: 1px solid var(--iqai-v2-chrome-border);
+  background: var(--iqai-v2-chrome);
+  color: #f4f0ea;
+  font: inherit;
+  font-size: 0.52rem;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+
+.iqai-v2-imagery-timeline button.is-active {
+  background: #f4f0ea;
+  color: #0b0d10;
+}
+
+.iqai-v2-imagery-timeline button.is-gap {
+  opacity: 0.38;
+}
+
+.iqai-v2-imagery-calendar {
+  position: absolute;
+  top: calc(var(--iqai-v2-header-h) + 6.4rem);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 8;
+  min-width: 16rem;
+  padding: 0.45rem;
+  background: var(--iqai-v2-chrome);
+  border: 1px solid var(--iqai-v2-chrome-border);
+  color: #f4f0ea;
+}
+
+.iqai-v2-imagery-calendar p {
+  margin: 0 0 0.3rem;
+  font-size: 0.55rem;
+  letter-spacing: 0.12em;
+}
+
+.iqai-v2-imagery-calendar button {
+  min-height: 1.4rem;
+  margin: 0.08rem;
+  padding: 0 0.4rem;
+  border: 1px solid var(--iqai-v2-chrome-border);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.55rem;
+  cursor: pointer;
+}
+
+#iqai-spatial-v2:not([data-iqai-image-surface="HISTORY"]) .iqai-v2-time-strip__years,
+#iqai-spatial-v2:not([data-iqai-image-surface="HISTORY"]) .iqai-v2-time-strip__obs,
+#iqai-spatial-v2:not([data-iqai-image-surface="HISTORY"]) .iqai-v2-time-strip__target,
+#iqai-spatial-v2[data-iqai-image-surface="HISTORY"] .iqai-v2-time-strip__years,
+#iqai-spatial-v2[data-iqai-image-surface="HISTORY"] .iqai-v2-time-strip__obs,
+#iqai-spatial-v2[data-iqai-image-surface="HISTORY"] .iqai-v2-time-strip__target {
+  display: none !important;
+}
+
+#iqai-spatial-v2[data-iqai-image-surface="HISTORY"] .iqai-v2-map-tools,
+#iqai-spatial-v2[data-iqai-image-surface="HISTORY"] .iqai-v2-place-camera-editor,
+#iqai-spatial-v2[data-iqai-image-surface="HISTORY"] .iqai-v2-layout-switcher {
+  display: none !important;
+}
+
+#iqai-spatial-v2[data-iqai-image-surface="HISTORY"] [data-iqai-view="STREET 360"],
+#iqai-spatial-v2[data-iqai-image-surface="HISTORY"] [data-iqai-view="3D VISUAL"],
+#iqai-spatial-v2[data-iqai-image-surface="HISTORY"] [data-iqai-view="3D ANALYZE"] {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+/* MAP + AERIAL foundation gate: HISTORY held. Keep implementation, hide chrome. */
+#iqai-spatial-v2.iqai-v2-app {
+  grid-template-rows: var(--iqai-v2-header-h) minmax(0, 1fr);
+}
+
+#iqai-spatial-v2 .iqai-v2-time-dock,
+#iqai-spatial-v2 .iqai-v2-time-drawer,
+#iqai-spatial-v2 .iqai-v2-imagery-command__history,
+#iqai-spatial-v2 .iqai-v2-imagery-calendar,
+#iqai-spatial-v2 .iqai-v2-imagery-timeline {
+  display: none !important;
+}
+
+#iqai-spatial-v2 [data-iqai-history-stage] {
+  display: none !important;
+}
+
+#iqai-spatial-v2[data-iqai-image-surface="HISTORY"] [data-iqai-history-stage]:not([hidden]) {
+  display: block !important;
+}
+
+#iqai-spatial-v2 [data-iqai-image-surface="HISTORY"]:disabled,
+#iqai-spatial-v2 [data-iqai-image-surface="HISTORY"][aria-disabled="true"] {
+  opacity: 0.4;
+  pointer-events: none;
+  cursor: not-allowed;
+}
+
+/* Command console geometry V1 — layout only. Existing chrome, no white restyle. */
+#iqai-spatial-v2.iqai-v2-app {
+  --iqai-v2-header-h: 3.35rem;
+  --iqai-v2-layers-w: 20.5rem;
+  --iqai-v2-inspector-w: 20.5rem;
+  --iqai-v2-linked-h: min(42vh, 24rem);
+  --iqai-v2-drawer-w: var(--iqai-v2-layers-w);
+  --iqai-v2-ops-panel-w: var(--iqai-v2-layers-w);
+  --iqai-v2-sheet-w: var(--iqai-v2-inspector-w);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: var(--iqai-v2-header-h) minmax(0, 1fr);
+}
+
+#iqai-spatial-v2 .iqai-v2-header {
+  grid-row: 1;
+  grid-column: 1;
+  z-index: 20;
+  height: var(--iqai-v2-header-h);
+}
+
+#iqai-spatial-v2 .iqai-v2-header__primary {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+#iqai-spatial-v2 .iqai-v2-search {
+  flex: 0 1 16rem;
+  min-width: 8rem;
+  max-width: 18rem;
+  margin-left: 0;
+}
+
+#iqai-spatial-v2 .iqai-v2-header__commands {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+#iqai-spatial-v2 .iqai-v2-header__surfaces,
+#iqai-spatial-v2 .iqai-v2-header .iqai-v2-view-switcher {
+  position: static;
+  display: flex;
+  align-items: center;
+  gap: 0.12rem;
+  padding: 0.12rem;
+  background: var(--iqai-v2-chrome, rgba(11, 13, 16, 0.78));
+  border: 1px solid var(--iqai-v2-chrome-border, rgba(244, 240, 234, 0.16));
+}
+
+#iqai-spatial-v2 .iqai-v2-header__surfaces button,
+#iqai-spatial-v2 .iqai-v2-header .iqai-v2-view-switcher button {
+  min-height: 1.55rem;
+  padding: 0 0.55rem;
+  border: 0;
+  background: transparent;
+  color: #f4f0ea;
+  font: inherit;
+  font-size: 0.62rem;
+  font-weight: 750;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+}
+
+#iqai-spatial-v2 .iqai-v2-header__surfaces button[aria-pressed="true"],
+#iqai-spatial-v2 .iqai-v2-header .iqai-v2-view-switcher button[aria-pressed="true"],
+#iqai-spatial-v2 .iqai-v2-header .iqai-v2-view-switcher button.is-active {
+  background: #f4f0ea;
+  color: #0b0d10;
+}
+
+#iqai-spatial-v2 .iqai-v2-header [data-iqai-view="MAP"] {
+  display: none;
+}
+
+#iqai-spatial-v2 .iqai-v2-header .iqai-v2-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+}
+
+#iqai-spatial-v2 .iqai-v2-console {
+  grid-row: 2;
+  grid-column: 1;
+  display: grid;
+  grid-template-columns: var(--iqai-v2-layers-w) minmax(0, 1fr) var(--iqai-v2-inspector-w);
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+#iqai-spatial-v2 .iqai-v2-console .iqai-v2-layers-drawer {
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  position: relative !important;
+  inset: auto !important;
+  top: auto !important;
+  left: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  width: auto !important;
+  height: 100%;
+  max-height: none;
+  z-index: 2;
+}
+
+#iqai-spatial-v2 .iqai-v2-layers-drawer__close {
+  display: inline-flex !important;
+}
+
+#iqai-spatial-v2 .iqai-v2-launcher {
+  display: none !important;
+}
+
+#iqai-spatial-v2 .iqai-v2-console .iqai-v2-stage {
+  grid-column: 2;
+  grid-row: 1;
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+
+#iqai-spatial-v2 .iqai-v2-console .iqai-v2-inspector {
+  grid-column: 3;
+  grid-row: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  position: relative !important;
+  inset: auto !important;
+  top: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  left: auto !important;
+  width: auto !important;
+  height: 100%;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  display: flex !important;
+  z-index: 3;
+}
+
+#iqai-spatial-v2[data-iqai-sheet="closed"] .iqai-v2-inspector,
+#iqai-spatial-v2[data-iqai-sheet="closed"] .iqai-v2-console .iqai-v2-inspector {
+  display: flex !important;
+  visibility: visible !important;
+}
+
+#iqai-spatial-v2 .iqai-v2-inspector__commands {
+  display: flex;
+  flex-shrink: 0;
+  gap: 0.2rem;
+  padding: 0.35rem 0.45rem 0.2rem;
+}
+
+#iqai-spatial-v2 .iqai-v2-inspector__commands button {
+  min-height: 1.45rem;
+  padding: 0 0.45rem;
+  border: 1px solid var(--iqai-v2-chrome-border, rgba(244, 240, 234, 0.16));
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.52rem;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+}
+
+#iqai-spatial-v2 .iqai-v2-inspector__commands button[aria-pressed="true"] {
+  background: #f4f0ea;
+  color: #0b0d10;
+}
+
+#iqai-spatial-v2 .iqai-v2-stage__well {
+  display: block;
+}
+
+#iqai-spatial-v2 .iqai-v2-worldview-frame {
+  gap: 2px;
+  background: #111;
+}
+
+#iqai-spatial-v2 .iqai-v2-linked-view {
+  display: none;
+}
+
+#iqai-spatial-v2 .iqai-v2-linked-view:has([data-iqai-pane]:not([hidden])) {
+  display: contents;
+}
+
+#iqai-spatial-v2 .iqai-v2-linked-view__idle {
+  display: none;
+}
+
+#iqai-spatial-v2 .iqai-v2-map-host {
+  left: 0 !important;
+  right: 0 !important;
+  top: 0 !important;
+  bottom: 0 !important;
+}
+
+#iqai-spatial-v2[data-iqai-drawer="layers"] .iqai-v2-map-host {
+  left: 0 !important;
+}
+
+#iqai-spatial-v2[data-iqai-drawer="layers"] .iqai-v2-map-tools,
+#iqai-spatial-v2[data-iqai-drawer="layers"] .iqai-v2-map-nav {
+  left: 0.55rem;
+}
+
+#iqai-spatial-v2[data-iqai-drawer="layers"] .iqai-v2-layout-switcher {
+  left: auto;
+  right: 0.55rem;
+}
+
+#iqai-spatial-v2[data-iqai-drawer="layers"] .iqai-v2-view-switcher,
+#iqai-spatial-v2[data-iqai-drawer="layers"] .iqai-v2-time-dock,
+#iqai-spatial-v2[data-iqai-drawer="layers"] .iqai-v2-time-drawer,
+#iqai-spatial-v2[data-iqai-drawer="layers"] .iqai-v2-imagery-command__modes {
+  left: auto;
+}
+
+#iqai-spatial-v2 .iqai-v2-map-tools {
+  top: 0.55rem;
+  left: 1.85rem;
+  z-index: 6;
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 0.35rem;
+}
+
+#iqai-spatial-v2 .iqai-v2-map-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+#iqai-spatial-v2 .iqai-v2-map-nav__btn,
+#iqai-spatial-v2 .iqai-v2-map-nav__btn--home {
+  min-width: 1.45rem;
+  min-height: 1.45rem;
+  width: 1.45rem;
+  padding: 0;
+  font-size: 0.78rem;
+  line-height: 1;
+  background: #fff;
+  color: #1c1a16;
+  border: 1px solid #d9d3c6;
+}
+
+#iqai-spatial-v2 .iqai-v2-map-observe {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 2px;
+  max-width: 16rem;
+}
+
+#iqai-spatial-v2 .iqai-v2-focus-tool,
+#iqai-spatial-v2 .iqai-v2-trace-tool,
+#iqai-spatial-v2 .iqai-v2-observe-tool {
+  min-height: 1.45rem;
+  padding: 0 0.4rem;
+  font-size: 0.52rem;
+  letter-spacing: 0.08em;
+  background: #fff;
+  color: #1c1a16;
+  border: 1px solid #d9d3c6;
+}
+
+#iqai-spatial-v2 .iqai-v2-place-camera-editor {
+  top: 3.4rem;
+  left: 1.85rem;
+  z-index: 12;
+}
+
+#iqai-spatial-v2 .iqai-v2-imagery-command__modes--stage {
+  display: none !important;
+}
+
+#iqai-spatial-v2 .iqai-v2-layout-switcher {
+  left: auto;
+  right: 0.55rem;
+  top: 0.55rem;
+}
+
+#iqai-spatial-v2[data-iqai-spatial-view="google-3d"] .iqai-v2-google-3d-stage,
+#iqai-spatial-v2[data-iqai-spatial-view="street-360"] .iqai-v2-street-360-stage {
+  inset: 0;
+  z-index: 1;
+}
+
+#iqai-spatial-v2[data-iqai-spatial-view="analyze-3d"] .iqai-v2-analyze-3d-stage {
+  top: auto;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--iqai-v2-linked-h);
+  z-index: 5;
+}
+
+#iqai-spatial-v2[data-iqai-spatial-view="street-360"] .iqai-v2-map-tools,
+#iqai-spatial-v2[data-iqai-spatial-view="google-3d"] .iqai-v2-map-tools,
+#iqai-spatial-v2[data-iqai-spatial-view="street-360"] .iqai-v2-place-camera-editor,
+#iqai-spatial-v2[data-iqai-spatial-view="google-3d"] .iqai-v2-place-camera-editor {
+  display: flex !important;
+}
+
+@media (max-width: 1366px) {
+  #iqai-spatial-v2.iqai-v2-app {
+    --iqai-v2-layers-w: 18.5rem;
+    --iqai-v2-inspector-w: 18.5rem;
+  }
+}
+
+/* Command console light chrome — paint only. Same boxes, no engine changes. */
+html,
+body.iqai-v2-body {
+  background: #f4f1ea;
+}
+
+#iqai-spatial-v2.iqai-v2-app {
+  background: #f4f1ea;
+  color: #1c1a16;
+}
+
+#iqai-spatial-v2 .iqai-v2-header {
+  background: #fff;
+  color: #1c1a16;
+  border-bottom: 1px solid #e6e1d6;
+}
+
+#iqai-spatial-v2 .iqai-v2-brand__product {
+  color: #1c1a16;
+}
+
+#iqai-spatial-v2 .iqai-v2-search__input {
+  background: #fff;
+  color: #1c1a16;
+  border: 1px solid #d9d3c6;
+}
+
+#iqai-spatial-v2 .iqai-v2-search__input::placeholder {
+  color: #8a8378;
+}
+
+#iqai-spatial-v2 .iqai-v2-header__surfaces,
+#iqai-spatial-v2 .iqai-v2-header .iqai-v2-view-switcher {
+  background: transparent;
+  border: 0;
+  gap: 0.15rem;
+}
+
+#iqai-spatial-v2 .iqai-v2-header__surfaces button,
+#iqai-spatial-v2 .iqai-v2-header .iqai-v2-view-switcher button {
+  color: #6b6560;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+#iqai-spatial-v2 .iqai-v2-header__surfaces button[aria-pressed="true"],
+#iqai-spatial-v2 .iqai-v2-header .iqai-v2-view-switcher button[aria-pressed="true"],
+#iqai-spatial-v2 .iqai-v2-header .iqai-v2-view-switcher button.is-active {
+  background: transparent;
+  color: #1c1a16;
+  box-shadow: inset 0 -2px 0 #b08948;
+}
+
+#iqai-spatial-v2 .iqai-v2-ask-toggle {
+  flex-shrink: 0;
+  margin-left: auto;
+  background: #fff;
+  color: #1c1a16;
+  border: 1px solid #d9d3c6;
+}
+
+#iqai-spatial-v2 .iqai-v2-ask-toggle.is-open,
+#iqai-spatial-v2 .iqai-v2-ask-toggle[aria-expanded="true"] {
+  background: #1c1a16;
+  color: #fff;
+}
+
+#iqai-spatial-v2 .iqai-v2-console .iqai-v2-layers-drawer,
+#iqai-spatial-v2 .iqai-v2-layers-drawer.iqai-mtl-ops {
+  --bg: #f7f5f0;
+  --panel: #ffffff;
+  --ink: #1c1a16;
+  --muted: #6b6560;
+  --line: #e6e1d6;
+  background: #fff !important;
+  color: #1c1a16;
+  border-right: 1px solid #e6e1d6;
+}
+
+#iqai-spatial-v2 .iqai-v2-layers-drawer__head,
+#iqai-spatial-v2 .iqai-v2-layers-drawer__chrome {
+  color: #1c1a16;
+  border-bottom: 1px solid #e6e1d6;
+}
+
+#iqai-spatial-v2 .iqai-v2-layers-drawer.iqai-mtl-ops .preset-btn.is-active,
+#iqai-spatial-v2 .iqai-v2-layers-drawer.iqai-mtl-ops .filter-select,
+#iqai-spatial-v2 .iqai-v2-layers-drawer.iqai-mtl-ops .config-label select {
+  background: #f4f1ea;
+  color: #1c1a16;
+}
+
+#iqai-spatial-v2 .iqai-v2-console .iqai-v2-inspector {
+  background: #fff;
+  color: #1c1a16;
+  border-left: 1px solid #e6e1d6;
+  border-top: 0;
+}
+
+#iqai-spatial-v2 .iqai-v2-inspector__commands button,
+#iqai-spatial-v2 .iqai-v2-sheet__tab {
+  color: #6b6560;
+  border-color: #e6e1d6;
+}
+
+#iqai-spatial-v2 .iqai-v2-inspector__commands button[aria-pressed="true"],
+#iqai-spatial-v2 .iqai-v2-sheet__tab.is-active {
+  background: transparent;
+  color: #1c1a16;
+  box-shadow: inset 0 -2px 0 #b08948;
+}
+
+#iqai-spatial-v2 .iqai-v2-region__title,
+#iqai-spatial-v2 .iqai-v2-region__body {
+  color: #1c1a16;
+}
+
+#iqai-spatial-v2 [data-iqai-pane="MAP"] > .iqai-v2-pane__chrome {
+  display: none;
+}
+
+#iqai-spatial-v2 .iqai-v2-pane__chrome {
+  background: #fff;
+  color: #1c1a16;
+  border-bottom: 1px solid #e6e1d6;
+}
+
+#iqai-spatial-v2 .iqai-v2-pane__chrome button {
+  border-color: #d9d3c6;
+  color: #1c1a16;
+}
+
+#iqai-spatial-v2 .iqai-v2-linked-view:has([data-iqai-pane]:not([hidden])) {
+  background: #fff;
+  border-top: 1px solid #e6e1d6;
+}
+
+#iqai-spatial-v2 .iqai-v2-map-nav__btn,
+#iqai-spatial-v2 .iqai-v2-focus-tool,
+#iqai-spatial-v2 .iqai-v2-trace-tool,
+#iqai-spatial-v2 .iqai-v2-observe-tool {
+  background: rgba(255, 255, 255, 0.94);
+  color: #1c1a16;
+  border: 1px solid #d9d3c6;
+}
+
+#iqai-spatial-v2 .iqai-v2-focus-tool.is-active,
+#iqai-spatial-v2 .iqai-v2-focus-tool[aria-pressed="true"],
+#iqai-spatial-v2 .iqai-v2-observe-tool[aria-pressed="true"] {
+  background: #1c1a16;
+  color: #fff;
+}
+
+#iqai-spatial-v2 .iqai-v2-view-switcher--stage {
+  display: none !important;
+}
+
+#iqai-spatial-v2 .iqai-v2-layout-switcher {
+  display: flex !important;
+  top: 0.55rem;
+  left: auto;
+  right: 0.55rem;
+  z-index: 12;
+  background: #fff;
+  color: #1c1a16;
+  border: 1px solid #d9d3c6;
+}
+
+#iqai-spatial-v2 .iqai-v2-layout-switcher button {
+  color: #1c1a16;
+}
+
+#iqai-spatial-v2 .iqai-v2-layout-switcher button.is-active,
+#iqai-spatial-v2 .iqai-v2-layout-switcher button[aria-pressed="true"] {
+  background: #1c1a16;
+  color: #fff;
+}
+
+#iqai-spatial-v2 .iqai-v2-place-camera-editor {
+  top: 3.4rem;
+  left: 1.85rem;
+  z-index: 12;
+}
+
+#iqai-spatial-v2 .solar-hud {
+  left: 0.55rem !important;
+  bottom: 0.75rem !important;
+  z-index: 12;
+}
+
+#iqai-spatial-v2 .iqai-v2-view-notice {
+  top: 2.7rem;
+  right: 0.55rem;
+  left: auto;
+  z-index: 12;
+  background: #fff;
+  color: #1c1a16;
+  border: 1px solid #d9d3c6;
+}
+
+#iqai-spatial-v2 .iqai-v2-fold {
+  position: absolute;
+  z-index: 14;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  min-height: 4.5rem;
+  padding: 0.35rem 0.2rem;
+  border: 1px solid #d9d3c6;
+  background: #fff;
+  color: #1c1a16;
+  font: inherit;
+  font-size: 0.58rem;
+  font-weight: 750;
+  letter-spacing: 0.12em;
+  writing-mode: vertical-rl;
+  cursor: pointer;
+}
+
+#iqai-spatial-v2 .iqai-v2-fold--layers {
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%);
+}
+
+#iqai-spatial-v2 .iqai-v2-fold--inspector {
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+}
+
+#iqai-spatial-v2 .iqai-v2-inspector__collapse,
+#iqai-spatial-v2 .iqai-v2-layers-drawer__close {
+  min-width: 1.45rem;
+  min-height: 1.45rem;
+  padding: 0 0.35rem;
+  border: 1px solid #d9d3c6;
+  background: #fff;
+  color: #1c1a16;
+  font: inherit;
+  cursor: pointer;
+}
+
+#iqai-spatial-v2[data-iqai-layers-collapsed="true"] .iqai-v2-console {
+  grid-template-columns: 1.7rem minmax(0, 1fr) var(--iqai-v2-inspector-w);
+}
+
+#iqai-spatial-v2[data-iqai-inspector-collapsed="true"] .iqai-v2-console {
+  grid-template-columns: var(--iqai-v2-layers-w) minmax(0, 1fr) 1.7rem;
+}
+
+#iqai-spatial-v2[data-iqai-layers-collapsed="true"][data-iqai-inspector-collapsed="true"] .iqai-v2-console {
+  grid-template-columns: 1.7rem minmax(0, 1fr) 1.7rem;
+}
+
+#iqai-spatial-v2[data-iqai-layers-collapsed="true"] .iqai-v2-layers-drawer .iqai-v2-discover,
+#iqai-spatial-v2[data-iqai-layers-collapsed="true"] .iqai-v2-layers-drawer .iqai-v2-layers-drawer__body,
+#iqai-spatial-v2[data-iqai-layers-collapsed="true"] .iqai-v2-layers-drawer .iqai-v2-add-data,
+#iqai-spatial-v2[data-iqai-layers-collapsed="true"] .iqai-v2-layers-drawer .iqai-v2-layers-drawer__session,
+#iqai-spatial-v2[data-iqai-layers-collapsed="true"] .iqai-v2-layers-drawer .iqai-v2-layers-drawer__add,
+#iqai-spatial-v2[data-iqai-layers-collapsed="true"] .iqai-v2-layers-drawer .config-panel,
+#iqai-spatial-v2[data-iqai-layers-collapsed="true"] .iqai-v2-layers-drawer .inspect {
+  display: none !important;
+}
+
+#iqai-spatial-v2[data-iqai-layers-collapsed="true"] .iqai-v2-layers-drawer__chrome {
+  height: 100%;
+  justify-content: flex-start;
+  padding: 0.45rem 0.2rem;
+}
+
+#iqai-spatial-v2[data-iqai-layers-collapsed="true"] .iqai-v2-layers-drawer__close {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+}
+
+#iqai-spatial-v2[data-iqai-inspector-collapsed="true"] .iqai-v2-inspector__commands button:not([data-iqai-inspector-collapse]),
+#iqai-spatial-v2[data-iqai-inspector-collapsed="true"] .iqai-v2-sheet__tabs,
+#iqai-spatial-v2[data-iqai-inspector-collapsed="true"] .iqai-v2-sheet__panes {
+  display: none !important;
+}
+
+#iqai-spatial-v2[data-iqai-inspector-collapsed="true"] .iqai-v2-inspector__commands {
+  flex-direction: column;
+  height: 100%;
+  padding: 0.45rem 0.2rem;
+}
+
+#iqai-spatial-v2[data-iqai-inspector-collapsed="true"] .iqai-v2-inspector__collapse {
+  writing-mode: vertical-rl;
+}
+
+#iqai-spatial-v2 .iqai-v2-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-shrink: 0;
+}
+
+#iqai-spatial-v2 .iqai-v2-brand__logo {
+  display: block;
+  width: 4.6rem;
+  height: auto;
+  flex-shrink: 0;
+}
+
+#iqai-spatial-v2 .iqai-v2-brand__product {
+  font-size: 0.82rem;
+  letter-spacing: 0.22em;
+}
+
+#iqai-spatial-v2 .iqai-v2-theme-toggle,
+#iqai-spatial-v2 .iqai-v2-ask-toggle {
+  flex-shrink: 0;
+  height: 1.85rem;
+  padding: 0 0.7rem;
+  font-size: 0.62rem;
+  font-weight: 750;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+}
+
+#iqai-spatial-v2 .iqai-v2-header__surfaces button,
+#iqai-spatial-v2 .iqai-v2-header .iqai-v2-view-switcher button {
+  min-height: 1.85rem;
+}
+
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-brand__logo {
+  filter: invert(1);
+}
+
+#iqai-spatial-v2[data-iqai-theme="dark"],
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-header,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-console .iqai-v2-layers-drawer,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-layers-drawer.iqai-mtl-ops,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-console .iqai-v2-inspector {
+  background: #0b0d10;
+  color: #f4f0ea;
+  border-color: rgba(244, 240, 234, 0.12);
+}
+
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-header {
+  border-bottom: 1px solid rgba(244, 240, 234, 0.12);
+}
+
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-brand__product,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-region__title,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-region__body,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-sheet__tab.is-active {
+  color: #f4f0ea;
+}
+
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-search__input,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-theme-toggle,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-ask-toggle,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-header__surfaces,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-header .iqai-v2-view-switcher,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-map-nav__btn,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-focus-tool,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-observe-tool,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-trace-tool,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-fold,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-layout-switcher,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-inspector__collapse,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-layers-drawer__close {
+  background: #16181c;
+  color: #f4f0ea;
+  border-color: rgba(244, 240, 234, 0.16);
+}
+
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-search__input::placeholder {
+  color: rgba(244, 240, 234, 0.42);
+}
+
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-header__surfaces button,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-header .iqai-v2-view-switcher button,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-sheet__tab,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-inspector__commands button {
+  color: rgba(244, 240, 234, 0.72);
+  background: transparent;
+  box-shadow: none;
+}
+
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-header__surfaces button[aria-pressed="true"],
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-header .iqai-v2-view-switcher button[aria-pressed="true"],
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-header .iqai-v2-view-switcher button.is-active,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-ask-toggle[aria-expanded="true"],
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-layout-switcher button.is-active,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-focus-tool[aria-pressed="true"] {
+  background: #f4f0ea;
+  color: #0b0d10;
+}
+
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-layers-drawer.iqai-mtl-ops {
+  --bg: #0b0d10;
+  --panel: #0b0d10;
+  --ink: #f4f0ea;
+  --muted: #8b96a3;
+  --line: #2a323a;
+}
+
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-console .iqai-v2-layers-drawer,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-console .iqai-v2-inspector {
+  border-color: #2a323a;
+}
+
+.iqai-v2-splitters {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.iqai-v2-splitters[hidden] {
+  display: none;
+}
+
+.iqai-v2-split {
+  pointer-events: auto;
+  position: absolute;
+  padding: 0;
+  border: 0;
+  background: rgba(12, 14, 18, 0.92);
+  box-shadow: 0 0 0 1px rgba(244, 240, 234, 0.28);
+}
+
+.iqai-v2-split--row {
+  left: 0;
+  right: 0;
+  height: 7px;
+  cursor: ns-resize;
+  transform: translateY(-50%);
+}
+
+.iqai-v2-split--col {
+  width: 7px;
+  cursor: ew-resize;
+  transform: translateX(-50%);
+}
+
+.iqai-v2-split:hover,
+.iqai-v2-split:focus-visible,
+.iqai-v2-stage__well.is-splitting .iqai-v2-split {
+  background: #f4f0ea;
+}
+
+.iqai-v2-stage__well.is-splitting {
+  user-select: none;
+}
+
+.iqai-v2-basemap-picker {
+  position: relative;
+}
+
+.iqai-v2-basemap-picker__menu {
+  position: absolute;
+  top: calc(100% + 3px);
+  left: 0;
+  z-index: 16;
+  min-width: 10.5rem;
+  max-height: 18rem;
+  overflow: auto;
+  padding: 0.35rem;
+  background: #111;
+  color: #f4f0ea;
+  border: 1px solid rgba(244, 240, 234, 0.22);
+}
+
+.iqai-v2-basemap-picker__menu[hidden] {
+  display: none;
+}
+
+.iqai-v2-basemap-picker__group {
+  margin: 0.25rem 0 0.15rem;
+  font-size: 0.52rem;
+  letter-spacing: 0.1em;
+  color: rgba(244, 240, 234, 0.62);
+}
+
+.iqai-v2-basemap-picker__menu button {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0.28rem 0.4rem;
+  border: 0;
+  background: transparent;
+  color: #f4f0ea;
+  text-align: left;
+  font: inherit;
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.iqai-v2-basemap-picker__menu button[aria-pressed="true"],
+.iqai-v2-basemap-picker__menu button:hover {
+  background: #f4f0ea;
+  color: #111;
+}
+
+#iqai-spatial-v2[data-iqai-spatial-view="analyze-3d"] .iqai-v2-splitters {
+  display: none;
+}
+
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-basemap-picker__menu {
+  background: #000;
+  color: #fff;
+  border: 1px solid #000;
+}
+
+/* True-black chrome: white type, black borders, readable 1 2 3 4 */
+#iqai-spatial-v2[data-iqai-theme="dark"],
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-header,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-console .iqai-v2-layers-drawer,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-layers-drawer.iqai-mtl-ops,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-console .iqai-v2-inspector {
+  background: #000;
+  color: #fff;
+  border-color: #000;
+}
+
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-header {
+  border-bottom: 1px solid #111;
+}
+
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-layout-switcher,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-map-nav__btn,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-map-nav__btn--home,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-focus-tool,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-observe-tool,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-trace-tool,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-fold,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-inspector__collapse,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-layers-drawer__close,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-search__input,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-theme-toggle,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-ask-toggle,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-header__surfaces,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-header .iqai-v2-view-switcher,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-view-notice,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-place-camera-editor,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-pane__chrome,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-google-3d-controls,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-google-3d-nav,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-basemap-picker__menu {
+  background: #000;
+  color: #fff;
+  border-color: #000;
+}
+
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-layout-switcher {
+  border: 1px solid #000;
+}
+
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-layout-switcher button {
+  background: transparent;
+  color: #fff;
+}
+
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-layout-switcher button.is-active,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-layout-switcher button[aria-pressed="true"] {
+  background: #fff;
+  color: #000;
+}
+
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-pane__chrome {
+  border-bottom: 1px solid #000;
+}
+
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-pane__chrome button,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-google-3d-controls button,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-google-3d-nav button,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-place-camera-editor input,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-place-camera-editor button,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-place-camera-editor [data-iqai-view-camera],
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-view-camera-modes button {
+  background: #000;
+  color: #fff;
+  border: 1px solid #222;
+}
+
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-header__surfaces button,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-header .iqai-v2-view-switcher button,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-sheet__tab,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-inspector__commands button,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-basemap-picker__menu button {
+  background: transparent;
+  color: #fff;
+}
+
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-header__surfaces button[aria-pressed="true"],
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-header .iqai-v2-view-switcher button[aria-pressed="true"],
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-header .iqai-v2-view-switcher button.is-active,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-ask-toggle[aria-expanded="true"],
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-focus-tool[aria-pressed="true"],
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-observe-tool[aria-pressed="true"],
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-place-camera-editor [data-iqai-view-camera].is-active,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-view-camera-modes button.is-active,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-basemap-picker__menu button[aria-pressed="true"],
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-basemap-picker__menu button:hover,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-sheet__tab.is-active {
+  background: #fff;
+  color: #000;
+}
+
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-pane__truth,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-pane__sync,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-brand__product,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-region__title,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-region__body,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-search__input::placeholder {
+  color: #fff;
+}
+
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-search__input::placeholder {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-console .iqai-v2-layers-drawer,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-console .iqai-v2-inspector,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-linked-view:has([data-iqai-pane]:not([hidden])) {
+  background: #000;
+  border-color: #000;
+}
+
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-layers-drawer.iqai-mtl-ops {
+  --bg: #000;
+  --panel: #000;
+  --ink: #fff;
+  --muted: #c8c8c8;
+  --line: #111;
+}
+
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-split {
+  background: #000;
+  box-shadow: 0 0 0 1px #000;
+}
+
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-split:hover,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-split:focus-visible,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-stage__well.is-splitting .iqai-v2-split {
+  background: #fff;
+}
+
 
 
 

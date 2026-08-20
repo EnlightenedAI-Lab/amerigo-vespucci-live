@@ -231,23 +231,27 @@ async function nearMapWmsTileLayerClass() {
   return tileLayerClassPromise;
 }
 
-export async function ensureAuthoredNearmapGroundSlot(webmap) {
-  const existing = layerList(webmap?.allLayers).find((layer) => layer?.id === NEARMAP_GROUND_LAYER_ID);
-  if (existing) {
-    existing.visible = false;
-    if (!collectionHas(webmap.layers, existing)) webmap.layers.add(existing, 0);
-    return existing;
-  }
+export async function createNearmapCurrentTileLayer(options = {}) {
   const NearmapWmsTileLayer = await nearMapWmsTileLayerClass();
-  const layer = new NearmapWmsTileLayer({
+  return new NearmapWmsTileLayer({
     id: NEARMAP_GROUND_LAYER_ID,
     title: 'Nearmap current ground',
     copyright: 'Nearmap',
-    visible: false,
+    visible: options.visible !== false,
     opacity: 1,
     popupEnabled: false,
     listMode: 'hide'
   });
+}
+
+export async function ensureAuthoredNearmapGroundSlot(webmap, existingLayer = null) {
+  const existing = layerList(webmap?.allLayers).find((layer) => layer?.id === NEARMAP_GROUND_LAYER_ID)
+    || existingLayer
+    || null;
+  if (existing) {
+    return existing;
+  }
+  const layer = await createNearmapCurrentTileLayer({ visible: false });
   webmap.layers.add(layer, 0);
   return layer;
 }

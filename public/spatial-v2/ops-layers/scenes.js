@@ -163,6 +163,31 @@ export function resetBuiltin(id) {
   return true;
 }
 
+export function saveCustomScene(title, layers) {
+  const store = readStore();
+  const name = String(title || '').trim().slice(0, 24).toUpperCase() || `MY VIEW ${(store.custom?.length || 0) + 1}`;
+  if ((store.custom || []).length >= MAX_CUSTOM) {
+    return { ok: false, message: 'Maximum 3 custom scenes' };
+  }
+  const id = `custom-${Date.now().toString(36)}`;
+  store.custom = [...(store.custom || []), { id, title: name, layers: [...new Set(layers)] }];
+  writeStore(store);
+  return { ok: true, id, title: name };
+}
+
+export function overwriteCustomScene(id, title, layers) {
+  const store = readStore();
+  const idx = (store.custom || []).findIndex((scene) => scene.id === id);
+  if (idx < 0) return { ok: false, message: 'Unknown custom scene' };
+  store.custom[idx] = {
+    id,
+    title: String(title || store.custom[idx].title).trim().slice(0, 24).toUpperCase(),
+    layers: [...new Set(layers)]
+  };
+  writeStore(store);
+  return { ok: true, id };
+}
+
 export function sameSet(a = [], b = []) {
   if (a.length !== b.length) return false;
   const left = [...a].sort();

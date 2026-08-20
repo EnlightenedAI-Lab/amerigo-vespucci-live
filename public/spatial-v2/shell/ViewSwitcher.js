@@ -63,7 +63,7 @@ export function bindViewSwitcher(root, options = {}) {
     const streetOpen = street360?.snapshot?.().open === true;
     const visualOpen = google3d?.snapshot?.().open === true;
     const analyzeOpen = analyze3d?.snapshot?.().open === true;
-    for (const button of switcher.querySelectorAll('[data-iqai-view]')) {
+    for (const button of root.querySelectorAll('[data-iqai-view]')) {
       const view = canonicalViewId(button.getAttribute('data-iqai-view'));
       button.disabled = busy && view !== VIEWS.MAP;
       const pressed = exclusive
@@ -311,7 +311,7 @@ export function bindViewSwitcher(root, options = {}) {
 
   const onClick = (event) => {
     const button = event.target.closest('[data-iqai-view]');
-    if (!button || !switcher?.contains(button)) return;
+    if (!button || !root.contains(button)) return;
     const view = canonicalViewId(button.getAttribute('data-iqai-view'));
     if (view === VIEWS.ANALYZE_3D) {
       void setView(view);
@@ -323,7 +323,7 @@ export function bindViewSwitcher(root, options = {}) {
     }
     void setView(view);
   };
-  switcher?.addEventListener('click', onClick);
+  root?.addEventListener('click', onClick);
   paint();
 
   return Object.freeze({

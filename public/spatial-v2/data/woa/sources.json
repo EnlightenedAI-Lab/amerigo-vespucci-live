@@ -13,6 +13,8 @@
       "dataUrl": "/spatial-v2/data/focus/nrcan-buildings.geojson",
       "nearMeters": 32,
       "visibilityOwner": "layers-discover",
+      "defaultVisible": false,
+      "labSceneDefault": false,
       "priority": 10,
       "overlap": "object"
     },
@@ -27,6 +29,8 @@
       "dataUrl": "/spatial-v2/data/woa/sidewalks.geojson",
       "nearMeters": 12,
       "visibilityOwner": "layers-discover",
+      "defaultVisible": false,
+      "labSceneDefault": false,
       "priority": 20,
       "overlap": "object"
     },
@@ -41,6 +45,8 @@
       "dataUrl": "/spatial-v2/data/woa/parks.geojson",
       "nearMeters": 16,
       "visibilityOwner": "layers-discover",
+      "defaultVisible": false,
+      "labSceneDefault": false,
       "priority": 30,
       "overlap": "area"
     },
@@ -57,6 +63,8 @@
       "browserBaseUrl": "/spatial-v2/data/woa/uev-fabric",
       "nearMeters": 6,
       "visibilityOwner": "layers-discover",
+      "defaultVisible": false,
+      "labSceneDefault": false,
       "priority": 40,
       "overlap": "container"
     },

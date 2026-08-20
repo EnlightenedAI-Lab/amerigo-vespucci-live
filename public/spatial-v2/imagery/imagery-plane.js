@@ -88,7 +88,7 @@ export async function ensureImageryObservationSlot(webmap) {
     title: 'IQAI V2 Imagery Observation',
     urlTemplate: WAYBACK_PLACEHOLDER_TEMPLATE,
     copyright: 'Esri World Imagery Wayback',
-    visible: true,
+    visible: false,
     opacity: 1,
     popupEnabled: false,
     listMode: 'hide'

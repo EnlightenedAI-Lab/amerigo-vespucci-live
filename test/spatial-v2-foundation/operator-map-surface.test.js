@@ -38,8 +38,14 @@ test('Focus marker is a reticle, not a teardrop, and DROP PIN remains the FocusR
   const stage = read('hosts/view-host.js');
   assert.match(drop, /style: 'cross'/);
   assert.match(drop, /style: 'circle'/);
+  assert.match(drop, /style: 'diamond'/);
+  assert.match(drop, /simple-fill/);
+  assert.match(drop, /placeFromSearch/);
+  assert.match(drop, /ringsFromFeature/);
   assert.doesNotMatch(drop, /teardrop|picture-marker|path: 'M'/);
-  assert.match(stage, />FOCUS</);
+  assert.match(read('bootstrap/worldview-map-session.js'), /placeFromSearch/);
+  assert.match(read('bootstrap/worldview-map-session.js'), /api.searchPlace/);
+  assert.match(read('map/focus/instrument.js'), /propertyAt/);
   assert.match(stage, /data-iqai-cursor-live/);
   assert.match(stage, /data-iqai-map-scale/);
   assert.match(drop, /SPATIAL_FOCUS_SOURCE_TYPE\.DROP_PIN/);

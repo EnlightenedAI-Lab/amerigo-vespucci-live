@@ -173,8 +173,48 @@ export function renderMapStageHost() {
             </header>
             <div class="iqai-v2-pane__body">
               <div class="iqai-v2-map-host" data-iqai-map-host data-iqai-view-anchor="MAP"></div>
+              <div class="iqai-v2-history-stage" data-iqai-history-stage hidden aria-label="Historical overhead">
+                <div class="iqai-v2-history-bar" data-iqai-history-bar hidden>
+                  <p data-iqai-history-now>HISTORY</p>
+                  <p data-iqai-history-date hidden>DATE UNKNOWN</p>
+                  <button type="button" data-iqai-history-source hidden></button>
+                  <p data-iqai-history-resolution hidden></p>
+                  <button type="button" data-iqai-history-step="-1">PREV</button>
+                  <button type="button" data-iqai-history-step="1">NEXT</button>
+                  <button type="button" data-iqai-history-compare aria-pressed="false">COMPARE</button>
+                  <button type="button" data-iqai-library-toggle aria-pressed="false">LIBRARY</button>
+                  <button type="button" data-iqai-history-remove>REMOVE FROM VIEW</button>
+                  <label class="iqai-v2-history-swipe" data-iqai-history-swipe hidden>
+                    <input type="range" min="0" max="100" value="50" data-iqai-history-swipe-input>
+                  </label>
+                  <p data-iqai-history-status hidden></p>
+                </div>
+                <div class="iqai-v2-history-canvas" data-iqai-history-canvas-host></div>
+                <div class="iqai-v2-history-caption" data-iqai-history-caption="a" hidden>
+                  <p data-iqai-history-caption-date></p>
+                  <p data-iqai-history-caption-source></p>
+                  <p data-iqai-history-caption-place></p>
+                </div>
+                <div class="iqai-v2-history-caption iqai-v2-history-caption--b" data-iqai-history-caption="b" hidden>
+                  <p data-iqai-history-caption-date></p>
+                  <p data-iqai-history-caption-source></p>
+                  <p data-iqai-history-caption-place></p>
+                </div>
+              </div>
+              <aside class="iqai-v2-history-library" data-iqai-history-library hidden>
+                <header class="iqai-v2-history-library__chrome">
+                  <p>IMAGERY FOR THIS VIEW</p>
+                  <button type="button" data-iqai-history-remove hidden>REMOVE FROM VIEW</button>
+                  <button type="button" data-iqai-history-library-close>CLOSE</button>
+                </header>
+                <p class="iqai-v2-history-library__place" data-iqai-history-library-place></p>
+                <div class="iqai-v2-history-library__list" data-iqai-history-library-list></div>
+                <a class="iqai-v2-history-library__research" data-iqai-history-catalogue href="/temporal-catalog/" target="_blank" rel="noopener">RESEARCH CATALOGUE — LEAVES SPATIAL</a>
+              </aside>
             </div>
           </section>
+          <div class="iqai-v2-linked-view" data-iqai-linked-view>
+            <p class="iqai-v2-linked-view__idle" data-iqai-linked-idle>LINKED VIEW · 3D / STREET 360</p>
           <section class="iqai-v2-pane" data-iqai-pane="3D VISUAL" hidden>
             <header class="iqai-v2-pane__chrome">
               <span class="iqai-v2-pane__type">3D</span>
@@ -231,6 +271,11 @@ export function renderMapStageHost() {
               </div>
             </div>
           </section>
+          </div>
+        </div>
+        <div class="iqai-v2-splitters" data-iqai-splitters hidden>
+          <button type="button" class="iqai-v2-split iqai-v2-split--row" data-iqai-split="row" aria-label="Resize map height"></button>
+          <button type="button" class="iqai-v2-split iqai-v2-split--col" data-iqai-split="col" aria-label="Resize 3D and Street width"></button>
         </div>
         <div class="iqai-v2-analyze-3d-stage" data-iqai-analyze-3d-stage data-iqai-view-anchor="3D ANALYZE" hidden>
           <div class="iqai-v2-analyze-3d-canvas" data-iqai-analyze-3d-canvas></div>
@@ -246,7 +291,7 @@ export function renderMapStageHost() {
           <p class="iqai-v2-stage__kicker">MAP</p>
           <h1 class="iqai-v2-stage__title" data-iqai-stage-title>Loading map</h1>
           <p class="iqai-v2-stage__state" data-iqai-stage-state>INITIALIZING</p>
-          <p class="iqai-v2-stage__note" data-iqai-stage-note>Loading the authored operational WebMap. The shell stays available if the map cannot load.</p>
+          <p class="iqai-v2-stage__note" data-iqai-stage-note>Loading the IQAI map. The shell stays available if the map cannot load.</p>
         </div>
         <div class="iqai-v2-stage__error" data-iqai-map-error hidden>
           <p class="iqai-v2-stage__kicker">MAP</p>
@@ -254,14 +299,22 @@ export function renderMapStageHost() {
           <p class="iqai-v2-stage__state">ERROR</p>
           <p class="iqai-v2-stage__note" data-iqai-map-error-message></p>
         </div>
+        <button type="button" class="iqai-v2-fold iqai-v2-fold--layers" data-iqai-layers-collapse aria-label="Fold layers">LAYERS</button>
+        <button type="button" class="iqai-v2-fold iqai-v2-fold--inspector" data-iqai-inspector-collapse aria-label="Fold inspector">INSPECTOR</button>
         <div class="iqai-v2-map-tools" data-iqai-map-tools hidden>
           <div class="iqai-v2-map-nav" data-iqai-map-nav></div>
-          <button type="button" class="iqai-v2-focus-tool" data-iqai-drop-pin aria-pressed="false" title="Arm Focus">FOCUS</button>
-          <button type="button" class="iqai-v2-focus-tool" data-iqai-place-camera aria-pressed="false" title="Place an authored camera pose">PLACE CAMERA</button>
-          <button type="button" class="iqai-v2-trace-tool" data-iqai-add-set title="Add acquired object to collected set">ADD TO SET</button>
-          <button type="button" class="iqai-v2-trace-tool" data-iqai-export-csv title="Export collected set CSV">EXPORT CSV</button>
-          <button type="button" class="iqai-v2-trace-tool" data-iqai-clear-trace title="Clear Street 360 drive trace">CLEAR TRACE</button>
+          <div class="iqai-v2-map-observe">
+            <button type="button" class="iqai-v2-focus-tool" data-iqai-drop-pin aria-pressed="false" title="Arm Focus">FOCUS</button>
+            <button type="button" class="iqai-v2-observe-tool" data-iqai-place-camera aria-pressed="false" title="Place an authored camera pose">CAMERA</button>
+            <button type="button" class="iqai-v2-observe-tool" data-iqai-view-camera aria-pressed="false" hidden title="View camera">VIEW</button>
+            <button type="button" class="iqai-v2-trace-tool" data-iqai-clear-trace title="Clear Street 360 drive trace">TRACE</button>
+            <div class="iqai-v2-basemap-picker" data-iqai-basemap-picker>
+              <button type="button" class="iqai-v2-observe-tool" data-iqai-basemap-toggle aria-expanded="false" title="Esri basemap for the main map">BASEMAP</button>
+              <div class="iqai-v2-basemap-picker__menu" data-iqai-basemap-menu hidden></div>
+            </div>
+          </div>
         </div>
+        <aside id="solar-hud" class="solar-hud" data-iqai-solar-hud hidden aria-label="Solar Intelligence"></aside>
         <aside class="iqai-v2-place-camera-editor" data-iqai-place-camera-editor hidden>
           <p class="iqai-v2-place-camera-editor__kicker">PLACE CAMERA</p>
           <p data-iqai-place-camera-id></p>
@@ -280,7 +333,6 @@ export function renderMapStageHost() {
             <input data-iqai-place-camera-fov type="number" min="10" max="120" step="1" aria-label="Horizontal field of view">
           </label>
           <button type="button" data-iqai-place-camera-delete>DELETE CAMERA</button>
-          <button type="button" data-iqai-view-camera aria-pressed="false" hidden>VIEW CAMERA</button>
           <div class="iqai-v2-view-camera-panel" data-iqai-view-camera-panel hidden>
             <div class="iqai-v2-view-camera-modes">
               <button type="button" data-iqai-view-camera-mode="geometric" aria-pressed="true">GEOMETRIC</button>
@@ -304,10 +356,108 @@ export function renderMapStageHost() {
           </div>
           <p class="iqai-v2-place-camera-editor__note">Orientation / FOV direction. Not LOS. Not WorldState.cameras.</p>
         </aside>
-        <div class="iqai-v2-view-switcher" data-iqai-view-switcher>
+        <div class="iqai-v2-imagery-command" data-iqai-imagery-command>
+          <div class="iqai-v2-imagery-command__modes iqai-v2-imagery-command__modes--stage" role="radiogroup" aria-label="Imagery surface">
+            <button type="button" data-iqai-image-surface="MAP" aria-pressed="true">MAP</button>
+            <button type="button" data-iqai-image-surface="AERIAL" aria-pressed="false">AERIAL</button>
+            <button type="button" data-iqai-image-surface="HISTORY" aria-pressed="false">HISTORY</button>
+            <button type="button" data-iqai-library-toggle aria-pressed="false">LIBRARY</button>
+            <button type="button" data-iqai-remote-sensing-toggle aria-pressed="false">REMOTE SENSING</button>
+          </div>
+          <p class="iqai-v2-imagery-command__aerial" data-iqai-aerial-badge hidden>NEARMAP CURRENT</p>
+          <div class="iqai-v2-imagery-command__history" data-iqai-history-chrome hidden>
+            <button type="button" class="iqai-v2-imagery-command__date" data-iqai-image-date aria-expanded="false">DATE UNKNOWN</button>
+            <button type="button" class="iqai-v2-imagery-command__cal" data-iqai-history-calendar-toggle aria-label="Open calendar">CAL</button>
+            <p class="iqai-v2-imagery-command__status" data-iqai-history-status hidden></p>
+            <div class="iqai-v2-imagery-command__play">
+              <button type="button" data-iqai-history-action="previous">PREVIOUS</button>
+              <button type="button" data-iqai-history-action="play">PLAY</button>
+              <button type="button" data-iqai-history-action="next">NEXT</button>
+              <button type="button" data-iqai-history-action="compare">COMPARE</button>
+            </div>
+            <div class="iqai-v2-imagery-command__compare" data-iqai-history-compare hidden>
+              <label>A
+                <select data-iqai-compare-a></select>
+              </label>
+              <label>B
+                <select data-iqai-compare-b></select>
+              </label>
+              <p data-iqai-compare-labels></p>
+            </div>
+            <button type="button" class="iqai-v2-imagery-command__source" data-iqai-source-details-toggle aria-expanded="false">SOURCE DETAILS</button>
+            <dl class="iqai-v2-imagery-command__details" data-iqai-source-details hidden></dl>
+            <button type="button" data-iqai-history-capture>CAPTURE</button>
+            <p class="iqai-v2-imagery-command__export" data-iqai-export-status hidden></p>
+          </div>
+          <div class="iqai-v2-imagery-command__eo" data-iqai-eo-chrome hidden>
+            <p data-iqai-eo-status>Default mixed-proof area is drawn. Press ANALYZE when you want a measurement.</p>
+            <div class="iqai-v2-imagery-command__eo-aoi">
+              <button type="button" data-iqai-eo-draw aria-pressed="false">DRAW BOX</button>
+              <button type="button" data-iqai-eo-selection>USE SELECTION</button>
+              <button type="button" data-iqai-eo-view>USE CURRENT VIEW</button>
+              <button type="button" data-iqai-eo-clear>CLEAR</button>
+            </div>
+            <div class="iqai-v2-imagery-command__eo-products">
+              <button type="button" data-iqai-eo-product="EO.NDVI" aria-pressed="true">NDVI</button>
+              <button type="button" data-iqai-eo-product="EO.SURFACE_TEMPERATURE" aria-pressed="false">HEAT</button>
+              <button type="button" data-iqai-eo-product="EO.SAR_CHANGE" aria-pressed="false">RADAR</button>
+            </div>
+            <button type="button" data-iqai-eo-run disabled>ANALYZE NDVI</button>
+            <p data-iqai-eo-product-label>SELECTED · NDVI</p>
+            <p data-iqai-eo-aoi-label>AOI NOT SET</p>
+            <p data-iqai-eo-capture hidden></p>
+            <button type="button" data-iqai-eo-brain hidden>ASK BRAIN</button>
+          </div>
+          <aside class="iqai-v2-eo-legend" data-iqai-eo-legend-panel hidden>
+            <p class="iqai-v2-eo-legend__kicker" data-iqai-eo-legend-title>LEGEND</p>
+            <div class="iqai-v2-eo-legend__labels">
+              <span data-iqai-eo-legend-low>LOW</span>
+              <span data-iqai-eo-legend-center></span>
+              <span data-iqai-eo-legend-high>HIGH</span>
+            </div>
+            <div class="iqai-v2-eo-legend__ramp" data-iqai-eo-legend-ramp></div>
+            <div class="iqai-v2-eo-legend__ticks" data-iqai-eo-legend-ticks></div>
+            <dl data-iqai-eo-legend-stats></dl>
+            <p class="iqai-v2-eo-legend__warn" data-iqai-eo-legend-warn></p>
+            <p data-iqai-eo-meaning hidden></p>
+            <p data-iqai-eo-limits hidden></p>
+          </aside>
+          <aside class="iqai-v2-eo-probe" data-iqai-eo-probe-panel hidden>
+            <p class="iqai-v2-eo-probe__kicker">PROBE</p>
+            <p data-iqai-eo-probe-hint>Click the heatmap to read this cell versus the area mean.</p>
+            <p data-iqai-eo-probe-value hidden></p>
+            <p data-iqai-eo-probe-versus hidden></p>
+            <p data-iqai-eo-probe-qa hidden></p>
+            <button type="button" data-iqai-eo-probe-brain hidden>ASK BRAIN ABOUT THIS POINT</button>
+          </aside>
+          <aside class="iqai-v2-eo-compare" data-iqai-eo-compare-panel hidden>
+            <p class="iqai-v2-eo-compare__kicker">AREA COMPARE</p>
+            <p data-iqai-eo-compare-summary></p>
+          </aside>
+          <aside class="iqai-v2-eo-brain" data-iqai-eo-brain-panel hidden>
+            <p class="iqai-v2-eo-brain__kicker">ASK BRAIN</p>
+            <p class="iqai-v2-eo-brain__question" data-iqai-eo-brain-question hidden></p>
+            <p class="iqai-v2-eo-brain__kicker">ANSWER</p>
+            <p data-iqai-eo-brain-answer>Ask a follow-up about this measurement.</p>
+            <p class="iqai-v2-eo-brain__kicker">WHAT THAT MEANS</p>
+            <p data-iqai-eo-brain-meaning hidden></p>
+            <p class="iqai-v2-eo-brain__kicker">LIMIT</p>
+            <p data-iqai-eo-brain-limit hidden></p>
+            <p class="iqai-v2-eo-brain__kicker">FOLLOW-UP</p>
+            <div class="iqai-v2-eo-brain__followups" data-iqai-eo-brain-followups></div>
+            <details class="iqai-v2-eo-brain__details">
+              <summary>DETAILS</summary>
+              <pre data-iqai-eo-brain-details></pre>
+            </details>
+          </aside>
+          <div class="iqai-v2-imagery-calendar" data-iqai-history-calendar hidden></div>
+          <div class="iqai-v2-imagery-timeline" data-iqai-history-timeline hidden></div>
+        </div>
+        <div class="iqai-v2-view-switcher iqai-v2-view-switcher--stage" data-iqai-view-switcher-stage>
+          <span>VIEW</span>
           <button type="button" data-iqai-view="MAP" aria-pressed="true">MAP</button>
-          <button type="button" data-iqai-view="3D VISUAL" aria-pressed="false">3D</button>
           <button type="button" data-iqai-view="STREET 360" aria-pressed="false">STREET 360</button>
+          <button type="button" data-iqai-view="3D VISUAL" aria-pressed="false">3D</button>
           <button type="button" data-iqai-view="3D ANALYZE" aria-pressed="false">3D ANALYZE</button>
         </div>
         <div class="iqai-v2-layout-switcher" data-iqai-layout-switcher aria-label="WorldView layout">

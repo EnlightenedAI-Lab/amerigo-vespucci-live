@@ -195,8 +195,12 @@ test('8. reopening a view reads current WorldView navigation, not startup Focus 
   const street = read('shell/Street360Control.js');
   assert.match(visual, /openCameraTarget/);
   assert.match(visual, /getWorldviewNavigation\(\)/);
+  assert.match(visual, /openingNavigation/);
+  assert.match(visual, /beginWorldviewNavigationApply\(WORLDVIEW_NAV_SOURCE\.VISUAL_3D\)/);
   assert.match(visual, /markerLongitude/);
   assert.match(street, /openTarget/);
+  assert.match(street, /heading: nav\.heading/);
+  assert.match(street, /beginWorldviewNavigationApply\(WORLDVIEW_NAV_SOURCE\.STREET_360\)/);
   assert.match(street, /preferPosition: target.preferPosition === true/);
   assert.match(read('map/google-maps-js-3d.js'), /options.range/);
   assert.match(read('map/google-street-view.js'), /preferPosition/);

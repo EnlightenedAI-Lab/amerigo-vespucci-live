@@ -64,11 +64,13 @@ export function bindFocusInstrument(root, options = {}) {
   let dwellTimer = 0;
   let pointer = null;
   let ready = false;
+  let active = false;
   let viewHandles = [];
   let watchedView = null;
   let loadError = null;
   let chooser = null;
   let uevRefreshTimer = 0;
+  let manifestLoaded = false;
 
   function clickOwner() {
     if (options.isPlaceCameraArmed?.() === true) return 'place-camera';
@@ -241,7 +243,7 @@ export function bindFocusInstrument(root, options = {}) {
   }
 
   function samplePointer(longitude, latitude, screen) {
-    if (!ready || locking) return;
+    if (!active || !ready || locking) return;
     if (isArmed()) {
       footprints.setPointer(0, 0, { hidden: true });
       hideChooser();
@@ -429,6 +431,9 @@ export function bindFocusInstrument(root, options = {}) {
     return {
       version: 'woa-1.4',
       ready,
+      active,
+      pointerAttached: Boolean(active && watchedView && viewHandles.length),
+      indexedCount: Object.values(indexes).reduce((sum, index) => sum + (Number(index?.count) || 0), 0),
       loadError,
       mode: modeOf(),
       clickOwner: clickOwner(),
@@ -510,7 +515,7 @@ export function bindFocusInstrument(root, options = {}) {
   }
 
   function watchView(view) {
-    if (!view) return;
+    if (!active || !view) return;
     if (view === watchedView) {
       footprints.paint();
       assets.paint();
@@ -578,54 +583,107 @@ export function bindFocusInstrument(root, options = {}) {
     return row;
   }
 
-  async function start() {
+  function detachViewHandles() {
+    cancelDwell();
+    clearTimeout(uevRefreshTimer);
+    for (const handle of viewHandles) {
+      try { handle.remove?.(); } catch { /* gone */ }
+    }
+    viewHandles = [];
+    watchedView = null;
+  }
+
+  function paintWoaChrome() {
+    const button = root?.querySelector?.('[data-iqai-woa]');
+    if (!button) return;
+    button.setAttribute('aria-pressed', active ? 'true' : 'false');
+    button.classList.toggle('is-active', active === true);
+  }
+
+  async function ensureManifest() {
+    if (manifestLoaded) return;
+    const sourcesRes = await fetch(DATA_SOURCES);
+    if (!sourcesRes.ok) throw new Error('WOA selectable source manifest is missing.');
+    const manifest = await sourcesRes.json();
+    registry = createSelectableRegistry();
+    registerManifest(registry, manifest);
+    sources = registry.list();
+    layerSession = createLayerSession(sources);
+    manifestLoaded = true;
+  }
+
+  async function loadFamily(source) {
+    if (!source || indexes[source.objectClass]) return;
+    if (source.kind === 'uev-fabric') {
+      uevRuntime = createEvaluationUnitSource({
+        baseUrl: source.browserBaseUrl || source.baseUrl
+      });
+      indexes[source.objectClass] = createRemoteUevIndex({ runtime: uevRuntime, source });
+      return;
+    }
+    const res = await fetch(source.dataUrl);
+    if (!res.ok) throw new Error(`${source.label} clip is missing.`);
+    const collection = await res.json();
+    const features = source.objectClass === 'building'
+      ? (collection.features || []).map(wrapNrcanBuilding)
+      : (collection.features || []);
+    indexes[source.objectClass] = indexCollection({ type: 'FeatureCollection', features }, source.objectClass);
+  }
+
+  async function activate(request = {}) {
+    const requested = Array.isArray(request.families) && request.families.length
+      ? request.families.map(String)
+      : ['building'];
     try {
-      const [sourcesRes, catalogRes] = await Promise.all([
-        fetch(DATA_SOURCES),
-        fetch(DATA_CATALOG)
-      ]);
-      if (!sourcesRes.ok) throw new Error('WOA selectable source manifest is missing.');
-      const manifest = await sourcesRes.json();
-      registry = createSelectableRegistry();
-      registerManifest(registry, manifest);
-      sources = registry.list();
-      layerSession = createLayerSession(sources);
-      catalog = catalogRes.ok ? await catalogRes.json() : { features: [] };
-      indexes = {};
-      for (const source of sources) {
-        if (source.kind === 'uev-fabric') {
-          uevRuntime = createEvaluationUnitSource({
-            baseUrl: source.browserBaseUrl || source.baseUrl
-          });
-          indexes[source.objectClass] = createRemoteUevIndex({ runtime: uevRuntime, source });
-          continue;
-        }
-        const res = await fetch(source.dataUrl);
-        if (!res.ok) throw new Error(`${source.label} clip is missing.`);
-        const collection = await res.json();
-        const features = source.objectClass === 'building'
-          ? (collection.features || []).map(wrapNrcanBuilding)
-          : (collection.features || []);
-        indexes[source.objectClass] = indexCollection({ type: 'FeatureCollection', features }, source.objectClass);
+      await ensureManifest();
+      if (requested.includes('building') && !(catalog.features || []).length) {
+        const catalogRes = await fetch(DATA_CATALOG);
+        catalog = catalogRes.ok ? await catalogRes.json() : { features: [] };
+      }
+      for (const id of requested) {
+        const source = registry.get(id);
+        if (!source) continue;
+        layerSession.setVisible(id, true);
+        await loadFamily(source);
       }
       assets.setFeatures([
         ...(indexes.hydrant?.items || []).map((item) => item.feature),
         ...(indexes.traffic_signal?.items || []).map((item) => item.feature)
       ]);
       syncAssets();
-      ready = (indexes.building?.count || 0) > 0;
+      active = true;
+      ready = requested.some((id) => (indexes[id]?.count || 0) > 0 || Boolean(indexes[id]?.refresh));
       watchView(getMapView());
+      paintWoaChrome();
       options.onReady?.({
         count: indexes.building?.count,
         expected: NRCAN_EXPECTED_FOOTPRINTS,
         counts: counts(),
-        layerSession: layerSession.snapshot()
+        layerSession: layerSession.snapshot(),
+        families: requested
       });
       options.onLayerSession?.(layerSession.snapshot());
     } catch (error) {
       loadError = error?.message || String(error);
+      active = false;
       ready = false;
+      paintWoaChrome();
     }
+    return snapshot();
+  }
+
+  function deactivate() {
+    active = false;
+    ready = false;
+    detachViewHandles();
+    footprints.clear();
+    hideChooser();
+    chooser?.remove?.();
+    chooser = null;
+    hoverHits = [];
+    preview = null;
+    pointer = null;
+    paintWoaChrome();
     return snapshot();
   }
 
@@ -638,12 +696,15 @@ export function bindFocusInstrument(root, options = {}) {
     exportCsv();
   });
 
-  void start();
+  paintWoaChrome();
 
   return {
     snapshot,
     getState: snapshot,
     sensing,
+    activate,
+    deactivate,
+    isActive: () => active === true,
     acquireAt: (lat, lng) => acquireFromLonLat(lng, lat),
     hoverAt: async (lat, lng, screen) => {
       await ensureUevAround(lat, lng);
@@ -677,18 +738,29 @@ export function bindFocusInstrument(root, options = {}) {
     attachView: watchView,
     setSourceVisible,
     layerSnapshot: () => layerSession.snapshot(),
-    drawerRows: () => layerSession.drawerRows(),
+    drawerRows: () => (active ? layerSession.drawerRows() : []),
     refreshUev,
     ensureUevAround,
+    async propertyAt(lat, lng) {
+      const latitude = Number(lat);
+      const longitude = Number(lng);
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+      await ensureManifest();
+      const uevSource = (sources || []).find((item) => item.kind === 'uev-fabric' || item.objectClass === 'evaluation_unit');
+      if (uevSource) await loadFamily(uevSource);
+      await ensureUevAround(latitude, longitude, { force: true });
+      const hit = indexes.evaluation_unit?.findAt?.(latitude, longitude, 14);
+      if (!hit?.item?.feature) return null;
+      return {
+        kind: 'evaluation_unit',
+        relation: hit.relation,
+        feature: hit.item.feature
+      };
+    },
     detach() {
-      cancelDwell();
-      clearTimeout(uevRefreshTimer);
-      for (const handle of viewHandles) {
-        try { handle.remove?.(); } catch { /* gone */ }
-      }
+      deactivate();
       footprints.detach();
       assets.detach();
-      chooser?.remove?.();
     }
   };
 }

@@ -43,8 +43,15 @@ export function renderCommandHeader() {
     >
       <div class="iqai-v2-header__primary" data-iqai-header-primary>
         <div class="iqai-v2-brand">
+          <img
+            class="iqai-v2-brand__logo"
+            src="/spatial/assets/iqai-logo.svg"
+            width="72"
+            height="23"
+            alt="IQAI"
+          />
           <div class="iqai-v2-brand__lockup">
-            <span class="iqai-v2-brand__product">IQAI SPATIAL</span>
+            <span class="iqai-v2-brand__product">SPATIAL</span>
           </div>
         </div>
 
@@ -55,12 +62,34 @@ export function renderCommandHeader() {
               class="iqai-v2-search__input"
               type="search"
               name="place"
-              placeholder="Search place, address or coordinates"
+              placeholder="Search"
               data-iqai-search-input
             />
           </label>
         </form>
 
+        <nav class="iqai-v2-header__commands" aria-label="Command surfaces">
+          <div class="iqai-v2-header__surfaces" role="radiogroup" aria-label="Map surface">
+            <button type="button" data-iqai-image-surface="MAP" aria-pressed="true">MAP</button>
+            <button type="button" data-iqai-image-surface="AERIAL" aria-pressed="false">AERIAL</button>
+            <button type="button" data-iqai-image-surface="HISTORY" aria-pressed="false">HISTORY</button>
+            <button type="button" data-iqai-library-toggle aria-pressed="false">LIBRARY</button>
+            <button type="button" data-iqai-remote-sensing-toggle aria-pressed="false">REMOTE SENSING</button>
+          </div>
+          <div class="iqai-v2-view-switcher" data-iqai-view-switcher>
+            <button type="button" class="iqai-v2-visually-hidden" data-iqai-view="MAP" aria-pressed="true">MAP</button>
+            <button type="button" data-iqai-view="3D VISUAL" aria-pressed="false">3D</button>
+            <button type="button" data-iqai-view="STREET 360" aria-pressed="false">STREET 360</button>
+            <button type="button" data-iqai-view="3D ANALYZE" aria-pressed="false">3D ANALYZE</button>
+          </div>
+        </nav>
+
+        <button
+          type="button"
+          class="iqai-v2-theme-toggle"
+          data-iqai-theme-toggle
+          aria-label="Switch color theme"
+        >WHITE</button>
         <button
           type="button"
           class="iqai-v2-ask-toggle"

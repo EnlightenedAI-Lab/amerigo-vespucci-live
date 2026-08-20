@@ -22,6 +22,10 @@ import { setInspectorRegion } from './ContextInspector.js';
 
 const FOCUS_LAYER_ID = 'iqai-v2-spatial-focus';
 const CRS_LABEL = 'EPSG:4326';
+const PIN_CYAN = [140, 245, 255, 1];
+const PIN_CYAN_SOFT = [140, 245, 255, 0.22];
+const PIN_INK = [8, 12, 16, 1];
+const PIN_CREAM = [244, 240, 234, 1];
 
 function pointFromMapEvent(event) {
   const longitude = Number(event?.mapPoint?.longitude);
@@ -34,6 +38,16 @@ function formatMapScale(scale) {
   const value = Number(scale);
   if (!Number.isFinite(value) || value <= 0) return null;
   return `1 : ${Math.round(value).toLocaleString('en-US')}`;
+}
+
+function ringsFromFeature(feature) {
+  const geom = feature?.geometry;
+  if (!geom) return [];
+  if (geom.type === 'Polygon') return geom.coordinates || [];
+  if (geom.type === 'MultiPolygon') {
+    return (geom.coordinates || []).flatMap((polygon) => polygon || []);
+  }
+  return [];
 }
 
 function collapsedLine(formats, elevation) {
@@ -65,6 +79,7 @@ export function bindDropPinControl(root, options = {}) {
   let moveHandle = null;
   let scaleHandle = null;
   let focusLayer = null;
+  let propertyFeature = null;
   let placementGeneration = 0;
   let lastLiveFormats = null;
   let lastElevation = null;
@@ -182,10 +197,11 @@ export function bindDropPinControl(root, options = {}) {
     const view = getMapView();
     const plane = getRuntimePlane();
     if (!view || !plane || focusLayer) return focusLayer;
-    const [GraphicsLayer, Graphic, Point] = await Promise.all([
+    const [GraphicsLayer, Graphic, Point, Polygon] = await Promise.all([
       importArc('@arcgis/core/layers/GraphicsLayer.js'),
       importArc('@arcgis/core/Graphic.js'),
-      importArc('@arcgis/core/geometry/Point.js')
+      importArc('@arcgis/core/geometry/Point.js'),
+      importArc('@arcgis/core/geometry/Polygon.js')
     ]);
     focusLayer = plane.layers.find?.((layer) => layer.id === FOCUS_LAYER_ID)
       || plane.layers?.toArray?.()?.find((layer) => layer.id === FOCUS_LAYER_ID)
@@ -198,10 +214,12 @@ export function bindDropPinControl(root, options = {}) {
       });
       focusLayer.__iqaiGraphic = Graphic;
       focusLayer.__iqaiPoint = Point;
+      focusLayer.__iqaiPolygon = Polygon;
       plane.add(focusLayer);
     } else {
       focusLayer.__iqaiGraphic = focusLayer.__iqaiGraphic || Graphic;
       focusLayer.__iqaiPoint = focusLayer.__iqaiPoint || Point;
+      focusLayer.__iqaiPolygon = focusLayer.__iqaiPolygon || Polygon;
     }
     plane.visible = true;
     return focusLayer;
@@ -214,16 +232,41 @@ export function bindDropPinControl(root, options = {}) {
     if (!focus) return;
     const Graphic = layer.__iqaiGraphic;
     const Point = layer.__iqaiPoint;
+    const Polygon = layer.__iqaiPolygon;
     const geometry = new Point({
       longitude: focus.longitude,
       latitude: focus.latitude,
       spatialReference: { wkid: 4326 }
     });
-    const rings = [
+    const rings = ringsFromFeature(propertyFeature);
+    if (Polygon && rings.length) {
+      const polygon = new Polygon({
+        rings,
+        spatialReference: { wkid: 4326 }
+      });
+      layer.add(new Graphic({
+        geometry: polygon,
+        symbol: {
+          type: 'simple-fill',
+          color: [140, 245, 255, 0.08],
+          outline: { color: [140, 245, 255, 0.95], width: 1.6 }
+        }
+      }));
+      layer.add(new Graphic({
+        geometry: polygon,
+        symbol: {
+          type: 'simple-fill',
+          color: [0, 0, 0, 0],
+          outline: { color: PIN_CREAM, width: 0.6 }
+        }
+      }));
+    }
+    const halo = [
+      { size: 42, width: 1.1, color: PIN_CYAN_SOFT },
       { size: 26, width: 0.9, color: [244, 240, 234, 0.28] },
-      { size: 14, width: 1.15, color: [244, 240, 234, 0.92] }
+      { size: 16, width: 1.35, color: PIN_CYAN }
     ];
-    for (const ring of rings) {
+    for (const ring of halo) {
       layer.add(new Graphic({
         geometry,
         symbol: {
@@ -239,10 +282,20 @@ export function bindDropPinControl(root, options = {}) {
       geometry,
       symbol: {
         type: 'simple-marker',
+        style: 'diamond',
+        color: [140, 245, 255, 0.18],
+        size: 13,
+        outline: { color: PIN_CYAN, width: 1.1 }
+      }
+    }));
+    layer.add(new Graphic({
+      geometry,
+      symbol: {
+        type: 'simple-marker',
         style: 'cross',
-        color: [244, 240, 234, 1],
-        size: 11,
-        outline: { color: [20, 18, 15, 1], width: 1 }
+        color: PIN_CREAM,
+        size: 12,
+        outline: { color: PIN_INK, width: 1 }
       }
     }));
     layer.add(new Graphic({
@@ -250,9 +303,9 @@ export function bindDropPinControl(root, options = {}) {
       symbol: {
         type: 'simple-marker',
         style: 'circle',
-        color: [244, 240, 234, 1],
-        size: 3,
-        outline: { color: [20, 18, 15, 1], width: 1 }
+        color: PIN_CREAM,
+        size: 3.4,
+        outline: { color: PIN_INK, width: 1 }
       }
     }));
     if (pulse) {
@@ -275,6 +328,7 @@ export function bindDropPinControl(root, options = {}) {
   }
 
   async function placeFocus(longitude, latitude, sourceView = 'map') {
+    propertyFeature = null;
     const next = setActiveSpatialFocus({
       longitude,
       latitude,
@@ -308,7 +362,59 @@ export function bindDropPinControl(root, options = {}) {
     });
     paintChrome();
     options.onPlaced?.(resolved);
+    await attachProperty(longitude, latitude, token);
     return resolved;
+  }
+
+  async function attachProperty(longitude, latitude, token = placementGeneration) {
+    const hit = await options.resolveProperty?.(longitude, latitude);
+    if (token !== placementGeneration) return getActiveSpatialFocus();
+    propertyFeature = hit?.feature || null;
+    const focus = getActiveSpatialFocus();
+    if (focus) await paintMarker(focus);
+    return focus;
+  }
+
+  async function placeFromSearch({ longitude, latitude, address } = {}) {
+    const lon = Number(longitude);
+    const lat = Number(latitude);
+    if (!Number.isFinite(lon) || !Number.isFinite(lat)) return getActiveSpatialFocus();
+    propertyFeature = null;
+    const next = setActiveSpatialFocus({
+      longitude: lon,
+      latitude: lat,
+      sourceView: 'map',
+      sourceType: SPATIAL_FOCUS_SOURCE_TYPE.DROP_PIN,
+      source: 'search',
+      updatedAt: new Date().toISOString(),
+      resolvedAddress: address || null,
+      addressState: address
+        ? SPATIAL_FOCUS_ADDRESS_STATE.RESOLVED
+        : SPATIAL_FOCUS_ADDRESS_STATE.PENDING
+    });
+    armed = false;
+    dwellPlace = null;
+    paintChrome();
+    void paintMarker(next, { pulse: true });
+    options.onPlaced?.(next);
+    const token = ++placementGeneration;
+    if (!address) {
+      const geocode = await reverseGeocodeFocus(lon, lat);
+      if (token !== placementGeneration) return getActiveSpatialFocus();
+      const current = getActiveSpatialFocus();
+      if (current?.longitude === lon && current?.latitude === lat) {
+        setActiveSpatialFocus({
+          ...current,
+          resolvedAddress: geocode.ok ? geocode.resolvedAddress : null,
+          addressState: geocode.ok
+            ? SPATIAL_FOCUS_ADDRESS_STATE.RESOLVED
+            : SPATIAL_FOCUS_ADDRESS_STATE.NOT_RESOLVED
+        });
+        paintChrome();
+      }
+    }
+    await attachProperty(lon, lat, token);
+    return getActiveSpatialFocus();
   }
 
   function attachMapView(view) {
@@ -330,18 +436,8 @@ export function bindDropPinControl(root, options = {}) {
           return;
         }
         setPointerCoordinates(mapPoint.longitude, mapPoint.latitude);
-        dwellPlace = null;
         const live = liveCursorReadout(mapPoint.latitude, mapPoint.longitude);
         paintCursorHud(live, { showPlace: false });
-        scheduleCursorDwell(mapPoint.longitude, mapPoint.latitude, (resolved) => {
-          if (!resolved) return;
-          if (resolved.elevation) lastElevation = resolved.elevation;
-          dwellPlace = resolved.place || null;
-          paintCursorHud({
-            ...resolved,
-            elevation: resolved.elevation || lastElevation
-          }, { showPlace: Boolean(dwellPlace) && !getActiveSpatialFocus() });
-        });
       });
     }
     if (!clickHandle && typeof view.on === 'function') {
@@ -426,6 +522,7 @@ export function bindDropPinControl(root, options = {}) {
       return snapshot();
     },
     placeFocus,
+    placeFromSearch,
     snapshot,
     paint: paintChrome
   });

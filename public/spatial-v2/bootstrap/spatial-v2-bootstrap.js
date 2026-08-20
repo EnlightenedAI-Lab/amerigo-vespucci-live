@@ -178,10 +178,10 @@ export function createSpatialV2Chassis(options = {}) {
     experience: 'NORMAL',
     systemStatusOpen: false,
     inspectorPane: 'situation-slot',
-    inspectorOpen: false,
+    inspectorOpen: true,
     activeSystem: 'workspace',
-    activeLauncher: null,
-    drawer: null,
+    activeLauncher: 'layers',
+    drawer: 'layers',
     mapState: 'INITIALIZING',
     layerGroups: [],
     lastAskReceipt: null,
@@ -333,17 +333,14 @@ export function createSpatialV2Chassis(options = {}) {
     },
     setLauncher(launcherId) {
       if (launcherId === 'layers') {
-        presentation.drawer = presentation.drawer === 'layers' ? null : 'layers';
-        presentation.activeLauncher = presentation.drawer === 'layers' ? 'layers' : null;
-        if (presentation.drawer !== 'layers') presentation.addDataOpen = false;
-        if (presentation.drawer === 'layers') {
-          void executeChassis('chassis.set-active-system', { systemId: 'layers' });
-        }
+        presentation.drawer = 'layers';
+        presentation.activeLauncher = 'layers';
+        void executeChassis('chassis.set-active-system', { systemId: 'layers' });
+        void opsHost?.loadCatalog?.();
         notify();
         return;
       }
-      presentation.drawer = null;
-      presentation.activeLauncher = launcherId || null;
+      presentation.activeLauncher = launcherId || 'layers';
       notify();
     },
     toggleAsk() {
@@ -402,10 +399,17 @@ export function createSpatialV2Chassis(options = {}) {
     opsAllOff() { return opsHost?.allOff?.(); },
     opsRestore() { return opsHost?.restore?.(); },
     opsSolo() { return opsHost?.solo?.(); },
+    opsSoloLayer(layerId) { return opsHost?.soloLayer?.(layerId); },
     opsConfigure() { return opsHost?.configure?.(); },
+    opsConfigureClose() { return opsHost?.configureClose?.(); },
     opsConfigureSave(input) { return opsHost?.configureSave?.(input); },
     opsConfigureReset(sceneId) { return opsHost?.configureReset?.(sceneId); },
     opsConfigureScene(sceneId) { return opsHost?.configureScene?.(sceneId); },
+    opsConfigureSaveCurrent() { return opsHost?.configureSaveCurrent?.(); },
+    opsTimeWindow(input) { return opsHost?.setWindow?.(input); },
+    opsCategory(input) { return opsHost?.setCategory?.(input); },
+    opsRoute(input) { return opsHost?.setRoute?.(input); },
+    opsCamerasInView(on) { return opsHost?.setCamerasInView?.(on); },
     opsLayerInfo(layerId) { return opsHost?.layerInfo?.(layerId); },
     async dispatchCapability(capabilityId, input = {}) {
       if (capabilityId === 'layers.set-visibility' && String(input?.instanceId || '').startsWith('ops-')) {
@@ -480,6 +484,7 @@ export function bootSpatialV2(root, options = {}) {
     })
   };
   attachWorldviewMapSession(root, chassis, api);
+  chassis.setLauncher?.('layers');
   window.__iqaiSpatialV2 = api;
   return api;
 }

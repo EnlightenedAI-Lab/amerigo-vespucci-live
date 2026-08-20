@@ -131,10 +131,11 @@ test('Ground Controller keeps only the required initial set statically enabled',
   assert.match(foundation, /ensureNearmapWmsInterceptor/);
   assert.match(foundation, /ensureAuthoredNearmapGroundSlot/);
   assert.match(foundation, /applyOperationalHome/);
-  assert.ok(
-    foundation.indexOf('ensureAuthoredNearmapGroundSlot') < foundation.indexOf('new MapView('),
-    'Nearmap current-ground tile layer must exist before MapView construction'
+  const boot = foundation.slice(
+    foundation.indexOf('async function bootstrap'),
+    foundation.indexOf('new MapView(')
   );
+  assert.doesNotMatch(boot, /ensureAuthoredNearmapGroundSlot/);
   assert.doesNotMatch(nearmap, /api\.nearmap\.com/);
   assert.doesNotMatch(nearmap, /NEARMAP_API_KEY/);
   assert.doesNotMatch(nearmap, /NEARMAP_WMS_URL/);
@@ -200,6 +201,7 @@ test('Ground Controller V1 is session-only hybrid overlay architecture', () => {
   assert.match(ground, /token !== generation/);
   assert.match(ground, /applyMode\(previous\)/);
   assert.match(ground, /whenLayerView/);
+  assert.match(ground, /waitViewIdle\(view, 700\)/);
   assert.match(ground, /Map view settlement timed out/);
   assert.doesNotMatch(ground, /\.save\(/);
   assert.doesNotMatch(ground, /saveAs\(/);
@@ -214,11 +216,14 @@ test('Ground Controller V1 is session-only hybrid overlay architecture', () => {
 
 test('Ground Controller V1 Esri World Imagery is imagery-only, not hybrid labels', () => {
   const esri = read('imagery', 'providers', 'esri-world-imagery-provider.js');
-  assert.match(esri, /arcgis\/imagery/);
-  assert.match(esri, /Basemap\.fromId\(FALLBACK_LEGACY_ID\)/);
-  assert.match(esri, /satellite/);
+  const publicBasemap = read('map', 'iqai-public-basemap.js');
+  assert.match(esri, /createIqaiWaybackBasemap/);
+  assert.match(publicBasemap, /wayback\.maptiles\.arcgis\.com/);
+  assert.match(publicBasemap, /26334/);
+  assert.match(publicBasemap, /WebTileLayer/);
   assert.doesNotMatch(esri, /imagery-hybrid/);
   assert.doesNotMatch(esri, /arcgis\/imagery\/labels/);
+  assert.doesNotMatch(esri, /Basemap\.fromId/);
 });
 
 test('Ground Controller V1 Google demo is isolated, unofficial, and not an analysis source', () => {

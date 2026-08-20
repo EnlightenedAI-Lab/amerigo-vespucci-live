@@ -29,6 +29,8 @@ import {
   POINT_INTELLIGENCE_QUERY_BUNDLE_PATH
 } from './spatial/agent1-spatial-routes.js';
 import { registerImageryV2Routes } from './spatial-v2/imagery-routes.js';
+import { registerTemporalCatalogProxy } from './spatial-v2/temporal-catalog-proxy.js';
+import { registerEarthObservationBridge } from './spatial-v2/earth-observation-bridge.js';
 import { registerOperationalLayerRoutes } from './spatial-v2/ops-layers/routes.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -485,6 +487,8 @@ export function createServer(state, config, arcgis, options = {}) {
 
   registerAgent1SpatialRoutes(app, options);
   registerImageryV2Routes(app);
+  registerTemporalCatalogProxy(app);
+  registerEarthObservationBridge(app);
   registerOperationalLayerRoutes(app);
 
   app.get('/api/spatial/stm/live-buses', async (_req, res) => {

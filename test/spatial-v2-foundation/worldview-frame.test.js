@@ -41,7 +41,17 @@ test('WorldView Frame exposes 1-4 layout and observation panes without Dual Map'
   assert.match(session, /exclusive: false/);
   assert.match(session, /attachWorldviewMapAdapter/);
   assert.match(session, /seedWorldviewNavigationFromFocus/);
+  assert.match(session, /openSupporting\?\.\('3D VISUAL'\)/);
   assert.match(css, /data-iqai-worldview-layout="3"/);
+  assert.match(css, /--iqai-split-top/);
+  assert.match(css, /--iqai-split-left/);
+  assert.match(host, /data-iqai-splitters/);
+  assert.match(host, /data-iqai-split="row"/);
+  assert.match(host, /data-iqai-split="col"/);
+  assert.match(host, /data-iqai-basemap-picker/);
+  assert.match(frame, /paintSplitters/);
+  assert.match(frame, /resizeGoogleStreetView/);
+  assert.doesNotMatch(frame, /new MapView\(/);
   assert.equal((read('map/map-foundation.js').match(/new MapView\(/g) || []).length, 1);
   assert.match(host, /data-iqai-imagery-seam/);
 });

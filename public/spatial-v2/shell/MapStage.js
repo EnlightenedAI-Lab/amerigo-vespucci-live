@@ -24,7 +24,7 @@ export function renderMapStage() {
           <p class="iqai-v2-stage__kicker">MAP</p>
           <h1 class="iqai-v2-stage__title">Initializing map foundation</h1>
           <p class="iqai-v2-stage__state">INITIALIZING</p>
-          <p class="iqai-v2-stage__note">Loading the authored Montréal WebMap. The shell stays available if the map cannot load.</p>
+          <p class="iqai-v2-stage__note">Loading the IQAI map. The shell stays available if the map cannot load.</p>
         </div>
         <div class="iqai-v2-stage__error" data-iqai-map-error hidden>
           <p class="iqai-v2-stage__kicker">MAP</p>
@@ -34,7 +34,39 @@ export function renderMapStage() {
         </div>
         <div class="iqai-v2-map-nav" data-iqai-map-nav hidden></div>
         ${renderOperatorGroundControl()}
+        <aside id="solar-hud" class="solar-hud" data-iqai-solar-hud hidden aria-label="Solar Intelligence"></aside>
         <div class="iqai-v2-imagery-dock" data-iqai-imagery-dock hidden></div>
+        <div class="iqai-v2-history-stage" data-iqai-history-stage hidden aria-label="Historical overhead"></div>
+        <div class="iqai-v2-imagery-command" data-iqai-imagery-command>
+          <div class="iqai-v2-imagery-command__modes" role="radiogroup" aria-label="Imagery surface">
+            <button type="button" data-iqai-image-surface="MAP" aria-pressed="true">MAP</button>
+            <button type="button" data-iqai-image-surface="AERIAL" aria-pressed="false">AERIAL</button>
+            <button type="button" data-iqai-image-surface="HISTORY" aria-pressed="false" disabled aria-disabled="true" title="HISTORY unavailable">HISTORY</button>
+          </div>
+          <p class="iqai-v2-imagery-command__aerial" data-iqai-aerial-badge hidden>NEARMAP CURRENT</p>
+          <div class="iqai-v2-imagery-command__history" data-iqai-history-chrome hidden>
+            <button type="button" class="iqai-v2-imagery-command__date" data-iqai-image-date aria-expanded="false">DATE UNKNOWN</button>
+            <button type="button" class="iqai-v2-imagery-command__cal" data-iqai-history-calendar-toggle aria-label="Open calendar">CAL</button>
+            <p class="iqai-v2-imagery-command__status" data-iqai-history-status hidden></p>
+            <div class="iqai-v2-imagery-command__play">
+              <button type="button" data-iqai-history-action="previous">PREVIOUS</button>
+              <button type="button" data-iqai-history-action="play">PLAY</button>
+              <button type="button" data-iqai-history-action="next">NEXT</button>
+              <button type="button" data-iqai-history-action="compare">COMPARE</button>
+            </div>
+            <div class="iqai-v2-imagery-command__compare" data-iqai-history-compare hidden>
+              <label>A <select data-iqai-compare-a></select></label>
+              <label>B <select data-iqai-compare-b></select></label>
+              <p data-iqai-compare-labels></p>
+            </div>
+            <button type="button" class="iqai-v2-imagery-command__source" data-iqai-source-details-toggle aria-expanded="false">SOURCE DETAILS</button>
+            <dl class="iqai-v2-imagery-command__details" data-iqai-source-details hidden></dl>
+            <button type="button" data-iqai-history-capture>CAPTURE</button>
+            <p class="iqai-v2-imagery-command__export" data-iqai-export-status hidden></p>
+          </div>
+          <div class="iqai-v2-imagery-calendar" data-iqai-history-calendar hidden></div>
+          <div class="iqai-v2-imagery-timeline" data-iqai-history-timeline hidden></div>
+        </div>
         <div class="iqai-v2-view-switcher" data-iqai-view-switcher>
           <span>VIEW</span>
           <button type="button" data-iqai-view="map" aria-pressed="true">MAP</button>

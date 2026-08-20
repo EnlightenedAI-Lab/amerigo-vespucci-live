@@ -15,7 +15,18 @@ import {
 } from '../public/spatial-v2/ops-layers/scenes.js';
 import { buildLayerInfo } from '../public/spatial-v2/ops-layers/snapshot.js';
 import { buildSceneBrief, truthLabel } from '../public/spatial-v2/ops-layers/scene-brief.js';
-import { markerStyleFor, visualClass } from '../public/spatial-v2/ops-layers/symbology.js';
+import {
+  CLUSTER_LAYERS,
+  markerStyleFor,
+  pathStyle,
+  pointSymbol,
+  visualClass
+} from '../public/spatial-v2/ops-layers/symbology.js';
+import {
+  buildOpsInspectorModel,
+  createOpsObjectRef,
+  renderOpsFeatureInspector
+} from '../public/spatial-v2/ops-layers/selection.js';
 import { ACQUISITION_OWNER, VISIBILITY_OWNER, createLayerSession } from '../public/spatial-v2/map/woa/layer-session.js';
 import { createSelectableRegistry, registerManifest } from '../public/spatial-v2/map/woa/sources.js';
 import { renderAppShell } from '../public/spatial-v2/shell/AppShell.js';
@@ -41,7 +52,7 @@ function expectedFamilies() {
     'recent-crime', 'spvm-crime', 'pdq-territories', 'pdq', 'fire', 'fire-interventions', 'hospitals', 'civic-311',
     'stm', 'exo', 'rem', 'bixi', 'bike-counters', 'road-traffic', 'intersection-counts', 'road-works', 'qc-511', 'traffic-cameras', 'aircraft',
     'hydro', 'snow-ops',
-    'weather', 'air-quality', 'hydrometric',
+    'weather', 'air-quality', 'hydrometric', 'sun-daylight',
     'wildfire-active', 'wildfire-hotspots', 'wildfire-perimeters', 'wildfire-fwi'
   ];
 }
@@ -147,22 +158,118 @@ test('INFO and Intelligence Brief report observable data only', () => {
   assert.equal(truthLabel('UNAVAILABLE'), 'UNAVAILABLE');
 });
 
-test('Class-by-shape language and compact Discover chrome stay on Spatial V2 production shell', () => {
+test('Class-by-shape language and donor Operational Layers chrome stay on Spatial V2 production shell', () => {
   assert.equal(visualClass('fire'), 'facility');
   assert.equal(markerStyleFor('fire'), 'square');
   assert.equal(markerStyleFor('recent-crime'), 'diamond');
   assert.equal(markerStyleFor('stm'), 'circle');
+  assert.equal(visualClass('sun-daylight'), 'environment');
   const html = renderAppShell();
-  assert.match(html, /LAYERS \/ DISCOVER/);
+  assert.match(html, /Layers \/ Discover/);
   assert.match(html, /data-iqai-discover/);
+  assert.match(html, /iqai-mtl-ops/);
   assert.match(html, />LAYERS</);
+  assert.match(read('shell/LayersDrawer.js'), /LAYERS \/ DISCOVER/);
   assert.match(read('shell/LayersDrawer.js'), /onScene/);
+  assert.match(read('shell/LayersDrawer.js'), /ops-btn/);
+  assert.match(read('shell/LayersDrawer.js'), /INTELLIGENCE BRIEF/);
+  assert.match(read('shell/LayersDrawer.js'), /data-iqai-solo-layer/);
   assert.match(read('bootstrap/worldview-map-session.js'), /opsLayers\.loadCatalog/);
+  assert.doesNotMatch(read('bootstrap/worldview-map-session.js'), /layerId: layer.session \? 'session-agol' : 'authored-operational-map'/);
+  assert.match(read('bootstrap/worldview-map-session.js'), /bindSolarIntelligence/);
+  assert.match(read('shell/MapStage.js'), /data-iqai-solar-hud/);
+  assert.match(read('ops-layers/solar-ui.js'), /PLAY THE NEXT 24 HOURS/);
+  assert.match(read('ops-layers/solar-ui.js'), /CHECK A PLACE/);
+  assert.match(read('ops-layers/solar-ui.js'), /COMPUTED · NOT A LIVE WEATHER FEED/);
+  assert.match(read('ops-layers/overlay.js'), /iqai-v2-ops-overlay/);
+  assert.match(read('ops-layers/overlay.js'), /view\.toScreen/);
+  assert.match(read('ops-layers/overlay.js'), /clusteredFeatures/);
+  assert.match(read('map/map-foundation.js'), /iqai-v2-ops-graphics/);
+  assert.match(read('shell/LayersDrawer.js'), /setAttribute\('for', checkboxId\)/);
+  assert.match(read('shell/LayersDrawer.js'), /data-iqai-ops-layer/);
+  assert.match(read('shell/LayersDrawer.js'), /syncDiscover/);
+  assert.match(read('map/map-foundation.js'), /SPATIAL_V2_MAP_ZOOM = 15/);
+  assert.match(read('ops-layers/donor-panel.css'), /iqai-v2-ops-panel-w/);
+  assert.match(read('ops-layers/donor-map.css'), /sym-moving\.is-bus/);
+  assert.match(read('ops-layers/donor-map.css'), /solar-hud/);
+  assert.match(read('bootstrap/worldview-map-session.js'), /setDiscover\?\.\(opsLayers\.snapshot\(\)\)/);
+  assert.match(read('map/map-foundation.js'), /portalIndependent: true/);
+  assert.doesNotMatch(read('map/map-foundation.js'), /new WebMap\(/);
   assert.match(readSrc('src/server.js'), /registerOperationalLayerRoutes/);
-  assert.doesNotMatch(readSrc('src/spatial-v2/ops-layers/catalog.mjs'), /solar intelligence|census-da|solar-ui/i);
+  assert.match(readSrc('src/spatial-v2/ops-layers/catalog.mjs'), /sun-daylight/);
+  assert.match(readSrc('src/spatial-v2/ops-layers/routes.js'), /ops-layers\/sun\/state/);
   assert.doesNotMatch(read('ops-layers/controller.js'), /usePresentationMap/);
+  assert.equal(CLUSTER_LAYERS.stm.disableAt, 14);
+  assert.match(pointSymbol('stm', { routeId: '24' }, { zoom: 15 }).html, /bus-body/);
+  assert.equal(pathStyle('hydro', {
+    geometry: { type: 'Polygon' },
+    properties: { hydroKind: 'area' }
+  }).fillColor, '#c9a227');
+  assert.equal(pathStyle('sun-daylight', {
+    geometry: { type: 'LineString' },
+    properties: { sunKind: 'terminator' }
+  }).interactive, false);
   assert.equal((read('map/map-foundation.js').match(/new MapView\(/g) || []).length, 1);
   assert.equal(isAisSpatialStreamEnabled({}), false);
+});
+
+test('Operational feature clicks use hitTest and commit canonical Crime ObjectRef identity', () => {
+  const record = {
+    layerId: 'recent-crime',
+    featureId: '170fe636c6606dbe',
+    meta: { id: 'recent-crime', title: 'Recent Crime', provider: 'SPVM' },
+    payload: {
+      status: 'RECENT',
+      windowLabel: 'LATEST DAY',
+      asOfDate: '2026-08-05'
+    },
+    feature: {
+      type: 'Feature',
+      id: '170fe636c6606dbe',
+      geometry: { type: 'Point', coordinates: [-73.5585, 45.515925] },
+      properties: {
+        categoryEnglish: 'Theft from vehicle',
+        date: '2026-08-05',
+        shift: 'nuit',
+        pdq: '20',
+        sourceFeatureId: '170fe636c6606dbe',
+        source: 'SPVM Actes criminels',
+        spatialPrecision: 'Privacy-obfuscated intersection',
+        note: 'Not live CAD. Publication may lag the calendar day.'
+      }
+    }
+  };
+  const objectRef = createOpsObjectRef(record);
+  assert.equal(objectRef.namespace, 'spvm');
+  assert.equal(objectRef.kind, 'crime-report');
+  assert.equal(objectRef.id, '170fe636c6606dbe');
+  assert.equal(objectRef.datasetRef, 'montreal-open-data:spvm:actes-criminels');
+  assert.equal(objectRef.datasetVersion, '2026-08-05');
+  const inspector = buildOpsInspectorModel(record);
+  assert.equal(inspector.objectType, 'RECENT CRIME');
+  assert.equal(inspector.category, 'Theft from vehicle');
+  assert.equal(inspector.status, 'RECENT');
+  assert.ok(inspector.rows.some(([label, value]) => label === 'POLICE DISTRICT' && value === 'PDQ 20'));
+  assert.ok(inspector.rows.some(([label, value]) => label === 'STABLE RECORD ID' && value === '170fe636c6606dbe'));
+  assert.equal(inspector.rows.some(([label]) => label === 'LOCATION / ADDRESS'), false);
+  const html = renderOpsFeatureInspector(record);
+  assert.match(html, /Theft from vehicle/);
+  assert.match(html, /Privacy-obfuscated intersection/);
+  assert.match(html, /Not live CAD/);
+  assert.match(html, /170fe636c6606dbe/);
+  assert.doesNotMatch(html, /Canonical ObjectRef|montreal-open-data:spvm/);
+
+  const selection = read('ops-layers/selection.js');
+  const overlay = read('ops-layers/overlay.js');
+  const session = read('bootstrap/worldview-map-session.js');
+  assert.match(selection, /view\.hitTest\(event, \{ include: \[hitLayer\] \}\)/);
+  assert.match(selection, /executeChassis\?\.\('selection\.set'/);
+  assert.match(selection, /CLEAR_OPERATIONAL_FEATURE/);
+  assert.match(overlay, /getOpsGraphicsLayer/);
+  assert.match(overlay, /data-iqai-ops-feature-id/);
+  assert.match(overlay, /data-iqai-ops-selected/);
+  assert.match(session, /bindOpsSelection/);
+  assert.equal((read('map/map-foundation.js').match(/new MapView\(/g) || []).length, 1);
 });
 
 test('WOA, PLACE CAMERA, Focus, Street360, Google 3D, WorldView seams remain imported', () => {
@@ -173,5 +280,6 @@ test('WOA, PLACE CAMERA, Focus, Street360, Google 3D, WorldView seams remain imp
   assert.match(session, /bindGooglePhotorealistic3dControl/);
   assert.match(session, /bindWorldViewFrame/);
   assert.match(read('map/woa/layer-session.js'), /visibilityOwner/);
-  assert.doesNotMatch(readSrc('src/spatial-v2/ops-layers/catalog.mjs'), /sun\.mjs|census-da|solar-ui/);
+  assert.match(readSrc('src/spatial-v2/ops-layers/catalog.mjs'), /id: 'sun-daylight'/);
+  assert.match(read('bootstrap/worldview-map-session.js'), /solarIntelligence\?\.isPlacePending/);
 });

@@ -4,7 +4,7 @@
  * Does not write Portal. Does not consume uncommitted Solar / Port work.
  */
 import { URLS, USER_AGENT, LAYERS } from './catalog.mjs';
-import { buildCatalog, fetchLayer } from './layers.mjs';
+import { buildCatalog, fetchLayer, sunStatePayload } from './layers.mjs';
 import { fetchStillBuffer, probeStill, MAX_IN_VIEW } from './cameras.mjs';
 import { fwiWmsUpstream, fetchFwiInfo } from './cwfis.mjs';
 
@@ -140,7 +140,15 @@ export function registerOperationalLayerRoutes(app) {
       const payload = rewritePayload(await fetchLayer(req.params.id, {
         window: req.query.window,
         category: req.query.category,
-        route: req.query.route
+        route: req.query.route,
+        lat: req.query.lat,
+        lon: req.query.lon,
+        at: req.query.at,
+        area: req.query.area,
+        minLat: req.query.minLat,
+        maxLat: req.query.maxLat,
+        minLon: req.query.minLon,
+        maxLon: req.query.maxLon
       }));
       const code = payload?.ok || payload?.geojson
         ? 200
@@ -148,6 +156,28 @@ export function registerOperationalLayerRoutes(app) {
       return json(res, code, payload);
     } catch (error) {
       return json(res, 500, { ok: false, status: 'FAILED', message: error?.message || 'layer failed' });
+    }
+  });
+
+  app.get('/api/spatial-v2/ops-layers/sun/state', async (req, res) => {
+    try {
+      const payload = await sunStatePayload({
+        lat: req.query.lat,
+        lon: req.query.lon,
+        at: req.query.at,
+        includeDa: true
+      });
+      return json(res, 200, {
+        ok: true,
+        status: 'COMPUTED',
+        ...payload
+      });
+    } catch (error) {
+      return json(res, 500, {
+        ok: false,
+        status: 'FAILED',
+        message: error?.message || 'solar point calculation failed'
+      });
     }
   });
 

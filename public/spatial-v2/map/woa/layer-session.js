@@ -17,7 +17,7 @@ export const ACQUISITION_OWNER = 'world-object-acquisition';
 export function createLayerSession(sources = []) {
   const rows = new Map();
   for (const source of sources) {
-    const visible = source.defaultVisible !== false && source.labSceneDefault !== false;
+    const visible = source.defaultVisible === true || source.labSceneDefault === true;
     rows.set(source.objectClass, {
       objectClass: source.objectClass,
       label: source.label || String(source.objectClass).toUpperCase(),

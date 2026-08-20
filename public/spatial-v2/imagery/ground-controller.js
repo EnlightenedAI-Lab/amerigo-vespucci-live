@@ -5,9 +5,11 @@
 
 import { importArc } from '../map/arcgis-sdk.js';
 import {
+  getIqaiGroundSurface,
   getMapView,
   getRuntimePlane,
-  getWebMap
+  getWebMap,
+  setIqaiGroundSurface
 } from '../map/map-foundation.js';
 import {
   DATE_KIND,
@@ -474,14 +476,18 @@ async function applyBackground(webmap, view, color) {
 
 async function restoreAuthoredBackground(webmap, view) {
   if (!authoredBackgroundJson) return;
-  const ColorBackground = await importArc('@arcgis/core/webmap/background/ColorBackground.js');
-  const restored = ColorBackground.fromJSON
-    ? ColorBackground.fromJSON(authoredBackgroundJson)
-    : new ColorBackground(authoredBackgroundJson);
-  webmap.background = restored;
-  view.background = ColorBackground.fromJSON
-    ? ColorBackground.fromJSON(authoredBackgroundJson)
-    : new ColorBackground(authoredBackgroundJson);
+  try {
+    const ColorBackground = await importArc('@arcgis/core/webmap/background/ColorBackground.js');
+    const restored = ColorBackground.fromJSON
+      ? ColorBackground.fromJSON(authoredBackgroundJson)
+      : new ColorBackground(authoredBackgroundJson);
+    webmap.background = restored;
+    view.background = ColorBackground.fromJSON
+      ? ColorBackground.fromJSON(authoredBackgroundJson)
+      : new ColorBackground(authoredBackgroundJson);
+  } catch {
+    // authored background restore must not roll back a public aerial/map swap
+  }
 }
 
 async function canvasBasemap(modeId) {
@@ -530,16 +536,15 @@ async function applyMode(modeId) {
 
   if (modeId === GROUND_MODE.NEARMAP) {
     hideTimeObservationForGround();
-    const layer = await applyAuthoredNearmapGround(webmap);
-    webmap.basemap = await canvasBasemap(GROUND_MODE.PURE_BLACK);
-    await applyBackground(webmap, view, [0, 0, 0, 1]);
-    if (typeof layer.refresh === 'function') layer.refresh();
+    await setIqaiGroundSurface('aerial');
+    await applyAuthoredNearmapGround(webmap).catch(() => {});
     if (typeof view.requestRender === 'function') view.requestRender();
     return;
   }
 
   if (modeId === GROUND_MODE.AUTHORED_WEBMAP) {
     if (!authoredBasemap) throw new Error('Authored basemap snapshot is missing.');
+    await setIqaiGroundSurface('map');
     webmap.basemap = authoredBasemap;
     await restoreAuthoredBackground(webmap, view);
     await settleBasemap(view, webmap.basemap);
@@ -547,12 +552,24 @@ async function applyMode(modeId) {
   }
 
   if (modeId === GROUND_MODE.PURE_BLACK || modeId === GROUND_MODE.PURE_WHITE) {
+    await setIqaiGroundSurface('map');
     webmap.basemap = await canvasBasemap(modeId);
     await applyBackground(webmap, view, modeId === GROUND_MODE.PURE_WHITE ? [255, 255, 255, 1] : [0, 0, 0, 1]);
     await waitViewIdle(view, 6000).catch(() => {});
     return;
   }
 
+  if (modeId === GROUND_MODE.ESRI_WORLD_IMAGERY) {
+    await setIqaiGroundSurface('aerial');
+    await restoreAuthoredBackground(webmap, view);
+    await waitViewIdle(view, 700).catch(() => {});
+    if (getIqaiGroundSurface() !== 'aerial') {
+      throw new Error('Aerial WebTileLayer did not become visible.');
+    }
+    return;
+  }
+
+  await setIqaiGroundSurface('map');
   const next = await constructedBasemapFor(modeId);
   if (!next) throw new Error(`No basemap constructor for ${modeId}`);
   webmap.basemap = next;

@@ -119,9 +119,14 @@ test('Focus V4.6 promotion stays on one MapView and production ObjectRef', () =>
   const footprints = read('map/focus/footprints.js');
   const instrument = read('map/focus/instrument.js');
   const stage = read('hosts/view-host.js');
+  const inspector = read('shell/ContextInspector.js');
   const drop = read('shell/DropPinControl.js');
   assert.match(session, /bindFocusInstrument/);
   assert.match(session, /hasAcquiredObject/);
+  assert.match(session, /data-iqai-woa/);
+  assert.match(instrument, /async function activate/);
+  assert.match(instrument, /function deactivate/);
+  assert.doesNotMatch(instrument, /void start\(\)/);
   assert.equal((read('map/map-foundation.js').match(/new MapView\(/g) || []).length, 1);
   assert.doesNotMatch(instrument, /new MapView\(/);
   assert.doesNotMatch(footprints, /new GraphicsLayer|layers\/GraphicsLayer/);
@@ -130,8 +135,8 @@ test('Focus V4.6 promotion stays on one MapView and production ObjectRef', () =>
   assert.match(footprints, /#FF0000/);
   assert.match(stage, />FOCUS</);
   assert.match(stage, /data-iqai-drop-pin/);
-  assert.match(stage, /data-iqai-add-set/);
-  assert.match(stage, /data-iqai-export-csv/);
+  assert.match(inspector, /data-iqai-add-set/);
+  assert.match(inspector, /data-iqai-export-csv/);
   assert.match(drop, /hasAcquiredObject/);
   assert.doesNotMatch(instrument, /iqai\.lab\.objectref/);
   assert.doesNotMatch(read('map/focus/nrcan-object-ref.js'), /iqai\.lab\.objectref/);

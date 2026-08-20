@@ -2,7 +2,7 @@
 
 export const PORT = Number(process.env.SANDBOX_PORT || 8793);
 export const HOST = '127.0.0.1';
-export const USER_AGENT = 'IQAI-Spatial-V2-Operational-Layers/1.5';
+export const USER_AGENT = 'IQAI-Spatial-V2-Operational-Layers/1.7';
 
 export const MONTREAL_VIEW = { lat: 45.5088, lon: -73.5617, zoom: 11 };
 
@@ -101,7 +101,11 @@ export const URLS = {
   cwfisHowTo: 'https://cwfis.cfs.nrcan.gc.ca/downloads/docs/en/how-tos/how-to-access-cwfis-data-services.pdf',
   cwfisCwfifWfs: 'https://geoserver.cwfif.nrcan.gc.ca/geoserver/ows',
   cwfisLegacyWfs: 'https://cwfis.cfs.nrcan.gc.ca/geoserver/ows',
-  cwfisLegacyWms: 'https://cwfis.cfs.nrcan.gc.ca/geoserver/wms'
+  cwfisLegacyWms: 'https://cwfis.cfs.nrcan.gc.ca/geoserver/wms',
+  statcanDa2021FeatureServer:
+    'https://services.arcgis.com/wjcPoefzjpzCgffS/ArcGIS/rest/services/Canadian_Population_and_Dwelling_Counts_2021/FeatureServer',
+  statcanDa2021Layer:
+    'https://services.arcgis.com/wjcPoefzjpzCgffS/ArcGIS/rest/services/Canadian_Population_and_Dwelling_Counts_2021/FeatureServer/3'
 };
 
 export const PANEL_GROUPS = [
@@ -722,6 +726,44 @@ export const LAYERS = [
     establishes: ['Official water level and/or discharge at hydrometric stations near Montréal'],
     doesNotEstablish: ['A flood-warning or ice-jam CAD product', 'Complete Québec hydrometric network'],
     limitations: ['NEAR-LIVE observations. Sparse in the island bbox. Not CEHQ viewer scrape.']
+  },
+  {
+    id: 'sun-daylight',
+    title: 'Sun / Daylight',
+    group: 'environment',
+    family: 'Weather',
+    defaultOn: false,
+    expectedStatus: 'COMPUTED',
+    sourceId: 'iqai.computed.solar-position.noaa',
+    provider: 'Computed — NOAA Solar Calculator equations',
+    licence: 'NOAA solar equations are public scientific formulae; this layer is not a measured feed',
+    geometry: 'polygon + line + point',
+    color: '#d8c9a3',
+    officialUrl: 'https://gml.noaa.gov/grad/solcalc/',
+    catalogueUrl: 'https://gml.noaa.gov/grad/solcalc/solareqns.PDF',
+    adapter: 'Local NOAA GML solar-position / equation-of-time calculation. 2021 Census DA population via DisseminationAreas_21 FeatureServer, centroid classification.',
+    establishes: [
+      'Current or simulated UTC and America/Toronto civil time',
+      'Sun azimuth and elevation at a requested point',
+      'Sunrise and sunset for the local calendar day at that point',
+      'Geometric illumination bands: daylight (≥0°), civil (0 to −6), nautical (−6 to −12), astronomical (−12 to −18), night (< −18)',
+      '0° solar terminator as the day/night horizon',
+      '2021 Census usual-resident population by illumination class for the Montréal census division, using DA centroid classification'
+    ],
+    doesNotEstablish: [
+      'Measured irradiance or ECCC weather',
+      'Terrain shadows, building shadows, or camera pointing',
+      'That night shading in a Montréal island view must be visible while the sun is up',
+      'People physically present at the calculation instant',
+      'Sub-DA population precision when a dissemination area straddles a solar boundary'
+    ],
+    limitations: [
+      'COMPUTED / CURRENT, not a live sensor. Refresh ~60 s while the layer is on.',
+      'Apparent elevation includes NOAA refraction. Civil twilight is geometric elevation −6°.',
+      'Population is Statistics Canada 2021 Census usual residents (DisseminationAreas_21). DA centroid classification.',
+      'Default off: night shading is global and can compete with operational marks if left on at city zoom.',
+      'Optional in WEATHER IMPACT / POLICE PICTURE via CONFIGURE; not in those default scene lists.'
+    ]
   },
   {
     id: 'wildfire-active',

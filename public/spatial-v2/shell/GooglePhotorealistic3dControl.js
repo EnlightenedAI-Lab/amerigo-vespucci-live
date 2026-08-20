@@ -127,7 +127,8 @@ export function bindGooglePhotorealistic3dControl(root, options = {}) {
       longitude: lon,
       latitude: lat,
       spatialReferenceWkid: 4326,
-      source: 'drop-pin'
+      source: 'drop-pin',
+      label: String(peer.resolvedAddress || peer.address || '').trim() || 'FOCUS'
     };
   }
 
@@ -185,14 +186,17 @@ export function bindGooglePhotorealistic3dControl(root, options = {}) {
     const lon = Number(longitude);
     const lat = Number(latitude);
     if (!isGreaterMontrealLongitudeLatitude(lon, lat)) return false;
+    const focus = options.getSpatialFocus?.() || options.getPeerSelectedPoint?.();
     selectedPoint = {
       longitude: lon,
       latitude: lat,
       spatialReferenceWkid: 4326,
-      source: String(source || 'operator')
+      source: String(source || 'operator'),
+      label: String(focus?.resolvedAddress || focus?.address || '').trim() || 'FOCUS'
     };
     if (stageState === STAGE_STATE.OPEN) {
       updateGoogleMapsJs3dFocusMarker(selectedPoint);
+      void flyGoogleMapsJs3dToSelectedPoint().catch(() => {});
     }
     if (stageState === STAGE_STATE.ERROR) stageState = STAGE_STATE.IDLE;
     options.onSelectPoint?.(selectedPoint);
@@ -270,26 +274,35 @@ export function bindGooglePhotorealistic3dControl(root, options = {}) {
 
   function attachNavSync() {
     detachNavSync();
-    cameraUnsub = subscribeGoogleMapsJs3dCamera((camera) => {
-      if (stageState !== STAGE_STATE.OPEN) return;
-      if (isWorldviewNavigationApplying(WORLDVIEW_NAV_SOURCE.VISUAL_3D)) return;
-      if (!Number.isFinite(camera.lat) || !Number.isFinite(camera.lng)) return;
-      const current = getWorldviewNavigation();
-      if (
-        current
-        && current.sourceView !== WORLDVIEW_NAV_SOURCE.VISUAL_3D
-        && Math.abs(camera.lat - current.latitude) < 0.0002
-        && Math.abs(camera.lng - current.longitude) < 0.0002
-      ) {
-        return;
-      }
-      proposeWorldviewNavigation(WORLDVIEW_NAV_SOURCE.VISUAL_3D, {
-        longitude: camera.lng,
-        latitude: camera.lat,
-        rangeMeters: camera.range,
-        heading: camera.heading
+    const openingNavigation = getWorldviewNavigation();
+    beginWorldviewNavigationApply(WORLDVIEW_NAV_SOURCE.VISUAL_3D);
+    try {
+      cameraUnsub = subscribeGoogleMapsJs3dCamera((camera) => {
+        if (stageState !== STAGE_STATE.OPEN) return;
+        if (isWorldviewNavigationApplying(WORLDVIEW_NAV_SOURCE.VISUAL_3D)) return;
+        if (!Number.isFinite(camera.lat) || !Number.isFinite(camera.lng)) return;
+        const current = getWorldviewNavigation();
+        if (
+          current
+          && current.sourceView !== WORLDVIEW_NAV_SOURCE.VISUAL_3D
+          && Math.abs(camera.lat - current.latitude) < 0.0002
+          && Math.abs(camera.lng - current.longitude) < 0.0002
+        ) {
+          return;
+        }
+        proposeWorldviewNavigation(WORLDVIEW_NAV_SOURCE.VISUAL_3D, {
+          longitude: camera.lng,
+          latitude: camera.lat,
+          rangeMeters: camera.range,
+          heading: camera.heading
+        });
       });
-    });
+    } finally {
+      endWorldviewNavigationApply(
+        WORLDVIEW_NAV_SOURCE.VISUAL_3D,
+        openingNavigation?.revision
+      );
+    }
     navUnsub = subscribeWorldviewNavigation((nav) => {
       if (!nav || stageState !== STAGE_STATE.OPEN) return;
       if (nav.sourceView === WORLDVIEW_NAV_SOURCE.VISUAL_3D) return;
@@ -310,6 +323,20 @@ export function bindGooglePhotorealistic3dControl(root, options = {}) {
     if (!mapReady || !target) {
       return snapshot();
     }
+    if (stageState === STAGE_STATE.OPEN) {
+      const markerPoint = canonicalFocusPoint() || selectedPoint || target;
+      selectedPoint = {
+        longitude: markerPoint.longitude,
+        latitude: markerPoint.latitude,
+        spatialReferenceWkid: 4326,
+        source: markerPoint.source || 'drop-pin',
+        label: String(markerPoint.label || markerPoint.resolvedAddress || '').trim() || 'FOCUS'
+      };
+      updateGoogleMapsJs3dFocusMarker(selectedPoint);
+      void flyGoogleMapsJs3dToSelectedPoint().catch(() => {});
+      paint();
+      return snapshot();
+    }
 
     const token = ++transition;
     stageState = STAGE_STATE.OPENING;
@@ -328,7 +355,8 @@ export function bindGooglePhotorealistic3dControl(root, options = {}) {
         longitude: markerPoint.longitude,
         latitude: markerPoint.latitude,
         spatialReferenceWkid: 4326,
-        source: markerPoint.source || 'drop-pin'
+        source: markerPoint.source || 'drop-pin',
+        label: String(markerPoint.label || markerPoint.resolvedAddress || '').trim() || 'FOCUS'
       };
       let engine = await openGoogleMapsJs3d({
         container: stageHost,
@@ -338,7 +366,8 @@ export function bindGooglePhotorealistic3dControl(root, options = {}) {
         heading: cameraTarget.heading,
         markerLongitude: selectedPoint.longitude,
         markerLatitude: selectedPoint.latitude,
-        source: selectedPoint.source
+        source: selectedPoint.source,
+        label: selectedPoint.label
       });
       if (token !== transition) return snapshot();
       if (

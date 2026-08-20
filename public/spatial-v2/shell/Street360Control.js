@@ -104,6 +104,7 @@ export function bindStreet360Control(root, options = {}) {
       return {
         longitude: nav.longitude,
         latitude: nav.latitude,
+        heading: nav.heading,
         source: 'worldview-navigation'
       };
     }
@@ -123,22 +124,31 @@ export function bindStreet360Control(root, options = {}) {
     armStreetOperatingScale();
     const capability = getStreet360LiveCapability();
     if (capability.positionEvents) {
-      streetNavUnsub = subscribeGoogleStreetViewNavigation((position) => {
-        if (stageState !== STAGE_STATE.OPEN) return;
-        if (isWorldviewNavigationApplying(WORLDVIEW_NAV_SOURCE.STREET_360)) return;
-        const scalePatch = streetOperatingScalePatch(getWorldviewNavigation());
-        const committed = proposeWorldviewNavigation(WORLDVIEW_NAV_SOURCE.STREET_360, {
-          longitude: position.longitude,
-          latitude: position.latitude,
-          heading: capability.headingFromPov ? position.heading : undefined,
-          ...scalePatch
+      const openingNavigation = getWorldviewNavigation();
+      beginWorldviewNavigationApply(WORLDVIEW_NAV_SOURCE.STREET_360);
+      try {
+        streetNavUnsub = subscribeGoogleStreetViewNavigation((position) => {
+          if (stageState !== STAGE_STATE.OPEN) return;
+          if (isWorldviewNavigationApplying(WORLDVIEW_NAV_SOURCE.STREET_360)) return;
+          const scalePatch = streetOperatingScalePatch(getWorldviewNavigation());
+          const committed = proposeWorldviewNavigation(WORLDVIEW_NAV_SOURCE.STREET_360, {
+            longitude: position.longitude,
+            latitude: position.latitude,
+            heading: capability.headingFromPov ? position.heading : undefined,
+            ...scalePatch
+          });
+          if (committed?.accepted) noteStreetOperatingScaleApplied(committed.snapshot);
+          observeStreetTraversal({
+            ...position,
+            programmatic: position.programmatic === true
+          });
         });
-        if (committed?.accepted) noteStreetOperatingScaleApplied(committed.snapshot);
-        observeStreetTraversal({
-          ...position,
-          programmatic: position.programmatic === true
-        });
-      });
+      } finally {
+        endWorldviewNavigationApply(
+          WORLDVIEW_NAV_SOURCE.STREET_360,
+          openingNavigation?.revision
+        );
+      }
     }
     worldNavUnsub = subscribeWorldviewNavigation((nav) => {
       if (!nav || stageState !== STAGE_STATE.OPEN) return;

@@ -1,6 +1,6 @@
 /**
- * Precision spatial cursor: live formats on move, dwell geocode/elevation.
- * Does not reverse-geocode on every pointer-move. World State remains focus authority.
+ * Precision spatial cursor: live formats on move.
+ * Reverse geocode and elevation are on-demand (click / DROP PIN), not pointer rest.
  */
 
 import { describeCoordinates } from './coordinate-formats.js';

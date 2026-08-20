@@ -41,7 +41,7 @@ export function defineSelectableSource(spec = {}) {
     browserBaseUrl: browserBaseUrl || null,
     nearMeters: Number.isFinite(nearMeters) && nearMeters > 0 ? nearMeters : 12,
     visibilityOwner: String(spec.visibilityOwner || 'layers-discover'),
-    defaultVisible: spec.labSceneDefault !== false && spec.defaultVisible !== false,
+    defaultVisible: spec.defaultVisible === true || spec.labSceneDefault === true,
     priority: Number.isFinite(priority) ? priority : 100,
     overlap,
     placeholder: false

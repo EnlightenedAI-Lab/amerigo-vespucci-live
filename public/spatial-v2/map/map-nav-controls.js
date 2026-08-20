@@ -11,7 +11,7 @@ export function mountMapNavControls(host, controller) {
   host.innerHTML = `
     <button type="button" class="iqai-v2-map-nav__btn" data-iqai-map-nav="zoom-in" title="Zoom in" aria-label="Zoom in">+</button>
     <button type="button" class="iqai-v2-map-nav__btn" data-iqai-map-nav="zoom-out" title="Zoom out" aria-label="Zoom out">−</button>
-    <button type="button" class="iqai-v2-map-nav__btn iqai-v2-map-nav__btn--home" data-iqai-map-nav="home" title="Reset view" aria-label="Reset view">HOME</button>
+    <button type="button" class="iqai-v2-map-nav__btn iqai-v2-map-nav__btn--home" data-iqai-map-nav="home" title="Home" aria-label="Home">⌂</button>
   `;
   host.addEventListener('click', (event) => {
     const button = event.target.closest('button[data-iqai-map-nav]');

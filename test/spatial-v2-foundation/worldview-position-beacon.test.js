@@ -377,5 +377,6 @@ test('25. Street optional Google chrome is disabled; required attribution is not
   assert.match(street, /linksControl: true/);
   assert.match(street, /showRoadLabels: false/);
   assert.doesNotMatch(css, /gm-style-cc[^{]*\{[^}]*display:\s*none/);
-  assert.match(foundation, /ui\.components = \['attribution'\]/);
+  assert.doesNotMatch(foundation, /ui\.components\s*=/);
+  assert.match(foundation, /required attribution in the default MapView UI/);
 });

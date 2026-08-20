@@ -118,6 +118,12 @@ test('real V2 map stage exposes a bounded Google 3D operator lifecycle', () => {
   assert.match(engine, /map3d\.mode = resolveMapMode/);
   assert.match(engine, /applySelectedPointToMap3d/);
   assert.match(engine, /settleFocusCamera/);
+  assert.match(engine, /drawsWhenOccluded/);
+  assert.match(engine, /createFocusMarker/);
+  assert.match(control, /flyGoogleMapsJs3dToSelectedPoint\(\)/);
+  assert.match(control, /stageState === STAGE_STATE.OPEN/);
+  const session = read('bootstrap', 'worldview-map-session.js');
+  assert.match(session, /openSupporting\?\.\('3D VISUAL'\)/);
   assert.match(control, /waitForLaidOutStage/);
   assert.match(control, /canonicalFocusPoint/);
   assert.match(control, /cameraMissesFocus/);

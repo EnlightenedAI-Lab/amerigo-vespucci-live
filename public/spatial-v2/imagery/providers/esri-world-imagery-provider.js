@@ -7,14 +7,18 @@ import {
   emptyObservation,
   emptyRights
 } from '../imagery-contract.js';
-import { importArc } from '../../map/arcgis-sdk.js';
+import {
+  AERIAL_PROOF_CAPTURE_DATE,
+  AERIAL_PROOF_RELEASE,
+  WAYBACK_AERIAL_URL_TEMPLATE,
+  createIqaiWaybackBasemap
+} from '../../map/iqai-public-basemap.js';
 
 const STYLE_ID = 'arcgis/imagery';
-const FALLBACK_LEGACY_ID = 'satellite';
 
 export const esriWorldImageryProvider = {
   id: 'esri-world-imagery',
-  title: 'Esri World Imagery',
+  title: 'Esri World Imagery Wayback',
   kind: PROVIDER_KIND.CURRENT_GROUND,
 
   describe() {
@@ -33,40 +37,29 @@ export const esriWorldImageryProvider = {
 
   observationFor() {
     return emptyObservation({
-      id: 'esri-world-imagery:current',
+      id: `esri-wayback:${AERIAL_PROOF_RELEASE}`,
       providerId: this.id,
-      productName: 'Esri World Imagery',
-      dateKindUsed: DATE_KIND.SERVICE_CURRENT,
+      productName: 'Esri World Imagery Wayback',
+      acquisitionDate: AERIAL_PROOF_CAPTURE_DATE,
+      dateKindUsed: DATE_KIND.ACQUISITION,
       rights: emptyRights({
         display: RIGHTS.PERMITTED,
         export: RIGHTS.UNKNOWN,
         cache: RIGHTS.UNKNOWN,
         analysis: RIGHTS.UNKNOWN
       }),
-      limitation: 'Current Living Atlas mosaic; capture date not resolved in this milestone.',
-      establishes: 'Current Esri World Imagery mosaic display.',
-      doesNotEstablish: 'A dated capture, Time Machine archive, or Situation time.',
-      sourceIdentity: { kind: 'basemap-style', id: STYLE_ID }
+      limitation: 'Temporary AERIAL proof uses Wayback release 26334. IMAGE DATE is 28 MAY 2025 capture, not current aerial.',
+      establishes: 'Dated Esri World Imagery Wayback mosaic display.',
+      doesNotEstablish: 'Current Google or Nearmap aerial. Not OWI AS_OF, PI AT/RANGE, or Situation time.',
+      sourceIdentity: {
+        kind: 'wayback-release',
+        releaseNum: AERIAL_PROOF_RELEASE,
+        url: WAYBACK_AERIAL_URL_TEMPLATE
+      }
     });
   },
 
   async createBasemap() {
-    const Basemap = await importArc('@arcgis/core/Basemap.js');
-    try {
-      const styled = new Basemap({
-        style: { id: STYLE_ID },
-        id: 'iqai-ground-esri-world-imagery',
-        title: 'Esri World Imagery'
-      });
-      await styled.load();
-      return styled;
-    } catch {
-      const fromId = Basemap.fromId(FALLBACK_LEGACY_ID);
-      if (!fromId) throw new Error('Esri World Imagery basemap is unavailable.');
-      fromId.id = 'iqai-ground-esri-world-imagery';
-      fromId.title = 'Esri World Imagery';
-      await fromId.load();
-      return fromId;
-    }
+    return createIqaiWaybackBasemap();
   }
 };

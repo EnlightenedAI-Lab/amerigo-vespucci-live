@@ -24,9 +24,10 @@ function read(rel) {
 test('WorldView shell keeps a permanent map-first anatomy without a dashboard', () => {
   const html = renderAppShell();
   const header = renderCommandHeader();
-  assert.match(header, /IQAI SPATIAL/);
+  assert.match(header, /alt="IQAI"/);
+  assert.match(header, />SPATIAL</);
   assert.doesNotMatch(header, /MONTRÉAL/);
-  assert.match(header, /Search place, address or coordinates/);
+  assert.match(header, /placeholder="Search"/);
   assert.match(header, />BRAIN</);
   assert.match(header, /aria-label="Ask IQAI"/);
   assert.doesNotMatch(header, /SYSTEM STATUS/);
@@ -70,6 +71,7 @@ test('AppShell remains composition-only while MAP is wrapped outside it', () => 
   assert.match(session, /bindAnalyze3dControl/);
   assert.match(session, /bindViewSwitcher/);
   assert.match(session, /bindWorldViewFrame/);
+  assert.match(session, /bindBasemapPicker/);
   assert.equal((read('map/map-foundation.js').match(/new MapView\(/g) || []).length, 1);
 });
 
@@ -118,7 +120,7 @@ test('MAP, STREET 360, 3D VISUAL, and 3D ANALYZE are migrated specialists', asyn
   }).sourceAction, 'DROP_PIN');
 });
 
-test('Layers drawer projects registry families and live authored visibility only', () => {
+test('Layers drawer does not project the authored WebMap tree', () => {
   const groups = projectLayerDrawerGroups({
     definitions: [
       { layerId: 'authored-operational-map', title: 'Authored operational map', family: 'OPERATIONAL' },
@@ -126,20 +128,21 @@ test('Layers drawer projects registry families and live authored visibility only
     ],
     liveLayers: [
       { id: 'neighbourhoods', title: 'Neighbourhoods', visible: true, depth: 0, group: null, type: 'feature', source: 'Authored operational map' },
-      { id: 'imagery-wms', title: 'Current ground', visible: false, depth: 0, group: null, type: 'wms', source: 'Authored operational map' }
+      { id: 'session-abc', title: 'Session overlay', visible: true, depth: 0, group: null, type: 'feature', source: 'Session', session: true }
+    ],
+    acquisitionLayers: [
+      { instanceId: 'woa-building', title: 'BUILDING', family: 'OPERATIONAL', visible: true, source: 'World Object Acquisition' }
     ],
     instances: {
       neighbourhoods: { visible: true },
-      'imagery-wms': { visible: false }
+      'session-abc': { visible: true }
     }
   });
-  const families = groups.map((group) => group.family);
-  assert.ok(families.includes('OPERATIONAL'));
-  assert.ok(families.includes('IMAGERY'));
-  assert.equal(families.includes('SESSION/INVESTIGATION'), false);
-  const imagery = groups.find((group) => group.family === 'IMAGERY').items[0];
-  assert.equal(imagery.togglable, true);
-  assert.equal(imagery.visible, false);
+  const titles = groups.flatMap((group) => group.items.map((item) => item.title));
+  assert.equal(titles.includes('Neighbourhoods'), false);
+  assert.equal(titles.includes('Authored operational map'), false);
+  assert.equal(titles.includes('Session overlay'), true);
+  assert.equal(titles.includes('BUILDING'), false);
 });
 
 test('WorldView shell stamps closed inspector and map-first hosts', () => {
@@ -158,7 +161,7 @@ test('local API-key demo keeps OAuth code and does not embed a live secret', () 
   assert.match(session, /esriConfig\.apiKey/);
   assert.match(session, /registerOAuthInfos/);
   assert.match(foundation, /apiKeyConfigured/);
-  assert.match(foundation, /API_KEY_ITEM_DENIED/);
+  assert.doesNotMatch(foundation, /signInToAgol/);
   assert.match(focus, /getLocalDemoApiKey/);
   assert.doesNotMatch(session, /AAPTau/);
   assert.doesNotMatch(foundation, /AAPTau/);

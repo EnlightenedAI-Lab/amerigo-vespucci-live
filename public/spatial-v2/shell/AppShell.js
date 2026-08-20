@@ -18,6 +18,7 @@ import {
 import { bindSystemsRail, paintSystemsRail, renderSystemsRail } from './SystemsRail.js';
 import { bindLayersDrawer, paintLayersDrawer, renderLayersDrawer } from './LayersDrawer.js';
 import { bindTimeDock, paintTimeDock, renderTimeDock } from './TimeDock.js';
+import { getMapView } from '../map/map-foundation.js';
 import {
   bindAskIqaiDock,
   bindContextInspector,
@@ -70,10 +71,12 @@ export function measureShellComposition(root = document.getElementById('iqai-spa
 export function renderAppShell() {
   return `
     ${renderCommandHeader()}
+    <div class="iqai-v2-console" data-iqai-console>
+      ${renderLayersDrawer()}
+      ${renderMapStageHost()}
+      ${renderInspectorHost()}
+    </div>
     ${renderSystemsRail()}
-    ${renderMapStageHost()}
-    ${renderLayersDrawer()}
-    ${renderInspectorHost()}
     ${renderBrainHost()}
     ${renderTimeDock()}
   `;
@@ -83,10 +86,29 @@ export function mountAppShell(root, host = {}) {
   if (!root) return null;
   root.innerHTML = renderAppShell();
   root.dataset.iqaiChassis = 'platform-chassis-v1';
-  root.dataset.iqaiSheet = 'closed';
+  root.dataset.iqaiSheet = 'open';
+  root.dataset.iqaiDrawer = 'layers';
   root.dataset.iqaiWorldview = 'map-first-v1';
   root.dataset.iqaiAsk = 'closed';
+  root.dataset.iqaiConsole = 'command-console-v1';
+  root.dataset.iqaiLayersCollapsed = 'true';
+  root.dataset.iqaiInspectorCollapsed = 'true';
+  const savedTheme = typeof localStorage !== 'undefined' ? localStorage.getItem('iqai-v2-theme') : null;
+  root.dataset.iqaiTheme = savedTheme === 'light' ? 'light' : 'dark';
   startHeaderClock(root);
+
+  const resizeMap = () => {
+    requestAnimationFrame(() => getMapView()?.resize?.());
+  };
+
+  const paintThemeToggle = () => {
+    const toggle = root.querySelector('[data-iqai-theme-toggle]');
+    if (!toggle) return;
+    const dark = root.dataset.iqaiTheme !== 'light';
+    toggle.textContent = dark ? 'WHITE' : 'BLACK';
+    toggle.setAttribute('aria-pressed', dark ? 'true' : 'false');
+  };
+  paintThemeToggle();
 
   const paint = () => {
     const model = typeof host.getViewModel === 'function' ? host.getViewModel() : {};
@@ -100,7 +122,7 @@ export function mountAppShell(root, host = {}) {
       drawerOpen: model.drawer === 'layers'
     });
     paintLayersDrawer(root, {
-      open: model.drawer === 'layers',
+      open: true,
       groups: model.layerGroups || [],
       addDataOpen: model.addDataOpen === true,
       addDataResults: model.addDataResults || [],
@@ -138,18 +160,45 @@ export function mountAppShell(root, host = {}) {
       seam: model.brainSeam,
       localState: model.localModelState || 'NOT CONNECTED'
     });
-    root.dataset.iqaiSheet = model.inspectorOpen === true ? 'open' : 'closed';
+    root.dataset.iqaiSheet = 'open';
+    root.dataset.iqaiDrawer = 'layers';
     if (model.askReceipt) paintAskIqaiReceipt(root, model.askReceipt);
   };
 
   bindContextInspector(root, {
     onPane: (slot) => host.setInspectorPane?.(slot)
   });
+  root.addEventListener('click', (event) => {
+    const layersToggle = event.target.closest('[data-iqai-layers-collapse]');
+    const inspectorToggle = event.target.closest('[data-iqai-inspector-collapse]');
+    if (layersToggle && root.contains(layersToggle)) {
+      event.preventDefault();
+      root.dataset.iqaiLayersCollapsed = root.dataset.iqaiLayersCollapsed === 'true' ? 'false' : 'true';
+      resizeMap();
+      return;
+    }
+    if (inspectorToggle && root.contains(inspectorToggle)) {
+      event.preventDefault();
+      root.dataset.iqaiInspectorCollapsed = root.dataset.iqaiInspectorCollapsed === 'true' ? 'false' : 'true';
+      resizeMap();
+      return;
+    }
+    const themeToggle = event.target.closest('[data-iqai-theme-toggle]');
+    if (themeToggle && root.contains(themeToggle)) {
+      event.preventDefault();
+      root.dataset.iqaiTheme = root.dataset.iqaiTheme === 'light' ? 'dark' : 'light';
+      try { localStorage.setItem('iqai-v2-theme', root.dataset.iqaiTheme); } catch {}
+      paintThemeToggle();
+    }
+  });
   bindSystemsRail(root, {
     onLauncher: (launcherId) => host.setLauncher?.(launcherId)
   });
   bindLayersDrawer(root, {
-    onClose: () => host.setLauncher?.('layers'),
+    onClose: () => {
+      root.dataset.iqaiLayersCollapsed = root.dataset.iqaiLayersCollapsed === 'true' ? 'false' : 'true';
+      resizeMap();
+    },
     onVisibility: (input) => host.dispatchCapability?.('layers.set-visibility', input),
     onOpacity: (input) => host.dispatchCapability?.('layers.set-opacity', input),
     onToggleAddData: () => host.toggleAddData?.(),
@@ -159,10 +208,17 @@ export function mountAppShell(root, host = {}) {
     onAllOff: () => host.opsAllOff?.(),
     onRestore: () => host.opsRestore?.(),
     onSolo: () => host.opsSolo?.(),
+    onSoloLayer: (layerId) => host.opsSoloLayer?.(layerId),
     onConfigure: () => host.opsConfigure?.(),
+    onConfigureClose: () => host.opsConfigureClose?.(),
     onConfigureSave: (input) => host.opsConfigureSave?.(input),
     onConfigureReset: (sceneId) => host.opsConfigureReset?.(sceneId),
     onConfigureScene: (sceneId) => host.opsConfigureScene?.(sceneId),
+    onConfigureSaveCurrent: () => host.opsConfigureSaveCurrent?.(),
+    onTimeWindow: (input) => host.opsTimeWindow?.(input),
+    onCategory: (input) => host.opsCategory?.(input),
+    onRoute: (input) => host.opsRoute?.(input),
+    onCamerasInView: (on) => host.opsCamerasInView?.(on),
     onLayerInfo: (layerId) => host.opsLayerInfo?.(layerId)
   });
   bindTimeDock(root, {
@@ -170,7 +226,10 @@ export function mountAppShell(root, host = {}) {
     onRequestedDay: (day) => host.setRequestedDay?.(day)
   });
   bindSearchControl(root, {
-    onSearch: (query) => host.searchPlace?.(query)
+    onSearch: (query) => {
+      const live = globalThis.__iqaiSpatialV2?.searchPlace;
+      return (live || host.searchPlace)?.(query);
+    }
   });
   bindExperienceControls(root, {
     onChange: (experience) => host.setExperience?.(experience)
@@ -188,6 +247,7 @@ export function mountAppShell(root, host = {}) {
 
   if (typeof host.subscribe === 'function') host.subscribe(paint);
   paint();
+  resizeMap();
 
   return {
     version: IQAI_SPATIAL_V2_SHELL_VERSION,
