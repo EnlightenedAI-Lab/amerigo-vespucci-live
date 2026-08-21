@@ -87,6 +87,7 @@ export function renderCameraRelevanceSurface() {
         <p data-iqai-camera-relevance-empty>WAITING FOR FOCUS OR SELECTION</p>
       </div>
       <p class="iqai-v2-camera-relevance__note" data-iqai-camera-relevance-honesty>PLANNED · NOT INSTALLED · LOCAL PERSISTENCE · PLAN GEOMETRY · VISIBILITY NOT TESTED</p>
+      <button type="button" class="iqai-v2-camera-relevance__build" data-iqai-camera-wall-build>BUILD RELEVANT WALL</button>
     </aside>
   `;
 }
@@ -140,6 +141,11 @@ export function bindCameraRelevanceSurface(root, options = {}) {
 
   paintSurface(el, snapshot());
   el.addEventListener('click', (event) => {
+    if (event.target.closest('[data-iqai-camera-wall-build]')) {
+      event.preventDefault();
+      void options.buildWall?.();
+      return;
+    }
     const row = event.target.closest('[data-iqai-camera-relevance-row]');
     if (!row || !el.contains(row)) return;
     const cameraId = row.getAttribute('data-iqai-camera-relevance-row');

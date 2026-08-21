@@ -38,6 +38,7 @@ import { bindDropPinControl } from '../shell/DropPinControl.js';
 import { bindPlaceCameraControl } from '../shell/PlaceCameraControl.js';
 import { bindViewCameraControl } from '../shell/ViewCameraControl.js';
 import { bindCameraRelevanceSurface } from '../shell/CameraRelevanceSurface.js';
+import { bindCameraWallSurface } from '../shell/CameraWallSurface.js';
 import { bindStreet360Control } from '../shell/Street360Control.js';
 import { bindGooglePhotorealistic3dControl } from '../shell/GooglePhotorealistic3dControl.js';
 import { bindAnalyze3dControl } from '../shell/Analyze3dControl.js';
@@ -256,7 +257,17 @@ export function attachWorldviewMapSession(root, chassis, api) {
     street360,
     worldViewFrame
   });
-  const cameraRelevance = bindCameraRelevanceSurface(root, { chassis });
+  const cameraWall = bindCameraWallSurface(root, { chassis });
+  const cameraRelevance = bindCameraRelevanceSurface(root, {
+    chassis,
+    buildWall: async () => {
+      const world = chassis.stateStore.getSnapshot();
+      const hasTarget = Boolean(world.activeFocus)
+        || Boolean((world.selection?.objectRefs || []).length);
+      if (hasTarget) await cameraRelevance?.query?.(true);
+      return cameraWall?.build?.(cameraRelevance?.snapshot?.());
+    }
+  });
   imageryCommand = bindImageryCommandSurface(root, {
     getMapViewCreateCount,
     isWorldviewImagery: () => Number(worldViewFrame?.snapshot?.()?.layout) === 4,
@@ -427,6 +438,7 @@ export function attachWorldviewMapSession(root, chassis, api) {
   api.placeCamera = placeCamera;
   api.viewCamera = viewCamera;
   api.cameraRelevance = cameraRelevance;
+  api.cameraWall = cameraWall;
   api.imageryCommand = imageryCommand;
   api.focusInstrument = focusInstrument;
   chassis.setHereContextProvider(() => ({
@@ -578,6 +590,7 @@ export function attachWorldviewMapSession(root, chassis, api) {
     placeCamera,
     viewCamera,
     cameraRelevance,
+    cameraWall,
     imageryCommand,
     focusInstrument,
     viewSwitcher,
