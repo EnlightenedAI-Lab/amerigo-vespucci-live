@@ -20,6 +20,7 @@ import {
 import { formatImageDate, IMAGE_DATE_UNKNOWN } from '../imagery/command/image-date.js';
 import { bindHistoryHost } from './HistoryHost.js';
 import { bindRemoteSensingHost, renderRemoteSensingPanel } from './RemoteSensingHost.js';
+import { setHistoryPainterMarks } from '../imagery/historical/history-painter.js';
 
 function readViewpoint(view) {
   const center = view?.center;
@@ -189,6 +190,7 @@ export function bindImageryCommandSurface(root, options = {}) {
   let compareOpen = false;
   let busy = false;
   let pendingMode = null;
+  let paneImageryOpen = false;
 
   function projection() {
     return projectImageSurface(mode);
@@ -232,14 +234,23 @@ export function bindImageryCommandSurface(root, options = {}) {
       calendar.hidden = true;
       calendarOpen = false;
     }
-    if (stage) stage.hidden = !proj.historicalSurfaceVisible;
+    if (stage) stage.hidden = !(proj.historicalSurfaceVisible || paneImageryOpen);
     if (mapHost) {
-      mapHost.style.visibility = proj.mapViewVisible ? 'visible' : 'hidden';
-      mapHost.setAttribute('data-iqai-map-shown', proj.mapViewVisible ? 'true' : 'false');
+      const mapVisible = paneImageryOpen || proj.mapViewVisible;
+      mapHost.style.visibility = mapVisible ? 'visible' : 'hidden';
+      mapHost.setAttribute('data-iqai-map-shown', mapVisible ? 'true' : 'false');
     }
     const libraryOpen = historyHost?.snapshot()?.libraryOpen === true;
     for (const button of root.querySelectorAll('[data-iqai-library-toggle]')) {
       button.setAttribute('aria-pressed', libraryOpen ? 'true' : 'false');
+    }
+    const historyOpen = historyHost?.snapshot()?.open === true;
+    for (const button of root.querySelectorAll('[data-iqai-imagery-pane-source]')) {
+      const id = button.getAttribute('data-iqai-imagery-pane-source');
+      const active = paneImageryOpen && historyOpen && (
+        id === 'LIBRARY' ? libraryOpen === true : libraryOpen !== true
+      );
+      button.setAttribute('aria-pressed', active ? 'true' : 'false');
     }
   }
 
@@ -249,6 +260,61 @@ export function bindImageryCommandSurface(root, options = {}) {
 
   async function closeSpecialists() {
     await options.closeSpecialists?.();
+  }
+
+  function overlayHydrantMarks() {
+    const marks = typeof options.hydrantMarks === 'function'
+      ? options.hydrantMarks()
+      : options.hydrantMarks;
+    setHistoryPainterMarks(Array.isArray(marks) ? marks : []);
+  }
+
+  async function openWorldviewImagery({ library = false, keepId = pendingKeepId } = {}) {
+    paneImageryOpen = true;
+    if (mode === IMAGE_SURFACE.HISTORY) {
+      mode = liveMode;
+    }
+    preserved = readViewpoint(getMapView()) || preserved;
+    if (stage) stage.hidden = false;
+    if (mapHost) {
+      mapHost.style.visibility = 'visible';
+      mapHost.setAttribute('data-iqai-map-shown', 'true');
+    }
+    try {
+      if (!historyHost) throw new Error(IMAGE_SURFACE_FAILURE.SOURCE_UNAVAILABLE);
+      const already = historyHost.snapshot()?.open === true;
+      if (!already) {
+        await historyHost.enter(preserved, {
+          keepId: keepId || pendingKeepId,
+          libraryOpen: library === true
+        });
+      } else if (keepId) {
+        await historyHost.showInMap(keepId);
+        historyHost.toggleLibrary(library === true);
+      } else {
+        historyHost.toggleLibrary(library === true);
+      }
+      pendingKeepId = null;
+      pendingLibraryOpen = false;
+    } catch (error) {
+      console.warn('[IQAI V2] worldview imagery failed', error);
+    }
+    overlayHydrantMarks();
+    paintModes();
+    paintHistory();
+    options.onImageryReady?.();
+    return snapshot();
+  }
+
+  function leaveWorldviewImagery() {
+    if (!paneImageryOpen) return snapshot();
+    paneImageryOpen = false;
+    if (mode !== IMAGE_SURFACE.HISTORY) {
+      historyHost?.leave?.();
+    }
+    paintModes();
+    paintHistory();
+    return snapshot();
   }
 
   async function enterHistory() {
@@ -267,6 +333,7 @@ export function bindImageryCommandSurface(root, options = {}) {
     });
     pendingKeepId = null;
     pendingLibraryOpen = false;
+    overlayHydrantMarks();
   }
 
   async function leaveHistory() {
@@ -320,6 +387,9 @@ export function bindImageryCommandSurface(root, options = {}) {
     if (next === IMAGE_SURFACE.HISTORY && HISTORY_SURFACE_HELD === true) {
       paintModes();
       return snapshot();
+    }
+    if (next === IMAGE_SURFACE.HISTORY && options.isWorldviewImagery?.()) {
+      return openWorldviewImagery({ library: false });
     }
     if (next === IMAGE_SURFACE.MAP || next === IMAGE_SURFACE.AERIAL) {
       liveMode = next;
@@ -394,10 +464,13 @@ export function bindImageryCommandSurface(root, options = {}) {
 
   async function toggleLibraryPanel() {
     if (!historyHost) return snapshot();
-    if (mode === IMAGE_SURFACE.HISTORY) {
+    if (mode === IMAGE_SURFACE.HISTORY || paneImageryOpen) {
       historyHost.toggleLibrary();
       paintModes();
       return snapshot();
+    }
+    if (options.isWorldviewImagery?.()) {
+      return openWorldviewImagery({ library: true });
     }
     if (historyHost.snapshot()?.libraryOpen) {
       historyHost.toggleLibrary(false);
@@ -418,6 +491,7 @@ export function bindImageryCommandSurface(root, options = {}) {
       aerialMessage,
       history: historyHost?.snapshot?.() || null,
       liveMode,
+      paneImageryOpen,
       remoteSensing: remoteSensing?.snapshot?.() || null,
       googleNonGoogleSeparated: projection().googlePixelsAllowed !== projection().historicalPixelsAllowed,
       mapViewCreateCount: options.getMapViewCreateCount?.() || null
@@ -427,10 +501,21 @@ export function bindImageryCommandSurface(root, options = {}) {
   historyHooks.onUseOnView = async (id) => {
     pendingKeepId = id;
     pendingLibraryOpen = true;
+    if (options.isWorldviewImagery?.()) {
+      await openWorldviewImagery({ library: true, keepId: id });
+      return;
+    }
     await setMode(IMAGE_SURFACE.HISTORY);
   };
 
   root.addEventListener('click', (event) => {
+    const paneSource = event.target.closest('[data-iqai-imagery-pane-source]');
+    if (paneSource && root.contains(paneSource)) {
+      void openWorldviewImagery({
+        library: paneSource.getAttribute('data-iqai-imagery-pane-source') === 'LIBRARY'
+      });
+      return;
+    }
     const libraryToggle = event.target.closest('[data-iqai-library-toggle]');
     if (libraryToggle && root.contains(libraryToggle)) {
       void toggleLibraryPanel();
@@ -438,6 +523,10 @@ export function bindImageryCommandSurface(root, options = {}) {
     }
     const remove = event.target.closest('[data-iqai-history-remove]');
     if (remove && root.contains(remove)) {
+      if (paneImageryOpen) {
+        leaveWorldviewImagery();
+        return;
+      }
       void setMode(liveMode);
       return;
     }
@@ -457,6 +546,9 @@ export function bindImageryCommandSurface(root, options = {}) {
   return Object.freeze({
     setMode,
     snapshot,
+    openWorldviewImagery,
+    leaveWorldviewImagery,
+    overlayHydrantMarks,
     previous: () => historyHost?.step(-1),
     next: () => historyHost?.step(1),
     play: () => historyHost?.snapshot?.(),

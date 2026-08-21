@@ -29,7 +29,9 @@ import {
   setGoogleMapsJs3dReference,
   setGoogleMapsJs3dTopView,
   subscribeGoogleMapsJs3dCamera,
-  updateGoogleMapsJs3dFocusMarker
+  updateGoogleMapsJs3dFocusMarker,
+  setGoogleMapsJs3dHydrantMarker,
+  flyGoogleMapsJs3dTowardHydrant
 } from '../map/google-maps-js-3d.js';
 
 const STAGE_STATE = Object.freeze({
@@ -486,6 +488,14 @@ export function bindGooglePhotorealistic3dControl(root, options = {}) {
     orbit: orbitGoogleMapsJs3d,
     resetNorth: resetGoogleMapsJs3dNorth,
     flyToPoint: flyGoogleMapsJs3dToSelectedPoint,
+    lookAtHydrant: async (record, options = {}) => {
+      const snap = await setGoogleMapsJs3dHydrantMarker(record);
+      if (stageState === STAGE_STATE.OPEN && options.fly !== false) {
+        await flyGoogleMapsJs3dTowardHydrant(record).catch(() => {});
+      }
+      paint();
+      return snap;
+    },
     setTop: setGoogleMapsJs3dTopView,
     setOblique: setGoogleMapsJs3dObliqueView,
     resetView: resetGoogleMapsJs3dView,

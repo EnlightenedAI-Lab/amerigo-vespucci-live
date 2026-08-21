@@ -9,7 +9,11 @@ import { failClosed } from '../foundation/contracts/validate.js';
 export const ASK_MAP_OPERATIONS = Object.freeze({
   SHOW: 'SHOW',
   WITHIN: 'WITHIN',
-  NEAREST: 'NEAREST'
+  NEAREST: 'NEAREST',
+  SHOW_SELECTED_STREET: 'SHOW_SELECTED_STREET',
+  SHOW_SELECTED_ALL: 'SHOW_SELECTED_ALL',
+  DESCRIBE_SELECTED: 'DESCRIBE_SELECTED',
+  STREET_VISIBILITY: 'STREET_VISIBILITY'
 });
 
 export const ASK_MAP_OBJECT_CLASS = Object.freeze({
@@ -35,6 +39,10 @@ const WITHIN_IN_PATTERN = /^(?:show|map|display|afficher|montrer)\s+(.+?)\s+in\s
 const FR_RADIUS_PATTERN = /^(?:afficher|montrer|show|map)\s+(.+?)\s+(?:dans un rayon de|à moins de)\s+(\d+(?:\.\d+)?)\s*(m|meters?|metres?|km|kilometres?|kilometers?)\s+(?:de|du|d'|à)\s*(.+)$/i;
 const NEAREST_PATTERN = /^(?:show|map|display|afficher|montrer)\s+(?:the\s+)?(nearest|closest)\s+(.+?)\s+(?:to|from|of|near)\s+(.+)$/i;
 const NEAREST_ALT_PATTERN = /^(?:show|map|display|afficher|montrer)\s+(.+?)\s+(?:nearest|closest)\s+(?:to|from|of)\s+(.+)$/i;
+const SHOW_SELECTED_STREET_PATTERN = /^(?:show|display|map|afficher|montrer)\s+(?:this|the selected)\s+hydrant\s+in\s+street(?:\s*view|\s*360)?$/i;
+const SHOW_SELECTED_ALL_PATTERN = /^(?:show|display|map|afficher|montrer)\s+(?:this|the selected)\s+hydrant\s+in\s+all\s+views?$/i;
+const DESCRIBE_SELECTED_PATTERN = /^(?:what is this hydrant|describe this hydrant|tell me about this hydrant)$/i;
+const STREET_VISIBILITY_PATTERN = /^is this hydrant visible in street(?:\s*view|\s*360)?$/i;
 const SHOW_PATTERN = /^(?:show|map|display|afficher|montrer)\s+(.+)$/i;
 
 export function normalizeAskMapText(value) {
@@ -98,7 +106,13 @@ function closed(code, message, extra = {}) {
 
 export function looksLikeAskMap(text) {
   const normalized = normalizeAskMapText(text);
-  if (!normalized || !SHOW_VERB.test(normalized)) return false;
+  if (SHOW_SELECTED_STREET_PATTERN.test(normalized)
+    || SHOW_SELECTED_ALL_PATTERN.test(normalized)
+    || DESCRIBE_SELECTED_PATTERN.test(normalized)
+    || STREET_VISIBILITY_PATTERN.test(normalized)) {
+    return true;
+  }
+  if (!SHOW_VERB.test(normalized)) return false;
   if (/\b(?:within|inside|dans un rayon|à moins de)\b/i.test(normalized)) return true;
   if (/\b(?:nearest|closest)\b/i.test(normalized)) return true;
   if (/\bnear\b/i.test(normalized)) return true;
@@ -112,6 +126,75 @@ export function parseAskMapIntent(text) {
   const normalized = normalizeAskMapText(raw);
   if (!normalized) {
     return closed('EMPTY_INPUT', 'Ask MAP requires an operator command.', { looksLikeAskMap: false });
+  }
+
+  if (SHOW_SELECTED_STREET_PATTERN.test(normalized)) {
+    return Object.freeze({
+      supported: true,
+      looksLikeAskMap: true,
+      code: 'ASK_MAP_SHOW_SELECTED_STREET',
+      message: 'SHOW THIS HYDRANT IN STREET VIEW',
+      operation: ASK_MAP_OPERATIONS.SHOW_SELECTED_STREET,
+      verb: ASK_MAP_OPERATIONS.SHOW,
+      objectClass: ASK_MAP_OBJECT_CLASS.HYDRANT,
+      radiusMeters: null,
+      locationKind: 'SELECTED_HYDRANT',
+      locationText: 'this hydrant',
+      diagnostics: Object.freeze(['Selected hydrant ObjectRef. No coordinates minted.']),
+      confirmationTitle: 'SHOW THIS HYDRANT IN STREET VIEW',
+      source: HYDRANT_SOURCE
+    });
+  }
+  if (SHOW_SELECTED_ALL_PATTERN.test(normalized)) {
+    return Object.freeze({
+      supported: true,
+      looksLikeAskMap: true,
+      code: 'ASK_MAP_SHOW_SELECTED_ALL',
+      message: 'SHOW THIS HYDRANT IN ALL VIEWS',
+      operation: ASK_MAP_OPERATIONS.SHOW_SELECTED_ALL,
+      verb: ASK_MAP_OPERATIONS.SHOW,
+      objectClass: ASK_MAP_OBJECT_CLASS.HYDRANT,
+      radiusMeters: null,
+      locationKind: 'SELECTED_HYDRANT',
+      locationText: 'this hydrant',
+      diagnostics: Object.freeze(['Selected hydrant ObjectRef. No coordinates minted.']),
+      confirmationTitle: 'SHOW THIS HYDRANT IN ALL VIEWS',
+      source: HYDRANT_SOURCE
+    });
+  }
+  if (DESCRIBE_SELECTED_PATTERN.test(normalized)) {
+    return Object.freeze({
+      supported: true,
+      looksLikeAskMap: true,
+      code: 'ASK_MAP_DESCRIBE_SELECTED',
+      message: 'WHAT IS THIS HYDRANT',
+      operation: ASK_MAP_OPERATIONS.DESCRIBE_SELECTED,
+      verb: ASK_MAP_OPERATIONS.SHOW,
+      objectClass: ASK_MAP_OBJECT_CLASS.HYDRANT,
+      radiusMeters: null,
+      locationKind: 'SELECTED_HYDRANT',
+      locationText: 'this hydrant',
+      diagnostics: Object.freeze(['Read-only ObjectRef facts.']),
+      confirmationTitle: null,
+      source: HYDRANT_SOURCE
+    });
+  }
+  if (STREET_VISIBILITY_PATTERN.test(normalized)) {
+    return Object.freeze({
+      supported: true,
+      looksLikeAskMap: true,
+      code: 'ASK_MAP_STREET_VISIBILITY',
+      message: 'IS THIS HYDRANT VISIBLE IN STREET VIEW',
+      operation: ASK_MAP_OPERATIONS.STREET_VISIBILITY,
+      verb: ASK_MAP_OPERATIONS.SHOW,
+      objectClass: ASK_MAP_OBJECT_CLASS.HYDRANT,
+      radiusMeters: null,
+      locationKind: 'SELECTED_HYDRANT',
+      locationText: 'this hydrant',
+      diagnostics: Object.freeze(['Pano availability is not physical confirmation.']),
+      confirmationTitle: null,
+      source: HYDRANT_SOURCE
+    });
   }
 
   const nearestMatch = normalized.match(NEAREST_PATTERN);
@@ -257,7 +340,12 @@ export function parseAskMapIntent(text) {
 export function assertAskMapExecutable(intent) {
   if (
     !intent?.supported
-    || (intent.operation !== ASK_MAP_OPERATIONS.WITHIN && intent.operation !== ASK_MAP_OPERATIONS.NEAREST)
+    || (
+      intent.operation !== ASK_MAP_OPERATIONS.WITHIN
+      && intent.operation !== ASK_MAP_OPERATIONS.NEAREST
+      && intent.operation !== ASK_MAP_OPERATIONS.SHOW_SELECTED_STREET
+      && intent.operation !== ASK_MAP_OPERATIONS.SHOW_SELECTED_ALL
+    )
   ) {
     failClosed(intent?.code || 'UNSUPPORTED_OPERATION', intent?.message || 'ASK MAP intent is not executable.');
   }
@@ -268,6 +356,12 @@ export function assertAskMapExecutable(intent) {
     if (!Number.isFinite(Number(intent.radiusMeters)) || Number(intent.radiusMeters) <= 0) {
       failClosed('MISSING_RADIUS', 'WITHIN requires a finite distance.');
     }
+  }
+  if (intent.operation === ASK_MAP_OPERATIONS.SHOW_SELECTED_STREET || intent.operation === ASK_MAP_OPERATIONS.SHOW_SELECTED_ALL) {
+    if (intent.locationKind !== 'SELECTED_HYDRANT') {
+      failClosed('NO_SELECTED_HYDRANT', 'Select a hydrant first. BRAIN does not mint hydrant coordinates.');
+    }
+    return intent;
   }
   if (intent.locationKind !== 'HERE') {
     failClosed('MISSING_LOCATION', 'ASK MAP requires HERE from operator-defined context.');

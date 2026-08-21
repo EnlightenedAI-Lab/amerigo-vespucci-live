@@ -1,4 +1,38 @@
+import { looksLikeAskMap } from '../brain/ask-map-intent.js';
 import { ASK_QUICK_ACTIONS, SHELL_SLOTS } from './layout-registry.js';
+
+const MAP_PROMPTS = Object.freeze([
+  Object.freeze({
+    id: 'hydrants-nearby',
+    label: 'HYDRANTS NEARBY',
+    text: 'Show hydrants within 500 m of here.'
+  }),
+  Object.freeze({
+    id: 'nearest-hydrant',
+    label: 'NEAREST HYDRANT',
+    text: 'Show the nearest hydrant to here.'
+  }),
+  Object.freeze({
+    id: 'hydrant-street',
+    label: 'THIS IN STREET',
+    text: 'Show this hydrant in Street View.'
+  }),
+  Object.freeze({
+    id: 'hydrant-all-views',
+    label: 'THIS IN ALL VIEWS',
+    text: 'Show this hydrant in all views.'
+  })
+]);
+
+function looksLikePlaceSearch(text) {
+  const value = String(text || '').trim();
+  if (!value) return false;
+  if (looksLikeAskMap(value)) return false;
+  if (/^(?:show|map|display|afficher|montrer)\b/i.test(value)) return false;
+  if (/\b(?:hydrant|within|nearest|closest|street view|all views)\b/i.test(value)) return false;
+  if (/^(?:what is|describe|tell me about|is this)\b/i.test(value)) return false;
+  return true;
+}
 
 export function renderAskIqaiDock() {
   const { id, slot } = SHELL_SLOTS.askIqaiDock;
@@ -20,6 +54,11 @@ export function renderAskIqaiDock() {
             `).join('')}
           </div>
         </div>
+        <div class="iqai-v2-ask__map-prompts" aria-label="Map actions">
+          ${MAP_PROMPTS.map((prompt) => `
+            <button type="button" class="iqai-v2-ask__map-prompt" data-iqai-map-prompt="${prompt.id}">${prompt.label}</button>
+          `).join('')}
+        </div>
         <div class="iqai-v2-ask__row">
           <label class="iqai-v2-ask__field">
             <span class="iqai-v2-visually-hidden">Ask IQAI</span>
@@ -27,7 +66,7 @@ export function renderAskIqaiDock() {
               class="iqai-v2-ask__input"
               name="ask"
               rows="1"
-              placeholder="Ask, analyze or command…"
+              placeholder="Type an address, or tap a button above"
               data-iqai-ask-legacy="Ask a question or describe what you want to build..."
             ></textarea>
           </label>
@@ -58,6 +97,12 @@ function receiptMessage(receipt) {
   if (receipt.result?.needsConfirmation) {
     return receipt.result.confirmationTitle || 'SHOW HYDRANTS WITHIN 500 M';
   }
+  if (receipt.result?.needsLocation) {
+    return receipt.result.message || 'Search an address and press GO, then tap HYDRANTS NEARBY.';
+  }
+  if (receipt.result?.pinPlaced) {
+    return receipt.result.message || 'Pin placed.';
+  }
   if (receipt.state === 'ROUTED') {
     const message = receipt.result?.message || receipt.capabilityLabel || receipt.capabilityId;
     return `ROUTED — ${message}${/[.!?]$/.test(message) ? '' : '.'}`;
@@ -87,6 +132,13 @@ export function paintAskIqaiDock(root, { open = false } = {}) {
   }
 }
 
+function askState(receipt) {
+  if (receipt?.result?.needsConfirmation) return 'CONFIRM';
+  if (receipt?.result?.needsLocation) return 'UNROUTED';
+  if (receipt?.result?.pinPlaced) return 'ROUTED';
+  return receipt?.state || 'FAILED';
+}
+
 export function paintAskIqaiReceipt(root, receipt) {
   const status = root.querySelector('[data-iqai-ask-status]');
   const confirm = root.querySelector('[data-iqai-ask-confirm]');
@@ -94,9 +146,7 @@ export function paintAskIqaiReceipt(root, receipt) {
   const detail = root.querySelector('[data-iqai-ask-confirm-detail]');
   if (status) {
     status.hidden = false;
-    status.dataset.iqaiAskState = receipt?.result?.needsConfirmation
-      ? 'CONFIRM'
-      : (receipt?.state || 'FAILED');
+    status.dataset.iqaiAskState = askState(receipt);
     status.textContent = receiptMessage(receipt);
   }
   if (confirm) {
@@ -122,13 +172,39 @@ export function bindAskIqaiDock(root, handlers = {}) {
 
   const status = form.querySelector('[data-iqai-ask-status]');
   const input = form.querySelector('[name="ask"]');
+  const headerSearch = () => String(root.querySelector('[data-iqai-search-input]')?.value || '').trim();
+  const searchPlace = async (query) => {
+    if (!query || typeof handlers.onSearch !== 'function') return null;
+    return handlers.onSearch(query);
+  };
+
   const onSubmit = async (event) => {
     event.preventDefault();
     if (!status) return;
     status.hidden = false;
     status.dataset.iqaiAskState = 'APPLYING';
-    status.textContent = 'APPLYING — Resolving against registered application capabilities.';
+    status.textContent = 'APPLYING…';
     const selected = form.querySelector('[data-iqai-quick-action][aria-pressed="true"]');
+    const text = String(input?.value || '').trim();
+    const quickActionId = selected?.getAttribute('data-iqai-quick-action') || null;
+    if (looksLikePlaceSearch(text) && typeof handlers.onSearch === 'function') {
+      const found = await searchPlace(text);
+      if (found?.ok) {
+        paintAskIqaiReceipt(root, {
+          state: 'ROUTED',
+          result: {
+            pinPlaced: true,
+            message: `Pin placed at ${found.address || text}. Tap HYDRANTS NEARBY or NEAREST HYDRANT.`
+          }
+        });
+        return;
+      }
+      paintAskIqaiReceipt(root, {
+        state: 'FAILED',
+        result: { message: 'Address not found. Check the spelling, then press GO.' }
+      });
+      return;
+    }
     if (typeof handlers.onSubmit !== 'function') {
       paintAskIqaiReceipt(root, {
         state: 'UNAVAILABLE',
@@ -136,14 +212,36 @@ export function bindAskIqaiDock(root, handlers = {}) {
       });
       return;
     }
-    const receipt = await handlers.onSubmit({
-      text: input?.value || '',
-      quickActionId: selected?.getAttribute('data-iqai-quick-action') || null
-    });
+    let receipt = await handlers.onSubmit({ text, quickActionId });
+    if (receipt?.result?.needsLocation) {
+      const placeQuery = headerSearch();
+      if (placeQuery) {
+        status.textContent = 'SEARCHING ADDRESS…';
+        const found = await searchPlace(placeQuery);
+        if (found?.ok) {
+          receipt = await handlers.onSubmit({ text, quickActionId });
+        }
+      }
+    }
     paintAskIqaiReceipt(root, receipt);
   };
 
+  const onKeyDown = (event) => {
+    if (event.key !== 'Enter' || event.shiftKey) return;
+    if (event.target !== input) return;
+    event.preventDefault();
+    form.requestSubmit();
+  };
+
   const onClick = (event) => {
+    const promptButton = event.target.closest('[data-iqai-map-prompt]');
+    if (promptButton && form.contains(promptButton)) {
+      event.preventDefault();
+      const prompt = MAP_PROMPTS.find((item) => item.id === promptButton.getAttribute('data-iqai-map-prompt'));
+      if (prompt && input) input.value = prompt.text;
+      form.requestSubmit();
+      return;
+    }
     const confirmYes = event.target.closest('[data-iqai-ask-confirm-yes]');
     if (confirmYes && form.contains(confirmYes)) {
       event.preventDefault();
@@ -184,10 +282,12 @@ export function bindAskIqaiDock(root, handlers = {}) {
 
   form.addEventListener('submit', onSubmit);
   form.addEventListener('click', onClick);
+  form.addEventListener('keydown', onKeyDown);
   root.addEventListener('click', onToggle);
   return () => {
     form.removeEventListener('submit', onSubmit);
     form.removeEventListener('click', onClick);
+    form.removeEventListener('keydown', onKeyDown);
     root.removeEventListener('click', onToggle);
     void dock;
   };

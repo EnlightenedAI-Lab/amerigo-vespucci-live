@@ -1131,6 +1131,25 @@ body.iqai-v2-body {
   gap: 0.35rem;
 }
 
+.iqai-v2-ask__map-prompts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.iqai-v2-ask__map-prompt {
+  min-height: 1.7rem;
+  padding: 0.2rem 0.55rem;
+  border: 1px solid var(--iqai-v2-border-strong);
+  background: transparent;
+  color: var(--iqai-v2-text);
+  font: inherit;
+  font-size: var(--iqai-v2-kicker-size);
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+}
+
 .iqai-v2-chip {
   height: 1.7rem;
   padding: 0 0.55rem;
@@ -1740,10 +1759,19 @@ body.iqai-v2-body {
 }
 
 .iqai-v2-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
   flex: 1;
   min-width: 12rem;
   max-width: 28rem;
   margin-left: 0.4rem;
+}
+
+.iqai-v2-search label {
+  flex: 1;
+  min-width: 0;
 }
 
 .iqai-v2-search__input {
@@ -1755,6 +1783,40 @@ body.iqai-v2-body {
   color: #f4f0ea;
   font: inherit;
   font-size: 0.78rem;
+}
+
+.iqai-v2-search__go {
+  flex: 0 0 auto;
+  height: 1.85rem;
+  padding: 0 0.55rem;
+  border: 1px solid #f4f0ea;
+  background: #f4f0ea;
+  color: #0b0d10;
+  font: inherit;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+}
+
+.iqai-v2-search__status {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 0.2rem);
+  z-index: 8;
+  margin: 0;
+  max-width: 24rem;
+  overflow: hidden;
+  color: #f4f0ea;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.iqai-v2-search__status[data-iqai-search-state="FAILED"] {
+  color: #e08a72;
 }
 
 .iqai-v2-search__input::placeholder {
@@ -1995,6 +2057,22 @@ body.iqai-v2-body {
 .iqai-v2-ask__prompt,
 .iqai-v2-ask__actions {
   display: none;
+}
+
+.iqai-v2-ask__map-prompts {
+  margin: 0.1rem 0 0.15rem;
+}
+
+.iqai-v2-ask__map-prompt {
+  border-color: rgba(244, 240, 234, 0.28);
+  color: #f4f0ea;
+  font-size: 0.58rem;
+}
+
+.iqai-v2-ask__map-prompt:hover,
+.iqai-v2-ask__map-prompt:focus-visible {
+  background: #f4f0ea;
+  color: #0b0d10;
 }
 
 .iqai-v2-ask__label {
@@ -4737,6 +4815,60 @@ body.iqai-v2-body {
   display: block !important;
 }
 
+#iqai-spatial-v2[data-iqai-worldview-layout="4"] [data-iqai-pane="IMAGERY"] [data-iqai-history-stage]:not([hidden]) {
+  display: block !important;
+}
+
+#iqai-spatial-v2[data-iqai-worldview-layout="4"] [data-iqai-pane="IMAGERY"] .iqai-v2-history-library {
+  top: 0;
+  width: min(16rem, 72%);
+}
+
+.iqai-v2-imagery-pane {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: #111;
+}
+
+.iqai-v2-imagery-pane__modes {
+  display: flex;
+  gap: 2px;
+  padding: 0.28rem 0.35rem;
+  z-index: 3;
+  background: #000;
+  flex: 0 0 auto;
+}
+
+.iqai-v2-imagery-pane__modes button {
+  color: #fff;
+  background: transparent;
+  border: 1px solid #fff;
+  padding: 0.12rem 0.45rem;
+  font: inherit;
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+
+.iqai-v2-imagery-pane__modes button[aria-pressed="true"] {
+  background: #fff;
+  color: #000;
+}
+
+.iqai-v2-imagery-pane__stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+.iqai-v2-imagery-pane__stage .iqai-v2-history-stage {
+  position: absolute;
+  inset: 0;
+}
+
 #iqai-spatial-v2 [data-iqai-image-surface="HISTORY"]:disabled,
 #iqai-spatial-v2 [data-iqai-image-surface="HISTORY"][aria-disabled="true"] {
   opacity: 0.4;
@@ -4773,10 +4905,25 @@ body.iqai-v2-body {
 }
 
 #iqai-spatial-v2 .iqai-v2-search {
-  flex: 0 1 16rem;
-  min-width: 8rem;
-  max-width: 18rem;
+  flex: 0 1 20rem;
+  min-width: 10rem;
+  max-width: 22rem;
   margin-left: 0;
+}
+
+#iqai-spatial-v2 .iqai-v2-search__go {
+  height: 1.85rem;
+  background: #1c1a16;
+  color: #f4f0ea;
+  border-color: #1c1a16;
+}
+
+#iqai-spatial-v2 .iqai-v2-search__status {
+  color: #1c1a16;
+}
+
+#iqai-spatial-v2 .iqai-v2-search__status[data-iqai-search-state="FAILED"] {
+  color: #9a3b2a;
 }
 
 #iqai-spatial-v2 .iqai-v2-header__commands {
@@ -5444,8 +5591,18 @@ body.iqai-v2-body {
   border-color: rgba(244, 240, 234, 0.16);
 }
 
-#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-search__input::placeholder {
-  color: rgba(244, 240, 234, 0.42);
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-search__go {
+  background: #f4f0ea;
+  color: #0b0d10;
+  border-color: #f4f0ea;
+}
+
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-search__status {
+  color: #f4f0ea;
+}
+
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-search__status[data-iqai-search-state="FAILED"] {
+  color: #e08a72;
 }
 
 #iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-header__surfaces button,

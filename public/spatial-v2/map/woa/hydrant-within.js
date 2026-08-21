@@ -8,6 +8,46 @@ import { createSelectableRegistry, registerManifest } from './sources.js';
 import { indexCollection, queryNearest, queryWithin } from './index.js';
 import { ASK_MAP_OPERATIONS, HYDRANT_SOURCE } from '../../brain/ask-map-intent.js';
 
+const COVERAGE_PAD_DEG = 0.001;
+
+function bboxFromFeatures(features) {
+  let minLon = Infinity;
+  let minLat = Infinity;
+  let maxLon = -Infinity;
+  let maxLat = -Infinity;
+  for (const feature of features || []) {
+    const longitude = Number(feature?.geometry?.coordinates?.[0]);
+    const latitude = Number(feature?.geometry?.coordinates?.[1]);
+    if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) continue;
+    minLon = Math.min(minLon, longitude);
+    minLat = Math.min(minLat, latitude);
+    maxLon = Math.max(maxLon, longitude);
+    maxLat = Math.max(maxLat, latitude);
+  }
+  if (!Number.isFinite(minLon)) return null;
+  return [minLon, minLat, maxLon, maxLat];
+}
+
+function featuresFromRecords(collectionOrIndex) {
+  if (Array.isArray(collectionOrIndex?.features)) return collectionOrIndex.features;
+  return (collectionOrIndex?.items || []).map((item) => item.feature);
+}
+
+export function assertHydrantCoverage(here, collectionOrIndex) {
+  const bbox = bboxFromFeatures(featuresFromRecords(collectionOrIndex));
+  const longitude = Number(here?.longitude);
+  const latitude = Number(here?.latitude);
+  if (
+    !bbox
+    || longitude < bbox[0] - COVERAGE_PAD_DEG
+    || latitude < bbox[1] - COVERAGE_PAD_DEG
+    || longitude > bbox[2] + COVERAGE_PAD_DEG
+    || latitude > bbox[3] + COVERAGE_PAD_DEG
+  ) {
+    failClosed('HYDRANT_COVERAGE', 'Ville de Montréal hydrant inventory does not cover this location.');
+  }
+}
+
 async function loadManifest(fetchFn) {
   const response = await fetchFn('/spatial-v2/data/woa/sources.json');
   if (!response.ok) failClosed('WOA_SOURCE_MISSING', 'WOA selectable source manifest is missing.');
@@ -97,6 +137,7 @@ export async function executeHydrantWithin({
   if (typeof loadFamily === 'function') {
     const loaded = await loadFamily('hydrant');
     if (loaded?.index) {
+      assertHydrantCoverage({ longitude, latitude }, loaded.index);
       records = {
         source: loaded.source || HYDRANT_SOURCE,
         hits: queryWithin(loaded.index, { latitude, longitude, radiusMeters })
@@ -105,6 +146,7 @@ export async function executeHydrantWithin({
   }
   if (!records) {
     const loaded = await loadHydrantRecords({ fetchImpl, collection });
+    assertHydrantCoverage({ longitude, latitude }, loaded.collection);
     records = {
       source: loaded.source,
       hits: filterHydrantsWithin(loaded.collection, { latitude, longitude }, radiusMeters)
@@ -148,12 +190,14 @@ export async function executeHydrantNearest({
   if (typeof loadFamily === 'function') {
     const loaded = await loadFamily('hydrant');
     if (loaded?.index) {
+      assertHydrantCoverage({ longitude, latitude }, loaded.index);
       source = loaded.source || HYDRANT_SOURCE;
       hit = queryNearest(loaded.index, { latitude, longitude });
     }
   }
   if (!hit) {
     const loaded = await loadHydrantRecords({ fetchImpl, collection });
+    assertHydrantCoverage({ longitude, latitude }, loaded.collection);
     source = loaded.source;
     hit = findNearestHydrant(loaded.collection, { latitude, longitude });
   }

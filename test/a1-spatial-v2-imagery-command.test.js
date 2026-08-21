@@ -208,7 +208,9 @@ test('live shell mounts compact MAP / AERIAL / HISTORY without copying lab chrom
   assert.match(read('shell', 'HistoryHost.js'), /fetchHistoryTimeline/);
   assert.match(read('imagery', 'historical', 'history-painter.js'), /paintHistoryTemplate/);
   assert.match(read('imagery', 'historical', 'history-catalog-client.js'), /xmin/);
-  assert.match(read('imagery', 'historical', 'history-painter.js'), /setHistoryPainterSettleListener/);
+  assert.match(read('imagery', 'historical', 'history-painter.js'), /setHistoryPainterMarks/);
+  assert.match(read('shell', 'ImageryCommandSurface.js'), /openWorldviewImagery/);
+  assert.match(read('shell', 'ImageryCommandSurface.js'), /paneImageryOpen/);
   assert.match(read('imagery', 'historical', 'history-painter.js'), /paintHistoryCompare/);
   assert.match(read('shell', 'HistoryHost.js'), /setHistoryPainterSettleListener/);
   assert.match(host, /data-iqai-history-compare/);

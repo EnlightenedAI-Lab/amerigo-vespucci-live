@@ -23,6 +23,7 @@ import {
   getOpsFeatureRecord,
   setSelectedOpsFeature
 } from './overlay.js';
+import { hitTestGovernedHydrant } from '../map/governed-map-overlay.js';
 
 export const OPS_SELECT_ACTION = 'SELECT_OPERATIONAL_FEATURE';
 export const OPS_CLEAR_ACTION = 'CLEAR_OPERATIONAL_FEATURE';
@@ -285,7 +286,11 @@ export function bindOpsSelection(root, options = {}) {
       attributes: hit?.attributes || null
     };
     if (hit) await selectHit(hit);
-    else await clearSelection();
+    else {
+      const hydrant = await hitTestGovernedHydrant(view, event);
+      if (hydrant) return;
+      await clearSelection();
+    }
   }
 
   function attachView(view) {

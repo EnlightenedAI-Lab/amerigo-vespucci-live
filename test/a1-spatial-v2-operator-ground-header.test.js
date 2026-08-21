@@ -183,9 +183,11 @@ test('operator GROUND overlay is hosted on MapStage and bound through AppShell',
 test('closed primary header has no account email or connection clutter', () => {
   const html = renderCommandHeader();
   const { primary, detail } = primaryAndDetail(html);
-  assert.match(primary, /IQAI SPATIAL/);
+  assert.match(primary, /alt="IQAI"/);
+  assert.match(primary, />SPATIAL</);
   assert.doesNotMatch(primary, /MONTRÉAL/);
   assert.match(primary, /Search place, address or coordinates/);
+  assert.match(primary, />GO</);
   assert.match(primary, />BRAIN</);
   assert.match(primary, /aria-label="Ask IQAI"/);
   assert.doesNotMatch(primary, /SYSTEM STATUS/);

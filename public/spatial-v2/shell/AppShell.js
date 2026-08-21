@@ -225,11 +225,12 @@ export function mountAppShell(root, host = {}) {
     onToggle: () => host.toggleTimeDrawer?.(),
     onRequestedDay: (day) => host.setRequestedDay?.(day)
   });
+  const searchPlace = (query) => {
+    const live = globalThis.__iqaiSpatialV2?.searchPlace;
+    return (live || host.searchPlace)?.(query);
+  };
   bindSearchControl(root, {
-    onSearch: (query) => {
-      const live = globalThis.__iqaiSpatialV2?.searchPlace;
-      return (live || host.searchPlace)?.(query);
-    }
+    onSearch: searchPlace
   });
   bindExperienceControls(root, {
     onChange: (experience) => host.setExperience?.(experience)
@@ -244,7 +245,8 @@ export function mountAppShell(root, host = {}) {
     onSubmit: (request) => host.submitAsk?.(request),
     onConfirm: () => host.confirmGovernedMapAction?.(),
     onCancel: () => host.cancelGovernedMapAction?.(),
-    onToggle: () => host.toggleAsk?.()
+    onToggle: () => host.toggleAsk?.(),
+    onSearch: searchPlace
   });
 
   if (typeof host.subscribe === 'function') host.subscribe(paint);

@@ -3,7 +3,7 @@
  * Does not rewrite map-foundation.js. Does not create a second MapView.
  */
 
-import { VIEW_ID } from '../foundation/contracts/index.js';
+import { VIEW_ID, failClosed } from '../foundation/contracts/index.js';
 import {
   getMapFoundationController,
   getMapViewCreateCount,
@@ -48,6 +48,10 @@ import { projectLayerDrawerGroups } from '../shell/LayersDrawer.js';
 import { bindFocusInstrument } from '../map/focus/instrument.js';
 import { initGroundController } from '../imagery/ground-controller.js';
 import * as opsLayers from '../ops-layers/controller.js';
+import { bindHydrantSelection } from '../map/woa/hydrant-selection.js';
+import { bindHydrantLink } from '../map/woa/hydrant-link.js';
+import { clearHydrantRecords, getHydrantRecord, rememberHydrantHits } from '../map/woa/hydrant-object.js';
+import { ASK_MAP_OPERATIONS, HYDRANT_SOURCE } from '../brain/ask-map-intent.js';
 import { bindOpsSelection } from '../ops-layers/selection.js';
 import { bindSolarIntelligence } from '../ops-layers/solar-ui.js';
 
@@ -132,9 +136,12 @@ export function attachWorldviewMapSession(root, chassis, api) {
   });
 
   let worldViewFrame = null;
+  let imageryCommand = null;
   let focusInstrument = null;
   let placeCamera = null;
   let opsSelection = null;
+  let hydrantSelection = null;
+  let hydrantLink = null;
   let solarIntelligence = null;
   const dropPin = bindDropPinControl(root, {
     getActiveView: () => viewSwitcher?.snapshot?.().activeView || 'map',
@@ -184,6 +191,18 @@ export function attachWorldviewMapSession(root, chassis, api) {
       || solarIntelligence?.isPlacePending?.() === true
     )
   });
+  hydrantSelection = bindHydrantSelection({
+    chassis,
+    isInteractionReserved: () => (
+      dropPin.snapshot().armed === true
+      || placeCamera?.snapshot()?.armed === true
+      || focusInstrument?.isActive?.() === true
+      || solarIntelligence?.isPlacePending?.() === true
+    ),
+    onSelection: (record) => {
+      void hydrantLink?.apply?.(record, { views: 'linked' });
+    }
+  });
   root.querySelector('[data-iqai-woa]')?.addEventListener('click', (event) => {
     event.preventDefault();
     if (focusInstrument?.isActive?.()) {
@@ -219,6 +238,9 @@ export function attachWorldviewMapSession(root, chassis, api) {
     viewSwitcher,
     getTemporal: () => chassis.stateStore.getSnapshot().temporal,
     armDropPin: () => dropPin.arm(),
+    imagerySnapshot: () => imageryCommand?.snapshot?.() || null,
+    ensureImagery: (opts) => imageryCommand?.openWorldviewImagery?.(opts),
+    leaveImagery: () => imageryCommand?.leaveWorldviewImagery?.(),
     onPrimaryMap: () => {
       void chassis.executeChassis('view.select', { viewId: VIEW_ID.MAP });
     }
@@ -227,8 +249,11 @@ export function attachWorldviewMapSession(root, chassis, api) {
     street360,
     worldViewFrame
   });
-  const imageryCommand = bindImageryCommandSurface(root, {
+  imageryCommand = bindImageryCommandSurface(root, {
     getMapViewCreateCount,
+    isWorldviewImagery: () => Number(worldViewFrame?.snapshot?.()?.layout) === 4,
+    hydrantMarks: () => chassis.snapshotGovernedMapAction()?.last?.marks || [],
+    onImageryReady: () => worldViewFrame?.paint?.(),
     closeSpecialists: async () => {
       await street360.close?.({ restoreMap: false }).catch(() => {});
       await google3d.close?.({ restoreMap: false }).catch(() => {});
@@ -274,6 +299,7 @@ export function attachWorldviewMapSession(root, chassis, api) {
       street360.setMapReady(true);
       google3d.setMapReady(true);
       analyze3d.setMapReady(true);
+      hydrantSelection?.attachView?.(getMapView());
       if (!positionOverlay) {
         positionOverlay = bindWorldviewPositionOverlay(root);
       }
@@ -400,14 +426,61 @@ export function attachWorldviewMapSession(root, chassis, api) {
     selectedPoint: null,
     eoAoi: imageryCommand?.snapshot?.()?.remoteSensing || null
   }));
+  hydrantLink = bindHydrantLink({
+    selection: hydrantSelection,
+    street360,
+    google3d,
+    worldViewFrame,
+    imageryCommand
+  });
+  chassis.setSelectedHydrantProvider(() => hydrantSelection?.snapshot?.()?.selectedRecord || hydrantLink?.current?.() || null);
+  chassis.setHydrantStreetAimProvider(() => hydrantLink?.streetAim?.() || null);
   chassis.setGovernedMapExecutor(async (input) => {
+    await imageryCommand?.setMode?.('MAP').catch(() => {});
+    showMapView(mapHost);
+    const intent = input?.intent || {};
+    if (
+      intent.operation === ASK_MAP_OPERATIONS.SHOW_SELECTED_STREET
+      || intent.operation === ASK_MAP_OPERATIONS.SHOW_SELECTED_ALL
+    ) {
+      const record = hydrantSelection?.snapshot?.()?.selectedRecord
+        || getHydrantRecord(input?.selectedHydrant?.idBi);
+      if (!record?.objectRef) {
+        failClosed('NO_SELECTED_HYDRANT', 'Select a hydrant first. BRAIN does not mint hydrant coordinates.');
+      }
+      const linked = intent.operation === ASK_MAP_OPERATIONS.SHOW_SELECTED_ALL
+        ? await hydrantLink.showInAllViews(record)
+        : await hydrantLink.showInStreet(record);
+      return {
+        confirmationTitle: intent.confirmationTitle,
+        operation: intent.operation,
+        objectClass: 'hydrant',
+        objectRef: record.objectRef,
+        count: 1,
+        source: HYDRANT_SOURCE,
+        here: null,
+        hits: [{
+          sourceId: record.idBi,
+          distanceMeters: record.distanceMeters,
+          feature: record.feature
+        }],
+        street: linked.street || null,
+        paint: { painted: true }
+      };
+    }
     const { executeGovernedHydrantAction } = await import('../map/woa/hydrant-within.js');
     const { paintGovernedMapAction } = await import('../map/governed-map-overlay.js');
     return executeGovernedHydrantAction({
-      intent: input?.intent,
+      intent,
       here: input?.here,
       loadFamily: (objectClass) => focusInstrument?.ensureFamilyLoaded?.(objectClass),
-      paint: (result) => paintGovernedMapAction(result)
+      paint: async (result) => {
+        rememberHydrantHits(result?.hits);
+        const painted = await paintGovernedMapAction(result);
+        hydrantSelection?.attachView?.(getMapView());
+        imageryCommand?.overlayHydrantMarks?.();
+        return painted;
+      }
     });
   });
   api.viewSwitcher = viewSwitcher;
@@ -468,6 +541,21 @@ export function attachWorldviewMapSession(root, chassis, api) {
   api.opsSelection = {
     snapshot: () => opsSelection?.snapshot?.() || null,
     clear: () => opsSelection?.clear?.()
+  };
+  api.hydrant = {
+    snapshot: () => hydrantSelection?.snapshot?.() || null,
+    selectById: (idBi, sourceView) => hydrantSelection?.selectById?.(idBi, sourceView),
+    handleHit: (hit, sourceView) => hydrantSelection?.handleHit?.(hit, sourceView),
+    attach: () => hydrantSelection?.attachView?.(getMapView()) === true,
+    trace: () => (typeof globalThis !== 'undefined' && Array.isArray(globalThis.__iqaiHydrantTrace)
+      ? globalThis.__iqaiHydrantTrace.slice()
+      : []),
+    clearRecords: () => {
+      clearHydrantRecords();
+      return true;
+    },
+    getRecord: (idBi) => getHydrantRecord(idBi),
+    link: () => hydrantLink?.snapshot?.() || null
   };
   api.solarIntelligence = {
     snapshot: () => solarIntelligence?.snapshot?.() || null,

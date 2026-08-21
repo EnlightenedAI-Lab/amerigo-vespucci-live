@@ -28,6 +28,8 @@ test('WorldView Frame exposes 1-4 layout and observation panes without Dual Map'
   assert.match(html, /data-iqai-pane="STREET 360"/);
   assert.match(html, /data-iqai-pane="3D VISUAL"/);
   assert.match(html, /data-iqai-pane="IMAGERY"/);
+  assert.match(html, /data-iqai-imagery-pane-source="NEARMAP"/);
+  assert.match(html, /data-iqai-imagery-pane-source="LIBRARY"/);
   assert.match(html, /NOT CONNECTED \/ NOT MIGRATED/);
   assert.match(html, /data-iqai-pane-maximize/);
   assert.match(html, /data-iqai-pane-restore/);
@@ -54,6 +56,14 @@ test('WorldView Frame exposes 1-4 layout and observation panes without Dual Map'
   assert.doesNotMatch(frame, /new MapView\(/);
   assert.equal((read('map/map-foundation.js').match(/new MapView\(/g) || []).length, 1);
   assert.match(host, /data-iqai-imagery-seam/);
+  assert.match(host, /data-iqai-imagery-pane-stage/);
+  assert.match(frame, /dockHistoryStage/);
+  assert.match(frame, /ensureImagery/);
+  assert.match(frame, /leaveImagery/);
+  assert.match(session, /openWorldviewImagery/);
+  assert.match(session, /overlayHydrantMarks/);
+  assert.doesNotMatch(session, /new MapView\(/);
+  assert.match(css, /data-iqai-worldview-layout="4"\] \[data-iqai-pane="IMAGERY"\] \[data-iqai-history-stage\]/);
 });
 
 test('WorldView Time strip is permanent and does not invent imagery dates', () => {

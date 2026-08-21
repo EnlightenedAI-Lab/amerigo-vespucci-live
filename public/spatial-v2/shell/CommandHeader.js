@@ -57,15 +57,17 @@ export function renderCommandHeader() {
 
         <form class="iqai-v2-search" data-iqai-search-form autocomplete="off">
           <label>
-            <span class="iqai-v2-visually-hidden">Search</span>
+            <span class="iqai-v2-visually-hidden">Search place, address or coordinates</span>
             <input
               class="iqai-v2-search__input"
               type="search"
               name="place"
-              placeholder="Search"
+              placeholder="Address or place"
               data-iqai-search-input
             />
           </label>
+          <button type="submit" class="iqai-v2-search__go">GO</button>
+          <p class="iqai-v2-search__status" data-iqai-search-status hidden></p>
         </form>
 
         <nav class="iqai-v2-header__commands" aria-label="Command surfaces">
@@ -185,11 +187,30 @@ export function bindExperienceControls(root, handlers = {}) {
 export function bindSearchControl(root, handlers = {}) {
   const form = root.querySelector('[data-iqai-search-form]');
   if (!form) return () => {};
+  const status = form.querySelector('[data-iqai-search-status]');
+  const setStatus = (text, state = '') => {
+    if (!status) return;
+    status.hidden = !text;
+    status.dataset.iqaiSearchState = state;
+    status.textContent = text || '';
+  };
   const onSubmit = (event) => {
     event.preventDefault();
     const input = form.querySelector('[data-iqai-search-input]');
     const query = String(input?.value || '').trim();
-    if (query && typeof handlers.onSearch === 'function') handlers.onSearch(query);
+    if (!query) {
+      setStatus('Enter an address.', 'FAILED');
+      return;
+    }
+    if (typeof handlers.onSearch !== 'function') return;
+    setStatus('SEARCHING…', 'APPLYING');
+    void Promise.resolve(handlers.onSearch(query)).then((result) => {
+      if (result?.ok) {
+        setStatus(result.address ? `PIN · ${result.address}` : 'PIN PLACED', 'READY');
+        return;
+      }
+      setStatus('Address not found.', 'FAILED');
+    }).catch(() => setStatus('Search failed.', 'FAILED'));
   };
   form.addEventListener('submit', onSubmit);
   return () => form.removeEventListener('submit', onSubmit);

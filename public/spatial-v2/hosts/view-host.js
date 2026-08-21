@@ -257,14 +257,21 @@ export function renderMapStageHost() {
           <section class="iqai-v2-pane" data-iqai-pane="IMAGERY" hidden>
             <header class="iqai-v2-pane__chrome">
               <span class="iqai-v2-pane__type">IMAGERY</span>
-              <span class="iqai-v2-pane__truth" data-iqai-pane-truth="IMAGERY">NOT CONNECTED</span>
-              <span class="iqai-v2-pane__sync" data-iqai-pane-sync="IMAGERY">TIME OFF</span>
+              <span class="iqai-v2-pane__truth" data-iqai-pane-truth="IMAGERY">NEARMAP / LIBRARY</span>
+              <span class="iqai-v2-pane__sync" data-iqai-pane-sync="IMAGERY">FOCUS</span>
               <button type="button" data-iqai-pane-maximize="IMAGERY">MAX</button>
               <button type="button" data-iqai-pane-restore="IMAGERY" hidden>RESTORE</button>
               <button type="button" data-iqai-pane-close="IMAGERY">CLOSE</button>
             </header>
             <div class="iqai-v2-pane__body">
-              <div class="iqai-v2-pane__unavailable" data-iqai-imagery-seam>
+              <div class="iqai-v2-imagery-pane" data-iqai-imagery-pane>
+                <div class="iqai-v2-imagery-pane__modes">
+                  <button type="button" data-iqai-imagery-pane-source="NEARMAP">NEARMAP</button>
+                  <button type="button" data-iqai-imagery-pane-source="LIBRARY">LIBRARY</button>
+                </div>
+                <div class="iqai-v2-imagery-pane__stage" data-iqai-imagery-pane-stage></div>
+              </div>
+              <div class="iqai-v2-pane__unavailable" data-iqai-imagery-seam hidden>
                 <p>IMAGERY</p>
                 <p>NOT CONNECTED / NOT MIGRATED</p>
                 <p>Wayback, Nearmap, and local imagery are registered seams only. No dates are invented.</p>

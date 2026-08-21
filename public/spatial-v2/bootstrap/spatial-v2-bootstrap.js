@@ -4,8 +4,9 @@
  */
 
 import { ACTION_SOURCE, POLICY_ACTION, createActionEnvelope, createId, failClosed, objectRefKey } from '../foundation/contracts/index.js';
-import { looksLikeAskMap, parseAskMapIntent } from '../brain/ask-map-intent.js';
+import { looksLikeAskMap, parseAskMapIntent, ASK_MAP_OPERATIONS } from '../brain/ask-map-intent.js';
 import { resolveHereContext } from '../brain/here-context.js';
+import { hydrantInspectorBody } from '../map/woa/hydrant-object.js';
 import { createStateStore } from '../state/index.js';
 import {
   createCapabilityRegistry,
@@ -160,6 +161,8 @@ export function createSpatialV2Chassis(options = {}) {
   bindChassisAdapters({ chassisRegistrar, capabilityRegistry, stateStore, idFactory });
   let mapActionExecutor = null;
   let lastMapAction = null;
+  let selectedHydrantProvider = () => null;
+  let hydrantStreetAimProvider = () => null;
   bindMapSurfaceAdapters({
     capabilityRegistry,
     idFactory,
@@ -232,7 +235,63 @@ export function createSpatialV2Chassis(options = {}) {
       baseWorldRevision: world.revision,
       traceId: createId('trace', idFactory)
     }, { now });
-    return capabilityRuntime.execute(action);
+    const result = await capabilityRuntime.execute(action);
+    if (capabilityId === 'focus.set') rebindPendingHereFromCurrentContext();
+    return result;
+  }
+
+  function selectedHydrant() {
+    return typeof selectedHydrantProvider === 'function' ? selectedHydrantProvider() : null;
+  }
+
+  function rebindPendingHereFromCurrentContext() {
+    if (!pendingMapAction) return null;
+    const operation = pendingMapAction.intent?.operation;
+    if (operation !== ASK_MAP_OPERATIONS.WITHIN && operation !== ASK_MAP_OPERATIONS.NEAREST) return pendingMapAction;
+    const here = resolveHereContext(hereContextProvider() || {});
+    if (!here.ok) return pendingMapAction;
+    pendingMapAction = Object.freeze({
+      ...pendingMapAction,
+      here,
+      reboundAt: new Date().toISOString()
+    });
+    if (presentation.lastAskReceipt?.result?.needsConfirmation === true) {
+      presentation.lastAskReceipt = {
+        ...presentation.lastAskReceipt,
+        result: {
+          ...presentation.lastAskReceipt.result,
+          here,
+          confirmationDetail: `${here.label} · ${here.latitude.toFixed(5)}, ${here.longitude.toFixed(5)} · Nothing has been drawn.`
+        }
+      };
+      notify();
+    }
+    return pendingMapAction;
+  }
+
+  function compactHydrantMarks(action) {
+    if (!action) return [];
+    const marks = [];
+    const hereLon = Number(action.here?.longitude);
+    const hereLat = Number(action.here?.latitude);
+    if (Number.isFinite(hereLon) && Number.isFinite(hereLat)) {
+      marks.push({ kind: 'here', longitude: hereLon, latitude: hereLat });
+    }
+    const nearestId = action.nearest?.sourceId || null;
+    for (const hit of action.hits || []) {
+      const coords = hit?.feature?.geometry?.coordinates;
+      if (!Array.isArray(coords) || coords.length < 2) continue;
+      const longitude = Number(coords[0]);
+      const latitude = Number(coords[1]);
+      if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) continue;
+      marks.push({
+        kind: nearestId && hit.sourceId === nearestId ? 'nearest' : 'hydrant',
+        sourceId: hit.sourceId != null ? String(hit.sourceId) : null,
+        longitude,
+        latitude
+      });
+    }
+    return marks.slice(0, 400);
   }
 
   function snapshotGovernedMapAction() {
@@ -255,11 +314,13 @@ export function createSpatialV2Chassis(options = {}) {
             confirmationTitle: lastMapAction.confirmationTitle,
             radiusMeters: lastMapAction.radiusMeters,
             here: lastMapAction.here,
+            objectRef: lastMapAction.objectRef || null,
             nearest: lastMapAction.nearest || null,
             distanceMeters: lastMapAction.nearest?.distanceMeters
               ?? lastMapAction.hits?.[0]?.distanceMeters
               ?? null,
-            paint: lastMapAction.paint || null
+            paint: lastMapAction.paint || null,
+            marks: compactHydrantMarks(lastMapAction)
           }
         : null
     };
@@ -276,6 +337,85 @@ export function createSpatialV2Chassis(options = {}) {
         mapExecuted: false,
         code: intent.code,
         message: intent.message
+      };
+    }
+    if (intent.operation === ASK_MAP_OPERATIONS.DESCRIBE_SELECTED || intent.operation === ASK_MAP_OPERATIONS.STREET_VISIBILITY) {
+      const selected = selectedHydrant();
+      if (!selected?.objectRef) {
+        return {
+          applicationAction: 'ASK_MAP_NEEDS_OBJECT',
+          engineExecuted: false,
+          mapExecuted: false,
+          needsObject: true,
+          code: 'NO_SELECTED_HYDRANT',
+          message: 'Select a hydrant on the map first. BRAIN does not mint hydrant coordinates.'
+        };
+      }
+      if (intent.operation === ASK_MAP_OPERATIONS.DESCRIBE_SELECTED) {
+        return {
+          applicationAction: 'ASK_MAP_DESCRIBED',
+          engineExecuted: false,
+          mapExecuted: false,
+          objectRef: selected.objectRef,
+          message: hydrantInspectorBody(selected, resolveHereContext(hereContextProvider() || {}))
+        };
+      }
+      const street = typeof hydrantStreetAimProvider === 'function' ? hydrantStreetAimProvider() : null;
+      const pano = street?.available === true;
+      return {
+        applicationAction: 'ASK_MAP_STREET_VISIBILITY',
+        engineExecuted: false,
+        mapExecuted: false,
+        objectRef: selected.objectRef,
+        physicalVisibility: 'NOT CONFIRMED',
+        panoAvailable: pano,
+        message: pano
+          ? `${street.message || 'INVENTORY POSITION PROJECTED INTO STREET VIEW'}. Physical hydrant visually confirmed: NOT CONFIRMED.`
+          : `${street?.message || 'NO STREET CAPTURE NEAR THIS HYDRANT'}. Physical hydrant visually confirmed: NOT CONFIRMED.`
+      };
+    }
+    if (intent.operation === ASK_MAP_OPERATIONS.SHOW_SELECTED_STREET || intent.operation === ASK_MAP_OPERATIONS.SHOW_SELECTED_ALL) {
+      const selected = selectedHydrant();
+      if (!selected?.objectRef) {
+        return {
+          applicationAction: 'ASK_MAP_NEEDS_OBJECT',
+          engineExecuted: false,
+          mapExecuted: false,
+          needsObject: true,
+          code: 'NO_SELECTED_HYDRANT',
+          message: 'Select a hydrant on the map first. BRAIN does not mint hydrant coordinates.'
+        };
+      }
+      const proposalId = createId('map-propose', idFactory);
+      pendingMapAction = Object.freeze({
+        proposalId,
+        intent,
+        here: null,
+        selectedHydrant: {
+          objectRef: selected.objectRef,
+          idBi: selected.idBi,
+          longitude: selected.longitude,
+          latitude: selected.latitude
+        },
+        issuedAt: new Date().toISOString()
+      });
+      return {
+        applicationAction: 'ASK_MAP_PROPOSED',
+        engineExecuted: false,
+        mapExecuted: false,
+        needsConfirmation: true,
+        confirmationTitle: intent.confirmationTitle,
+        confirmationDetail: `HYDRANT ID_BI ${selected.idBi} · ${selected.address || 'VILLE INVENTORY POSITION'} · No coordinates will be minted.`,
+        proposalId,
+        objectRef: selected.objectRef,
+        intent: {
+          operation: intent.operation,
+          verb: intent.verb,
+          objectClass: intent.objectClass,
+          radiusMeters: intent.radiusMeters
+        },
+        source: intent.source,
+        message: intent.confirmationTitle
       };
     }
     const here = resolveHereContext(hereContextProvider() || {});
@@ -559,6 +699,7 @@ export function createSpatialV2Chassis(options = {}) {
         notify();
         return receipt;
       }
+      rebindPendingHereFromCurrentContext();
       const proposal = pendingMapAction;
       const world = stateStore.getSnapshot();
       const issuedAt = typeof now === 'function' ? now() : new Date().toISOString();
@@ -579,7 +720,8 @@ export function createSpatialV2Chassis(options = {}) {
           confirmed: true,
           proposalId: proposal.proposalId,
           intent: proposal.intent,
-          here: proposal.here
+          here: proposal.here,
+          selectedHydrant: proposal.selectedHydrant || null
         });
       } catch (error) {
         const receipt = {
@@ -599,8 +741,13 @@ export function createSpatialV2Chassis(options = {}) {
       const sourceLine = `${painted?.source?.provider || 'UNKNOWN'} · ${painted?.source?.dataset || 'UNKNOWN'}`;
       const nearestId = painted?.nearest?.assetId || painted?.nearest?.sourceId || painted?.hits?.[0]?.sourceId;
       const nearestDist = painted?.nearest?.distanceMeters ?? painted?.hits?.[0]?.distanceMeters;
-      const message = proposal.intent.operation === 'NEAREST'
-        ? `${proposal.intent.confirmationTitle} · ID_BI ${nearestId || 'UNKNOWN'} · ${Number.isFinite(Number(nearestDist)) ? `${Number(nearestDist).toFixed(1)} m` : 'UNKNOWN'} · ${sourceLine}`
+      const selectedId = painted?.objectRef?.id || proposal.selectedHydrant?.idBi || nearestId;
+      const selectedOp = proposal.intent.operation === ASK_MAP_OPERATIONS.SHOW_SELECTED_STREET
+        || proposal.intent.operation === ASK_MAP_OPERATIONS.SHOW_SELECTED_ALL;
+      const message = selectedOp
+        ? `${proposal.intent.confirmationTitle} · ID_BI ${selectedId || 'UNKNOWN'} · ${sourceLine}`
+        : proposal.intent.operation === 'NEAREST'
+          ? `${proposal.intent.confirmationTitle} · ID_BI ${nearestId || 'UNKNOWN'} · ${Number.isFinite(Number(nearestDist)) ? `${Number(nearestDist).toFixed(1)} m` : 'UNKNOWN'} · ${sourceLine}`
         : `${proposal.intent.confirmationTitle} · ${painted?.count ?? 0} hydrants · ${sourceLine}`;
       const receipt = {
         state: executed?.ok === true ? ASK_ROUTE_STATE.ROUTED : ASK_ROUTE_STATE.FAILED,
@@ -619,6 +766,7 @@ export function createSpatialV2Chassis(options = {}) {
           here: proposal.here,
           radiusMeters: proposal.intent.radiusMeters,
           nearest: painted?.nearest || null,
+          objectRef: painted?.objectRef || proposal.selectedHydrant?.objectRef || null,
           distanceMeters: Number.isFinite(Number(nearestDist)) ? Number(nearestDist) : null
         }
       };
@@ -644,6 +792,12 @@ export function createSpatialV2Chassis(options = {}) {
     },
     setHereContextProvider(fn) {
       hereContextProvider = typeof fn === 'function' ? fn : () => ({});
+    },
+    setSelectedHydrantProvider(fn) {
+      selectedHydrantProvider = typeof fn === 'function' ? fn : () => null;
+    },
+    setHydrantStreetAimProvider(fn) {
+      hydrantStreetAimProvider = typeof fn === 'function' ? fn : () => null;
     },
     snapshotGovernedMapAction
   });

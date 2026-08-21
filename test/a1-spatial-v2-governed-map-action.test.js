@@ -37,6 +37,26 @@ function chassis() {
   return instance;
 }
 
+test('997 de la Commune uses hydrants on de la Commune, not a clipped downtown edge', async () => {
+  const origin = { longitude: -73.553221995734, latitude: 45.494180980834 };
+  const hits = filterHydrantsWithin(HYDRANTS, origin, 500);
+  assert.ok(hits.length >= 20);
+  const nearestAddr = String(hits[0]?.feature?.properties?.source?.ADRESSE || '');
+  assert.match(nearestAddr, /commune/i);
+  assert.ok(hits.some((hit) => /commune/i.test(String(hit.feature?.properties?.source?.ADRESSE || ''))));
+});
+
+test('hydrant query fails closed outside inventory coverage', async () => {
+  await assert.rejects(
+    () => executeHydrantWithin({
+      intent: parseAskMapIntent('Show hydrants within 500 m of here.'),
+      here: { longitude: -73.70, latitude: 45.40, kind: 'PIN' },
+      collection: HYDRANTS
+    }),
+    (error) => error.code === 'HYDRANT_COVERAGE'
+  );
+});
+
 test('governed hydrant WITHIN uses Ville de Montréal records and the 500 m constraint', async () => {
   const intent = parseAskMapIntent('Show hydrants within 500 m of here.');
   const hits = filterHydrantsWithin(HYDRANTS, HERE, 500);
@@ -212,4 +232,65 @@ test('HERE for NEAREST uses the accepted operator pin path', async () => {
   const missing = await host.submitAsk({ text: 'Show the nearest hydrant to here.' });
   assert.equal(missing.result.needsLocation, true);
   assert.equal(missing.result.mapExecuted, false);
+});
+
+test('Search/GO style focus.set rebinds pending HERE and confirm uses the current revision', async () => {
+  let pin = { ...HERE, source: 'drop-pin' };
+  let n = 0;
+  const host = createSpatialV2Chassis({
+    now: () => '2026-08-20T16:00:00.000Z',
+    idFactory: () => `gma-rebind-${++n}`
+  });
+  host.setHereContextProvider(() => ({ pin }));
+  host.setGovernedMapExecutor(async (input) => executeGovernedHydrantAction({
+    intent: input.intent,
+    here: input.here,
+    collection: HYDRANTS,
+    paint: async () => ({ painted: false, reason: 'NODE' })
+  }));
+
+  await host.submitAsk({ text: 'Show hydrants within 500 m of here.' });
+  assert.equal(host.snapshotGovernedMapAction().pending.here.longitude, HERE.longitude);
+
+  const commune = { longitude: -73.553221995734, latitude: 45.494180980834, source: 'drop-pin' };
+  pin = commune;
+  const before = host.stateStore.getRevision();
+  await host.executeChassis('focus.set', {
+    longitude: commune.longitude,
+    latitude: commune.latitude,
+    address: '997 de la Commune Ouest'
+  });
+  assert.ok(host.stateStore.getRevision() > before);
+  assert.equal(host.snapshotGovernedMapAction().pending.here.longitude, commune.longitude);
+  assert.equal(host.snapshotGovernedMapAction().pending.here.latitude, commune.latitude);
+
+  const confirmed = await host.confirmGovernedMapAction();
+  assert.equal(confirmed.state, 'ROUTED');
+  assert.equal(confirmed.result.mapExecuted, true);
+  assert.equal(confirmed.result.here.longitude, commune.longitude);
+  assert.doesNotMatch(String(confirmed.error || ''), /stale/i);
+});
+
+test('stale ActionEnvelope still fails closed after a later focus.set', async () => {
+  const host = chassis();
+  const world = host.stateStore.getSnapshot();
+  const stale = {
+    actionId: 'stale-focus-1',
+    source: ACTION_SOURCE.OPERATOR,
+    actorRef: 'operator:session',
+    capabilityId: 'focus.set',
+    input: { longitude: HERE.longitude, latitude: HERE.latitude },
+    worldId: world.worlds.activeWorldId,
+    baseWorldRevision: world.revision,
+    traceId: 'stale-trace-1'
+  };
+  await host.executeChassis('focus.set', {
+    longitude: HERE.longitude + 0.001,
+    latitude: HERE.latitude,
+    address: '997 de la Commune Ouest'
+  });
+  await assert.rejects(
+    () => host.capabilityRuntime.execute(stale),
+    (error) => error.code === 'STALE_REVISION'
+  );
 });

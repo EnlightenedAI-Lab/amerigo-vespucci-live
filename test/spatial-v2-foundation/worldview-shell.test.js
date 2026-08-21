@@ -27,7 +27,8 @@ test('WorldView shell keeps a permanent map-first anatomy without a dashboard', 
   assert.match(header, /alt="IQAI"/);
   assert.match(header, />SPATIAL</);
   assert.doesNotMatch(header, /MONTRÉAL/);
-  assert.match(header, /placeholder="Search"/);
+  assert.match(header, /placeholder="Address or place"/);
+  assert.match(header, />GO</);
   assert.match(header, />BRAIN</);
   assert.match(header, /aria-label="Ask IQAI"/);
   assert.doesNotMatch(header, /SYSTEM STATUS/);
@@ -51,7 +52,9 @@ test('WorldView shell keeps a permanent map-first anatomy without a dashboard', 
   assert.match(html, /data-iqai-precision-detail/);
   assert.match(html, /data-iqai-time-dock/);
   assert.match(html, /TIME \/ IMAGERY/);
-  assert.match(html, /Ask, analyze or command/);
+  assert.match(html, /Type an address, or tap a button above/);
+  assert.match(html, /HYDRANTS NEARBY/);
+  assert.match(html, /NEAREST HYDRANT/);
   assert.match(html, /data-iqai-ask-open="false"/);
   assert.doesNotMatch(html, /What do you want to know or do/);
   assert.deepEqual(WORLDVIEW_LAUNCHERS.map((item) => item.label), ['LAYERS']);

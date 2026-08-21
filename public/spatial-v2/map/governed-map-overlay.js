@@ -8,11 +8,36 @@ import { getMapView, getRuntimePlane } from './map-foundation.js';
 
 export const GOVERNED_MAP_LAYER_ID = 'iqai-v2-governed-map-action';
 export const GOVERNED_MAP_READOUT_ID = 'iqai-v2-governed-map-readout';
+export const GOVERNED_HYDRANT_HIT = 'iqaiHydrant';
 
 const SCOPE_FILL = [0, 168, 201, 0.08];
 const SCOPE_LINE = [0, 168, 201, 0.95];
 const HYDRANT_FILL = [196, 42, 28, 0.95];
 const HYDRANT_OUTLINE = [244, 240, 234, 0.95];
+const HYDRANT_MARKER = Object.freeze({
+  type: 'simple-marker',
+  style: 'path',
+  path: 'M -2.1 -5.8 L 2.1 -5.8 L 2.1 -3.2 L 4.1 -3.2 L 4.1 -1.6 L 2.1 -1.6 L 2.1 6.2 L -2.1 6.2 L -2.1 -1.6 L -4.1 -1.6 L -4.1 -3.2 L -2.1 -3.2 Z',
+  color: HYDRANT_FILL,
+  outline: { color: HYDRANT_OUTLINE, width: 1 }
+});
+const HYDRANT_SELECTED_MARKER = Object.freeze({
+  ...HYDRANT_MARKER,
+  size: 18,
+  outline: { color: [255, 255, 255, 0.98], width: 2.4 }
+});
+const HYDRANT_SUBORDINATE_MARKER = Object.freeze({
+  ...HYDRANT_MARKER,
+  size: 11,
+  color: [196, 42, 28, 0.42],
+  outline: { color: [244, 240, 234, 0.55], width: 1 }
+});
+
+function hydrantSymbol(sourceId, selectedId) {
+  if (!selectedId) return { ...HYDRANT_MARKER, size: 13 };
+  if (String(sourceId) === String(selectedId)) return { ...HYDRANT_SELECTED_MARKER };
+  return { ...HYDRANT_SUBORDINATE_MARKER };
+}
 
 function destination(lat, lon, distanceM, bearingDeg) {
   const δ = Number(distanceM) / 6378137;
@@ -162,17 +187,12 @@ async function paintNearest(view, layer, result) {
       }),
       attributes: {
         kind: 'hydrant',
+        [GOVERNED_HYDRANT_HIT]: true,
         sourceId: nearest?.sourceId || hit?.sourceId,
-        assetId: nearest?.assetId || null,
+        assetId: nearest?.assetId || nearest?.sourceId || hit?.sourceId,
         distanceMeters: nearest?.distanceMeters ?? hit?.distanceMeters
       },
-      symbol: {
-        type: 'simple-marker',
-        style: 'circle',
-        color: HYDRANT_FILL,
-        size: 14,
-        outline: { color: HYDRANT_OUTLINE, width: 1.6 }
-      }
+      symbol: hydrantSymbol(nearest?.sourceId || hit?.sourceId, null)
     }));
   }
   const identity = nearest?.assetId || nearest?.sourceId || hit?.sourceId || 'UNKNOWN';
@@ -276,16 +296,12 @@ export async function paintGovernedMapAction(result) {
       }),
       attributes: {
         kind: 'hydrant',
+        [GOVERNED_HYDRANT_HIT]: true,
         sourceId: hit.sourceId,
+        assetId: hit.sourceId,
         distanceMeters: hit.distanceMeters
       },
-      symbol: {
-        type: 'simple-marker',
-        style: 'circle',
-        color: HYDRANT_FILL,
-        size: 9,
-        outline: { color: HYDRANT_OUTLINE, width: 1.2 }
-      }
+      symbol: hydrantSymbol(hit.sourceId, null)
     }));
   }
   const readout = [
@@ -309,6 +325,57 @@ export async function paintGovernedMapAction(result) {
     painted: true,
     layerId: GOVERNED_MAP_LAYER_ID,
     graphicCount: layer.graphics?.length ?? null
+  };
+}
+
+export function getGovernedHydrantLayer() {
+  const plane = getRuntimePlane();
+  return plane?.layers?.find?.((item) => item.id === GOVERNED_MAP_LAYER_ID)
+    || plane?.layers?.toArray?.()?.find((item) => item.id === GOVERNED_MAP_LAYER_ID)
+    || null;
+}
+
+export function hydrantGraphicAttributes(graphic) {
+  const attributes = graphic?.attributes || {};
+  if (attributes[GOVERNED_HYDRANT_HIT] !== true && attributes.kind !== 'hydrant') return null;
+  const sourceId = String(attributes.sourceId || attributes.assetId || '').trim();
+  if (!sourceId) return null;
+  return { sourceId, attributes };
+}
+
+export function resolveGovernedHydrantHit(response) {
+  return (response?.results || []).map((item) => hydrantGraphicAttributes(item?.graphic)).find(Boolean) || null;
+}
+
+export async function hitTestGovernedHydrant(view, event) {
+  const layer = getGovernedHydrantLayer();
+  if (!view || !layer || typeof view.hitTest !== 'function') return null;
+  let response;
+  try {
+    response = await view.hitTest(event, { include: [layer] });
+  } catch {
+    return null;
+  }
+  return resolveGovernedHydrantHit(response);
+}
+
+let lastHighlightedId = null;
+
+export function highlightGovernedHydrant(sourceId) {
+  const layer = getGovernedHydrantLayer();
+  const graphics = layer?.graphics?.toArray?.() || [];
+  const selected = sourceId ? String(sourceId) : null;
+  const touch = new Set([selected, lastHighlightedId].filter(Boolean));
+  for (const graphic of graphics) {
+    if (graphic?.attributes?.kind !== 'hydrant') continue;
+    const id = String(graphic.attributes.sourceId || '');
+    if (touch.size && !touch.has(id)) continue;
+    graphic.symbol = hydrantSymbol(id, selected);
+  }
+  lastHighlightedId = selected;
+  return {
+    selectedId: selected,
+    hydrantCount: graphics.filter((item) => item?.attributes?.kind === 'hydrant').length
   };
 }
 

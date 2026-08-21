@@ -135,6 +135,7 @@ export function bindWorldViewFrame(root, options = {}) {
     const streetTruth = root.querySelector('[data-iqai-pane-truth="STREET 360"]');
     const visualTruth = root.querySelector('[data-iqai-pane-truth="3D VISUAL"]');
     const imageryTruth = root.querySelector('[data-iqai-pane-truth="IMAGERY"]');
+    const imagery = options.imagerySnapshot?.() || null;
     if (mapTruth) {
       mapTruth.textContent = focus
         ? `TARGET ${target}`
@@ -150,13 +151,17 @@ export function bindWorldViewFrame(root, options = {}) {
       visualTruth.textContent = `TARGET ${target} · GOOGLE 3D CURRENT ONLY`;
     }
     if (imageryTruth) {
-      imageryTruth.textContent = 'IMAGERY NOT CONNECTED · NOT MIGRATED';
+      const history = imagery?.history || null;
+      const source = history?.receipt?.provider || history?.status || '';
+      imageryTruth.textContent = history?.open
+        ? (source ? String(source).toUpperCase() : 'IMAGERY')
+        : 'NEARMAP / LIBRARY';
     }
     for (const pane of paneEls()) {
       const sync = pane.querySelector('[data-iqai-pane-sync]');
       if (!sync) continue;
       const view = pane.getAttribute('data-iqai-pane');
-      if (view === WORLDVIEW_PANE.IMAGERY) sync.textContent = 'TIME OFF';
+      if (view === WORLDVIEW_PANE.IMAGERY) sync.textContent = 'FOCUS';
       else if (view === WORLDVIEW_PANE.VISUAL_3D) sync.textContent = 'FOCUS · TIME OFF';
       else sync.textContent = 'FOCUS · TIME';
     }
@@ -200,9 +205,26 @@ export function bindWorldViewFrame(root, options = {}) {
         button.setAttribute('aria-pressed', Number(button.getAttribute('data-iqai-layout')) === layout ? 'true' : 'false');
       }
     }
+    dockHistoryStage();
     paintTruth();
     paintSplitters();
     requestAnimationFrame(resizeMap);
+  }
+
+  function dockHistoryStage() {
+    const stage = root?.querySelector('[data-iqai-history-stage]');
+    const library = root?.querySelector('[data-iqai-history-library]');
+    const slot = root?.querySelector('[data-iqai-imagery-pane-stage]');
+    const mapBody = root?.querySelector('[data-iqai-pane="MAP"] > .iqai-v2-pane__body');
+    if (!stage) return;
+    if (layout === 4 && slot) {
+      if (stage.parentElement !== slot) slot.append(stage);
+      if (library && library.parentElement !== slot) slot.append(library);
+      return;
+    }
+    if (!mapBody) return;
+    if (stage.parentElement !== mapBody) mapBody.append(stage);
+    if (library && library.parentElement !== mapBody) mapBody.append(library);
   }
 
   async function ensureStreet() {
@@ -259,6 +281,7 @@ export function bindWorldViewFrame(root, options = {}) {
     paint();
     try {
       if (wanted === 1) {
+        options.leaveImagery?.();
         await closeStreet();
         await closeVisual();
         await closeAnalyze();
@@ -274,6 +297,8 @@ export function bindWorldViewFrame(root, options = {}) {
           if (panes.includes(WORLDVIEW_PANE.VISUAL_3D)) await ensureVisual();
           else await closeVisual();
         }
+        if (wanted === 4) await options.ensureImagery?.();
+        else options.leaveImagery?.();
       }
     } finally {
       busy = false;
@@ -290,6 +315,7 @@ export function bindWorldViewFrame(root, options = {}) {
     if (layout > 1 && hasGeographicContext()) {
       if (panes.includes(WORLDVIEW_PANE.STREET_360)) await ensureStreet();
       if (panes.includes(WORLDVIEW_PANE.VISUAL_3D)) await ensureVisual();
+      if (layout === 4) await options.ensureImagery?.();
     }
     paint();
     return snapshot();

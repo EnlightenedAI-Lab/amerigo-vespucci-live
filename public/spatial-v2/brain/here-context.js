@@ -65,7 +65,7 @@ function undefinedHere(message) {
     kind: null,
     longitude: null,
     latitude: null,
-    message: message || 'Define a location. Drop a pin or select a point. HERE is not map center.'
+    message: message || 'Search an address and press GO, or drop a pin. The map center is not a location.'
   });
 }
 

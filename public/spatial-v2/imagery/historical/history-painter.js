@@ -38,6 +38,9 @@ let paintListener = null;
 let settleListener = null;
 let settleTimer = 0;
 let draggingSwipe = false;
+let overlayMarks = [];
+let selectedMarkId = null;
+let markClickListener = null;
 const tileCache = new Map();
 const inFlight = new Map();
 const listeners = [];
@@ -135,6 +138,17 @@ function screenToWorld(px, py, atZoom = zoomLevel, atCenter = center) {
   };
 }
 
+function worldToScreen(longitude, latitude) {
+  const size = sizeCanvas();
+  const scale = pixelScaleAt(zoomLevel);
+  const world = lonLatToWorld(longitude, latitude);
+  const origin = lonLatToWorld(center.longitude, center.latitude);
+  return {
+    x: size.width / 2 + (world.x - origin.x) * scale,
+    y: size.height / 2 + (world.y - origin.y) * scale
+  };
+}
+
 function viewportFor(template) {
   const size = sizeCanvas();
   const zoom = clampZoom(zoomLevel);
@@ -220,35 +234,72 @@ function drawLayer(template) {
   return { painted, total: jobs.length };
 }
 
+function drawMarks() {
+  if (!ctx || !center || !overlayMarks.length) return;
+  const size = sizeCanvas();
+  for (const mark of overlayMarks) {
+    const point = worldToScreen(mark.longitude, mark.latitude);
+    if (point.x < -24 || point.y < -24 || point.x > size.width + 24 || point.y > size.height + 24) continue;
+    if (mark.kind === 'here') {
+      ctx.strokeStyle = 'rgba(0, 168, 201, 0.95)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(point.x - 7, point.y);
+      ctx.lineTo(point.x + 7, point.y);
+      ctx.moveTo(point.x, point.y - 7);
+      ctx.lineTo(point.x, point.y + 7);
+      ctx.stroke();
+      continue;
+    }
+    const nearest = mark.kind === 'nearest';
+    const selected = selectedMarkId && String(mark.sourceId) === String(selectedMarkId);
+    ctx.beginPath();
+    ctx.arc(point.x, point.y, selected ? 7.5 : (nearest ? 6 : 4.5), 0, Math.PI * 2);
+    ctx.fillStyle = selected ? 'rgba(196, 42, 28, 1)' : 'rgba(196, 42, 28, 0.95)';
+    ctx.fill();
+    ctx.lineWidth = selected ? 2.6 : (nearest ? 2 : 1.2);
+    ctx.strokeStyle = selected ? 'rgba(255, 255, 255, 0.98)' : (nearest ? 'rgba(255, 255, 255, 0.95)' : 'rgba(244, 240, 234, 0.95)');
+    ctx.stroke();
+    if (selected) {
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, 11, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+      ctx.lineWidth = 1.4;
+      ctx.stroke();
+    }
+  }
+}
+
 function drawCached() {
   if (!ctx || !center) return lastPaint;
   const size = sizeCanvas();
   ctx.fillStyle = '#111';
   ctx.fillRect(0, 0, size.width, size.height);
-  if (!urlTemplate) {
-    emitPaint(0, 0);
-    return lastPaint;
+  let painted = 0;
+  let total = 0;
+  if (urlTemplate) {
+    const primary = drawLayer(urlTemplate);
+    painted = primary.painted;
+    total = primary.total;
+    if (compareTemplate) {
+      const splitX = size.width * swipeRatio;
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(splitX, 0, size.width - splitX, size.height);
+      ctx.clip();
+      const secondary = drawLayer(compareTemplate);
+      painted += secondary.painted;
+      total += secondary.total;
+      ctx.restore();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(splitX, 0);
+      ctx.lineTo(splitX, size.height);
+      ctx.stroke();
+    }
   }
-  const primary = drawLayer(urlTemplate);
-  let painted = primary.painted;
-  let total = primary.total;
-  if (compareTemplate) {
-    const splitX = size.width * swipeRatio;
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(splitX, 0, size.width - splitX, size.height);
-    ctx.clip();
-    const secondary = drawLayer(compareTemplate);
-    painted += secondary.painted;
-    total += secondary.total;
-    ctx.restore();
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(splitX, 0);
-    ctx.lineTo(splitX, size.height);
-    ctx.stroke();
-  }
+  drawMarks();
   emitPaint(painted, Math.max(0, total - painted));
   return lastPaint;
 }
@@ -370,12 +421,21 @@ function onPointerUp(event) {
     return;
   }
   if (!dragging) return;
+  const origin = dragOrigin;
   dragging = false;
   dragOrigin = null;
   dragCenter = null;
   lastDrag = null;
   canvas.style.cursor = 'grab';
   try { canvas.releasePointerCapture?.(event.pointerId); } catch { /* already released */ }
+  const moved = origin
+    ? Math.hypot(event.clientX - origin.x, event.clientY - origin.y) > 6
+    : true;
+  if (!moved && markClickListener) {
+    const point = eventPoint(event);
+    const hit = historyPainterHitTest(point.x, point.y);
+    notifyHistoryPainterMarkClick(hit);
+  }
   void paintNow();
   scheduleSettle();
 }
@@ -449,6 +509,50 @@ export function setHistoryPainterListener(listener) {
 
 export function setHistoryPainterSettleListener(listener) {
   settleListener = typeof listener === 'function' ? listener : null;
+}
+
+export function setHistoryPainterMarks(marks) {
+  overlayMarks = Array.isArray(marks)
+    ? marks
+      .filter((mark) => Number.isFinite(Number(mark?.longitude)) && Number.isFinite(Number(mark?.latitude)))
+      .map((mark) => ({
+        kind: String(mark.kind || 'hydrant'),
+        sourceId: mark.sourceId != null ? String(mark.sourceId) : null,
+        longitude: Number(mark.longitude),
+        latitude: Number(mark.latitude)
+      }))
+    : [];
+  if (ctx) drawCached();
+}
+
+export function setHistoryPainterSelectedId(sourceId) {
+  selectedMarkId = sourceId != null ? String(sourceId) : null;
+  if (ctx) drawCached();
+}
+
+export function setHistoryPainterClickListener(listener) {
+  markClickListener = typeof listener === 'function' ? listener : null;
+}
+
+export function notifyHistoryPainterMarkClick(hit) {
+  if (hit?.sourceId) markClickListener?.(hit);
+  return hit || null;
+}
+
+export function historyPainterHitTest(px, py, pixelTolerance = 16) {
+  if (!center || !overlayMarks.length) return null;
+  let best = null;
+  let bestDist = Number(pixelTolerance);
+  for (const mark of overlayMarks) {
+    if (mark.kind === 'here' || !mark.sourceId) continue;
+    const point = worldToScreen(mark.longitude, mark.latitude);
+    const dist = Math.hypot(point.x - px, point.y - py);
+    if (dist <= bestDist) {
+      bestDist = dist;
+      best = { ...mark, pixelDistance: dist };
+    }
+  }
+  return best;
 }
 
 export function getHistoryPainterAoi() {

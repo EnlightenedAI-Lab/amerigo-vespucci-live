@@ -3,8 +3,8 @@
   "retrievedAt": "2026-08-19T15:59:50Z",
   "bbox": [
     -73.578,
-    45.495,
-    -73.554,
+    45.488,
+    -73.543,
     45.51
   ],
   "classes": [
@@ -20,7 +20,7 @@
     "park": 51,
     "sidewalk": 1733,
     "evaluation_unit": 1595,
-    "hydrant": 439,
+    "hydrant": 666,
     "traffic_signal": 148
   },
   "fixtures": {
@@ -30,8 +30,8 @@
     },
     "bbox": [
       -73.578,
-      45.495,
-      -73.554,
+      45.488,
+      -73.543,
       45.51
     ],
     "building": {
@@ -91,7 +91,7 @@
       "park": 51,
       "sidewalk": 1733,
       "evaluation_unit": 1595,
-      "hydrant": 439,
+      "hydrant": 666,
       "traffic_signal": 148
     }
   }

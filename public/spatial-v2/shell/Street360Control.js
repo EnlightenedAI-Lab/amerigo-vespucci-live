@@ -15,7 +15,9 @@ import {
   STREET_360_OPERATOR_UNAVAILABLE,
   applyWorldviewNavigationToStreetView,
   subscribeGoogleStreetViewNavigation,
-  zoomGoogleStreetView
+  zoomGoogleStreetView,
+  aimGoogleStreetViewAtHydrant,
+  isStreetHydrantAimLocked
 } from '../map/google-street-view.js';
 import {
   WORLDVIEW_NAV_SOURCE,
@@ -58,6 +60,7 @@ export function bindStreet360Control(root, options = {}) {
   let worldNavUnsub = null;
   let bindMode = 'operator';
   let cameraTarget = null;
+  let inventoryLook = null;
 
   const hasSelection = () => Boolean(
     selectedPoint
@@ -86,6 +89,7 @@ export function bindStreet360Control(root, options = {}) {
   }
 
   function openTarget() {
+    if (inventoryLook) return inventoryLook;
     if (bindMode === 'camera' && cameraTarget) {
       if (!isGreaterMontrealLongitudeLatitude(cameraTarget.longitude, cameraTarget.latitude)) {
         return null;
@@ -152,6 +156,7 @@ export function bindStreet360Control(root, options = {}) {
     }
     worldNavUnsub = subscribeWorldviewNavigation((nav) => {
       if (!nav || stageState !== STAGE_STATE.OPEN) return;
+      if (isStreetHydrantAimLocked()) return;
       if (nav.sourceView === WORLDVIEW_NAV_SOURCE.STREET_360) return;
       beginWorldviewNavigationApply(WORLDVIEW_NAV_SOURCE.STREET_360);
       try {
@@ -433,6 +438,27 @@ export function bindStreet360Control(root, options = {}) {
     return snapshot();
   }
 
+  async function lookAtHydrant(record) {
+    let aimed = await aimGoogleStreetViewAtHydrant(record);
+    if (!aimed?.available) return aimed;
+    if (aimed.needsOpen || stageState !== STAGE_STATE.OPEN) {
+      inventoryLook = {
+        longitude: aimed.panorama.longitude,
+        latitude: aimed.panorama.latitude,
+        heading: aimed.heading,
+        pitch: 0,
+        source: 'hydrant-inventory',
+        preferPosition: true
+      };
+      const opened = await open();
+      inventoryLook = null;
+      if (opened?.open !== true && stageState !== STAGE_STATE.OPEN) return aimed;
+      aimed = await aimGoogleStreetViewAtHydrant(record);
+    }
+    paint();
+    return aimed;
+  }
+
   paint();
   return Object.freeze({
     attachMapView,
@@ -445,6 +471,7 @@ export function bindStreet360Control(root, options = {}) {
     selectPoint,
     open,
     close,
+    lookAtHydrant,
     beginCameraBind,
     openForCamera,
     applyCameraPov,

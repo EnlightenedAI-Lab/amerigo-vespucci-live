@@ -36,8 +36,10 @@ let streetViewLib = null;
 let lastOutdoorPanoId = null;
 let coverageVisitedPanos = [];
 const navigationListeners = new Set();
-let streetApplyGeneration = 0;
-let traversalMuteUntil = 0;
+let hydrantStreetMarker = null;
+let hydrantStreetAim = null;
+let hydrantStreetClickListener = null;
+let hydrantAimLockUntil = 0;
 
 function outdoorSource(google) {
   return streetViewLib?.StreetViewSource?.OUTDOOR
@@ -238,7 +240,10 @@ export function getGoogleStreetViewSnapshot() {
     panoId: panorama?.getPano?.() || lastOutdoorPanoId || null,
     stageCreateCount,
     error: lastError,
-    searchRadiusMeters: STREET_360_SEARCH_RADIUS_METERS
+    searchRadiusMeters: STREET_360_SEARCH_RADIUS_METERS,
+    hydrantAim: hydrantStreetAim ? { ...hydrantStreetAim } : null,
+    hydrantMarkerPresent: Boolean(hydrantStreetMarker),
+    physicalHydrantVisibility: hydrantStreetAim?.physicalVisibility || 'NOT CONFIRMED'
   };
 }
 
@@ -571,7 +576,119 @@ export async function closeGoogleStreetView() {
   panoPresent = false;
   lastError = null;
   coverageVisitedPanos = [];
+  try { hydrantStreetMarker?.setMap?.(null); } catch { /* already gone */ }
+  hydrantStreetMarker = null;
   return getGoogleStreetViewSnapshot();
+}
+
+export function sphericalHeadingDegrees(from, to) {
+  const googleHeading = window.google?.maps?.geometry?.spherical?.computeHeading;
+  if (typeof googleHeading === 'function' && window.google?.maps?.LatLng) {
+    return wrapStreetHeading(googleHeading(
+      new window.google.maps.LatLng(Number(from.latitude), Number(from.longitude)),
+      new window.google.maps.LatLng(Number(to.latitude), Number(to.longitude))
+    ));
+  }
+  const φ1 = Number(from.latitude) * Math.PI / 180;
+  const φ2 = Number(to.latitude) * Math.PI / 180;
+  const Δλ = (Number(to.longitude) - Number(from.longitude)) * Math.PI / 180;
+  const y = Math.sin(Δλ) * Math.cos(φ2);
+  const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+  return wrapStreetHeading(Math.atan2(y, x) * 180 / Math.PI);
+}
+
+export function isStreetHydrantAimLocked() {
+  return Date.now() < hydrantAimLockUntil;
+}
+
+export function setGoogleStreetViewHydrantClickListener(listener) {
+  hydrantStreetClickListener = typeof listener === 'function' ? listener : null;
+}
+
+export function notifyGoogleStreetViewHydrantClick(record) {
+  hydrantStreetClickListener?.(record);
+  return record || null;
+}
+
+export async function aimGoogleStreetViewAtHydrant(record) {
+  const longitude = Number(record?.longitude);
+  const latitude = Number(record?.latitude);
+  const sourceId = String(record?.idBi || record?.sourceId || '').trim();
+  if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) {
+    hydrantStreetAim = {
+      available: false,
+      message: 'NO STREET CAPTURE NEAR THIS HYDRANT',
+      physicalVisibility: 'NOT CONFIRMED',
+      searchRadiusMeters: STREET_360_SEARCH_RADIUS_METERS
+    };
+    return hydrantStreetAim;
+  }
+  const google = await ensureStreetViewLibrary();
+  try {
+    await google.maps.importLibrary?.('geometry');
+  } catch {
+    // Heading fallback remains available without the geometry library.
+  }
+  const queried = await queryPanorama(google, {
+    location: { lat: latitude, lng: longitude },
+    radius: STREET_360_SEARCH_RADIUS_METERS,
+    source: outdoorSource(google)
+  });
+  const pano = panoramaLocationOf(queried.result);
+  const ok = String(queried.status || '') === 'OK' || String(queried.status || '').endsWith('OK');
+  if (!ok || !pano) {
+    try { hydrantStreetMarker?.setMap?.(null); } catch { /* ignore */ }
+    hydrantStreetMarker = null;
+    hydrantStreetAim = {
+      available: false,
+      needsOpen: false,
+      message: 'NO STREET CAPTURE NEAR THIS HYDRANT',
+      physicalVisibility: 'NOT CONFIRMED',
+      searchRadiusMeters: STREET_360_SEARCH_RADIUS_METERS,
+      hydrant: { longitude, latitude, sourceId },
+      markerApi: null
+    };
+    return hydrantStreetAim;
+  }
+  const heading = sphericalHeadingDegrees(pano, { longitude, latitude });
+  hydrantStreetAim = {
+    available: true,
+    needsOpen: !panorama,
+    message: 'INVENTORY POSITION PROJECTED INTO STREET VIEW',
+    physicalVisibility: 'NOT CONFIRMED',
+    searchRadiusMeters: STREET_360_SEARCH_RADIUS_METERS,
+    panorama: { ...pano },
+    panoId: queried.result?.location?.pano || null,
+    heading,
+    hydrant: { longitude, latitude, sourceId },
+    markerApi: null
+  };
+  if (!panorama) return hydrantStreetAim;
+  hydrantAimLockUntil = Date.now() + 8000;
+  muteStreetViewTraversal(8000);
+  beginProgrammaticStreetApply(1600);
+  if (hydrantStreetAim.panoId && typeof panorama.setPano === 'function') {
+    panorama.setPano(hydrantStreetAim.panoId);
+  } else {
+    panorama.setPosition?.({ lat: pano.latitude, lng: pano.longitude });
+  }
+  applyStreetViewPov({ heading, pitch: 0 });
+  try { hydrantStreetMarker?.setMap?.(null); } catch { /* ignore */ }
+  hydrantStreetMarker = null;
+  const Marker = google.maps.Marker || window.google?.maps?.Marker;
+  if (typeof Marker === 'function') {
+    hydrantStreetMarker = new Marker({
+      position: { lat: latitude, lng: longitude },
+      map: panorama,
+      title: `HYDRANT · ID_BI ${sourceId} · VILLE INVENTORY POSITION`
+    });
+    hydrantStreetMarker.addListener?.('click', () => notifyGoogleStreetViewHydrantClick(record));
+    hydrantStreetAim.markerApi = 'Marker';
+  } else {
+    hydrantStreetAim.markerApi = null;
+    hydrantStreetAim.markerUnavailable = true;
+  }
+  return hydrantStreetAim;
 }
 
 function wrapStreetHeading(value) {

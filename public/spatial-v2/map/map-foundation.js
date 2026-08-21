@@ -532,13 +532,16 @@ export async function addSessionPortalItem({ id, type, title }) {
 
 export async function searchAndGoTo(query) {
   const text = String(query || '').trim();
-  if (!text || !mapView) return { ok: false };
+  if (!text) return { ok: false, reason: 'EMPTY' };
   const oauth = await fetchOperationalMapOAuthConfig().catch(() => ({}));
   const params = new URLSearchParams({
     f: 'json',
-    singleLine: text,
-    maxLocations: '1',
-    outFields: '*'
+    singleLine: /montr[eé]al/i.test(text) ? text : `${text}, Montréal`,
+    maxLocations: '5',
+    outFields: '*',
+    sourceCountry: 'CAN',
+    location: `${MONTREAL_OPERATIONAL_CENTER.longitude},${MONTREAL_OPERATIONAL_CENTER.latitude}`,
+    searchExtent: '-74.3,45.2,-73.2,45.9'
   });
   const apiKey = demoApiKeyFrom(oauth);
   if (apiKey) params.set('token', apiKey);
@@ -547,15 +550,22 @@ export async function searchAndGoTo(query) {
     : 'https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer';
   try {
     const data = await postArcGisForm(`${root}/findAddressCandidates`, params, 8000);
-    const candidate = data.candidates?.[0];
+    const candidates = Array.isArray(data.candidates) ? data.candidates : [];
+    const candidate = candidates.find((item) => (
+      isGreaterMontrealLongitudeLatitude(Number(item?.location?.x), Number(item?.location?.y))
+    )) || null;
     const lon = Number(candidate?.location?.x);
     const lat = Number(candidate?.location?.y);
-    if (!Number.isFinite(lon) || !Number.isFinite(lat)) return { ok: false };
-    mapView.center = [lon, lat];
-    if (Number.isFinite(mapView.zoom) && mapView.zoom < 14) mapView.zoom = 15;
+    if (!candidate || !Number.isFinite(lon) || !Number.isFinite(lat)) {
+      return { ok: false, reason: 'NOT_FOUND' };
+    }
+    if (mapView) {
+      mapView.center = [lon, lat];
+      if (Number.isFinite(mapView.zoom) && mapView.zoom < 14) mapView.zoom = 15;
+    }
     return { ok: true, longitude: lon, latitude: lat, address: candidate.address || text, portalWrite: false };
   } catch {
-    return { ok: false };
+    return { ok: false, reason: 'GEOCODE_FAILED' };
   }
 }
 

@@ -148,6 +148,8 @@ test('V2 shell keeps Ask IQAI as the single front door', () => {
   const dock = readV2('shell', 'AskIqaiDock.js');
   assert.match(dock, /ASK IQAI/);
   assert.match(dock, /Ask a question or describe what you want to build/);
+  assert.match(dock, /HYDRANTS NEARBY/);
+  assert.match(dock, /NEAREST HYDRANT/);
   assert.deepEqual(ASK_QUICK_ACTIONS.map((item) => item.label), [
     'MAP',
     'IMAGERY',
@@ -230,7 +232,7 @@ test('V1 spatial index remains a separate surface', () => {
   assert.equal(v1.includes('iqai-spatial-v2'), false);
   const v2 = readV2('index.html');
   assert.match(v2, /src="\/spatial-v2\/spatial-v2\.js(?:\?[^"]*)?"/);
-  assert.match(v2, /href="\/spatial-v2\/iqai-spatial-v2\.css"/);
+  assert.match(v2, /href="\/spatial-v2\/iqai-spatial-v2\.css(?:\?[^"]*)?"/);
   assert.equal(v2.includes('/spatial/spatial.js'), false);
   assert.equal(v2.includes('spatial-arcgis-runtime'), false);
 });

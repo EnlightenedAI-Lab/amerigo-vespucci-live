@@ -26,6 +26,10 @@ const BOOTSTRAP_SCRIPT_ID = 'iqai-google-maps-js-3d-bootstrap';
 
 let map3d = null;
 let marker = null;
+let hydrantMarker = null;
+let hydrantMarkerApi = null;
+let hydrantMarkerRecord = null;
+let hydrantMarkerClickListener = null;
 let selectedPoint = null;
 let lastError = null;
 let mapsJsLoaded = false;
@@ -475,7 +479,7 @@ export function getGoogleMapsJs3dSnapshot() {
   const host = map3d?.parentElement || null;
   const attribution = Boolean(
     host?.querySelector?.('.gm-style-cc, [aria-label*="Google" i], img[alt*="Google" i]')
-    || document.querySelector('gmp-map-3d')
+    || (typeof document !== 'undefined' ? document.querySelector('gmp-map-3d') : null)
   );
   return {
     open: Boolean(map3d),
@@ -490,6 +494,18 @@ export function getGoogleMapsJs3dSnapshot() {
     camera: cameraSnapshot(),
     cameraFocusOffsetMeters: cameraFocusOffsetMeters(),
     markerPresent: Boolean(marker),
+    hydrantMarker: hydrantMarkerRecord
+      ? {
+          present: Boolean(hydrantMarker),
+          api: hydrantMarkerApi,
+          clickable: hydrantMarkerApi === 'Marker3DInteractiveElement',
+          sourceId: hydrantMarkerRecord.sourceId || hydrantMarkerRecord.idBi || null,
+          objectRef: hydrantMarkerRecord.objectRef || null,
+          longitude: hydrantMarkerRecord.longitude,
+          latitude: hydrantMarkerRecord.latitude,
+          positionKind: 'VILLE INVENTORY POSITION'
+        }
+      : null,
     steady: lastSteady,
     browserKeyPresent,
     attributionLikely: attribution,
@@ -510,6 +526,11 @@ export async function closeGoogleMapsJs3d() {
     // already gone
   }
   try {
+    hydrantMarker?.remove?.();
+  } catch {
+    // already gone
+  }
+  try {
     map3d?.stopCameraAnimation?.();
   } catch {
     // ignore
@@ -520,6 +541,9 @@ export async function closeGoogleMapsJs3d() {
     // already gone
   }
   marker = null;
+  hydrantMarker = null;
+  hydrantMarkerApi = null;
+  hydrantMarkerRecord = null;
   map3d = null;
   selectedPoint = null;
   lastSteady = false;
@@ -643,6 +667,9 @@ export async function openGoogleMapsJs3d(options = {}) {
   map3d?.addEventListener?.('gmp-click', () => {
     map3d?.stopCameraAnimation?.();
   });
+  if (hydrantMarkerRecord) {
+    await setGoogleMapsJs3dHydrantMarker(hydrantMarkerRecord);
+  }
   return getGoogleMapsJs3dSnapshot();
 }
 
@@ -765,6 +792,88 @@ export function updateGoogleMapsJs3dFocusMarker(point) {
   }
   updateFocusMarker(selectedPoint);
   return getGoogleMapsJs3dSnapshot();
+}
+
+function hydrantMarkerPosition(record) {
+  return {
+    lat: Number(record.latitude),
+    lng: Number(record.longitude),
+    altitude: 8
+  };
+}
+
+export function setGoogleMapsJs3dHydrantClickListener(listener) {
+  hydrantMarkerClickListener = typeof listener === 'function' ? listener : null;
+}
+
+export function notifyGoogleMapsJs3dHydrantClick(record = hydrantMarkerRecord) {
+  hydrantMarkerClickListener?.(record);
+  return record || null;
+}
+
+export async function setGoogleMapsJs3dHydrantMarker(record) {
+  hydrantMarkerRecord = record && Number.isFinite(Number(record.longitude)) && Number.isFinite(Number(record.latitude))
+    ? {
+        ...record,
+        sourceId: record.sourceId || record.idBi,
+        idBi: record.idBi || record.sourceId
+      }
+    : null;
+  try { hydrantMarker?.remove?.(); } catch { /* previous marker */ }
+  hydrantMarker = null;
+  hydrantMarkerApi = null;
+  if (!map3d || !hydrantMarkerRecord || !maps3dLib) return getGoogleMapsJs3dSnapshot();
+  const Interactive = maps3dLib.Marker3DInteractiveElement;
+  const Static = maps3dLib.Marker3DElement;
+  const Ctor = Interactive || Static;
+  if (!Ctor) return getGoogleMapsJs3dSnapshot();
+  hydrantMarkerApi = Interactive ? 'Marker3DInteractiveElement' : 'Marker3DElement';
+  hydrantMarker = new Ctor({
+    position: hydrantMarkerPosition(hydrantMarkerRecord),
+    altitudeMode: maps3dLib.AltitudeMode?.RELATIVE_TO_MESH || 'RELATIVE_TO_MESH',
+    extruded: true,
+    label: `HYDRANT · ID_BI ${hydrantMarkerRecord.idBi} · VILLE INVENTORY POSITION`
+  });
+  try { hydrantMarker.drawsWhenOccluded = true; } catch { /* optional */ }
+  try { hydrantMarker.sizePreserved = true; } catch { /* optional */ }
+  if (typeof map3d.append === 'function') map3d.append(hydrantMarker);
+  try {
+    const markerLib = await window.google?.maps?.importLibrary?.('marker');
+    const PinElement = markerLib?.PinElement;
+    if (PinElement && hydrantMarker) {
+      const pin = new PinElement({
+        background: '#c42a1c',
+        borderColor: '#ffffff',
+        glyphColor: '#ffffff',
+        scale: 1.25,
+        glyph: 'H'
+      });
+      hydrantMarker.replaceChildren(pin);
+    }
+  } catch {
+    // Default 3D pin still marks the inventory position.
+  }
+  if (Interactive && hydrantMarker?.addEventListener) {
+    hydrantMarker.addEventListener('gmp-click', () => {
+      notifyGoogleMapsJs3dHydrantClick(hydrantMarkerRecord);
+    });
+  }
+  return getGoogleMapsJs3dSnapshot();
+}
+
+export async function flyGoogleMapsJs3dTowardHydrant(record) {
+  if (!map3d || !record) return getGoogleMapsJs3dSnapshot();
+  const camera = cameraSnapshot() || {};
+  return flyOrAssignCamera({
+    center: {
+      lat: Number(record.latitude),
+      lng: Number(record.longitude),
+      altitude: Number.isFinite(camera.altitude) ? camera.altitude : 250
+    },
+    range: Math.min(Number.isFinite(camera.range) ? camera.range : 420, 520),
+    tilt: Number.isFinite(camera.tilt) ? camera.tilt : GOOGLE_MAPS_JS_3D_TILT_DEG,
+    heading: Number.isFinite(camera.heading) ? camera.heading : GOOGLE_MAPS_JS_3D_HEADING_DEG
+  });
 }
 
 export function subscribeGoogleMapsJs3dCamera(listener) {
