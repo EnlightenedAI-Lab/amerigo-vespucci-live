@@ -8,9 +8,14 @@ import {
   checkGoogleStreetView,
   closeGoogleStreetView,
   getGoogleStreetViewSnapshot,
+  hasKnownStreetPano,
+  hasRetainedGoogleStreetView,
   lookGoogleStreetView,
   moveGoogleStreetViewAlongCoverage,
   openGoogleStreetView,
+  parkGoogleStreetView,
+  resizeGoogleStreetView,
+  revealGoogleStreetView,
   setGoogleStreetViewPov,
   STREET_360_OPERATOR_UNAVAILABLE,
   applyWorldviewNavigationToStreetView,
@@ -47,7 +52,10 @@ const STAGE_STATE = Object.freeze({
 export function bindStreet360Control(root, options = {}) {
   const well = root?.querySelector('.iqai-v2-stage__well');
   const mapHost = root?.querySelector('[data-iqai-map-host]');
-  const stageHost = root?.querySelector('[data-iqai-street-360-stage]');
+  const streetPane = root?.querySelector('[data-iqai-pane="STREET 360"]');
+  const stageHost = root?.querySelector('[data-iqai-view-anchor="STREET 360"]')
+    || streetPane?.querySelector('[data-iqai-street-360-stage]')
+    || root?.querySelector('[data-iqai-street-360-stage]');
   const dateLabel = root?.querySelector('[data-iqai-street-360-date]');
 
   let stageState = STAGE_STATE.IDLE;
@@ -61,6 +69,7 @@ export function bindStreet360Control(root, options = {}) {
   let bindMode = 'operator';
   let cameraTarget = null;
   let inventoryLook = null;
+  let concealed = false;
 
   const hasSelection = () => Boolean(
     selectedPoint
@@ -100,6 +109,19 @@ export function bindStreet360Control(root, options = {}) {
         heading: Number(cameraTarget.heading),
         pitch: Number(cameraTarget.pitch),
         source: 'authored-camera',
+        preferPosition: true
+      };
+    }
+    const selectedHydrant = typeof options.getSelectedHydrant === 'function'
+      ? options.getSelectedHydrant()
+      : null;
+    const hydrantLon = Number(selectedHydrant?.longitude);
+    const hydrantLat = Number(selectedHydrant?.latitude);
+    if (isGreaterMontrealLongitudeLatitude(hydrantLon, hydrantLat)) {
+      return {
+        longitude: hydrantLon,
+        latitude: hydrantLat,
+        source: 'hydrant-inventory',
         preferPosition: true
       };
     }
@@ -189,7 +211,10 @@ export function bindStreet360Control(root, options = {}) {
         else if (root.dataset.iqaiSpatialView === 'street-360') root.dataset.iqaiSpatialView = '2d';
       }
     }
-    if (stageHost) stageHost.hidden = !specialistVisible;
+    if (stageHost) {
+      const paneShown = streetPane ? streetPane.hidden !== true : specialistVisible;
+      stageHost.hidden = keepMapVisible ? !paneShown && !specialistVisible : !specialistVisible;
+    }
     if (dateLabel) {
       dateLabel.hidden = true;
       dateLabel.textContent = '';
@@ -226,15 +251,69 @@ export function bindStreet360Control(root, options = {}) {
     return true;
   }
 
+  function hostSize() {
+    return {
+      width: Number(stageHost?.offsetWidth) || 0,
+      height: Number(stageHost?.offsetHeight) || 0
+    };
+  }
+
+  function hostLaidOut() {
+    const size = hostSize();
+    const paneHidden = streetPane?.hidden === true;
+    return !paneHidden && size.width > 8 && size.height > 8;
+  }
+
+  function presentationCanvasReady() {
+    const canvas = stageHost?.querySelector?.('.gm-style canvas');
+    const width = Number(canvas?.width) || Number(canvas?.offsetWidth) || 0;
+    const height = Number(canvas?.height) || Number(canvas?.offsetHeight) || 0;
+    return Boolean(canvas) && width > 8 && height > 8;
+  }
+
+  function operatorVisibleReady(engine = getGoogleStreetViewSnapshot()) {
+    return stageState === STAGE_STATE.OPEN
+      && concealed !== true
+      && engine.open === true
+      && hostLaidOut()
+      && Boolean(engine.panoId || engine.panoPresent)
+      && presentationCanvasReady();
+  }
+
+  function revealStreetHost() {
+    if (streetPane) {
+      streetPane.hidden = false;
+      streetPane.removeAttribute('hidden');
+    }
+    if (stageHost) {
+      stageHost.hidden = false;
+      stageHost.removeAttribute('hidden');
+      stageHost.style.display = 'block';
+      stageHost.style.minWidth = '240px';
+      stageHost.style.minHeight = '240px';
+    }
+  }
+
+  function bindStageResize() {
+    if (!stageHost || typeof ResizeObserver !== 'function' || stageHost.dataset.iqaiStreetResizeBound === '1') {
+      return;
+    }
+    stageHost.dataset.iqaiStreetResizeBound = '1';
+    const observer = new ResizeObserver(() => {
+      if (hostLaidOut()) {
+        resizeGoogleStreetView();
+      }
+    });
+    observer.observe(stageHost);
+  }
+
   function showSpecialistSurface() {
     if (!keepMapVisible && mapHost) {
       mapHost.style.visibility = 'hidden';
       mapHost.style.pointerEvents = 'none';
     }
-    if (stageHost) {
-      stageHost.hidden = false;
-      stageHost.removeAttribute('hidden');
-    }
+    revealStreetHost();
+    bindStageResize();
   }
 
   function restoreMapSurface() {
@@ -252,10 +331,11 @@ export function bindStreet360Control(root, options = {}) {
   }
 
   function waitForLaidOutStage() {
+    revealStreetHost();
     return new Promise((resolve) => {
       const started = Date.now();
       const tick = () => {
-        if (stageHost && stageHost.offsetWidth > 8 && stageHost.offsetHeight > 8) {
+        if (hostLaidOut()) {
           resolve(true);
           return;
         }
@@ -265,16 +345,17 @@ export function bindStreet360Control(root, options = {}) {
         }
         requestAnimationFrame(tick);
       };
-      tick();
+      requestAnimationFrame(tick);
     });
   }
 
   function snapshot() {
     const view = getMapView();
     const engine = getGoogleStreetViewSnapshot();
+    const size = hostSize();
     return {
       ...engine,
-      open: stageState === STAGE_STATE.OPEN && engine.open === true,
+      open: stageState === STAGE_STATE.OPEN && engine.open === true && concealed !== true,
       stageState,
       selectedPoint: selectedPoint ? { ...selectedPoint } : engine.selectedPoint,
       selectedFeature: selectedFeature ? { ...selectedFeature } : null,
@@ -294,7 +375,12 @@ export function bindStreet360Control(root, options = {}) {
       },
       bindMode,
       cameraTarget: cameraTarget ? { ...cameraTarget } : null,
-      providerPixels: Boolean(stageHost?.querySelector?.('.gm-style canvas, .gm-style img'))
+      providerPixels: presentationCanvasReady(),
+      hostWidth: size.width,
+      hostHeight: size.height,
+      operatorVisible: operatorVisibleReady(engine),
+      concealed,
+      retained: hasKnownStreetPano()
     };
   }
 
@@ -306,6 +392,36 @@ export function bindStreet360Control(root, options = {}) {
     if (!mapReady || !target) {
       return snapshot();
     }
+    if (!hasRetainedGoogleStreetView() && hasKnownStreetPano()
+      && (concealed === true
+        || stageState === STAGE_STATE.OPEN
+        || stageState === STAGE_STATE.OPENING)) {
+      return reveal();
+    }
+    if (hasRetainedGoogleStreetView() && hostLaidOut()) {
+      concealed = false;
+      showSpecialistSurface();
+      await revealGoogleStreetView(stageHost);
+      stageState = STAGE_STATE.OPEN;
+      resizeGoogleStreetView();
+      await applySelectedHydrant().catch(() => {});
+      paint();
+      return snapshot();
+    }
+    if ((stageState === STAGE_STATE.OPENING || stageState === STAGE_STATE.OPEN)
+      && hasRetainedGoogleStreetView()
+      && concealed !== true) {
+      const engine = getGoogleStreetViewSnapshot();
+      if (engine.panoId || engine.panoPresent || engine.open === true) {
+        if (hostLaidOut()) {
+          stageState = STAGE_STATE.OPEN;
+          resizeGoogleStreetView();
+        }
+      }
+      await applySelectedHydrant().catch(() => {});
+      paint();
+      return snapshot();
+    }
     if (!keepMapVisible && options.isPeerSpecialistOpen?.() === true) {
       await options.closePeerSpecialist?.();
     }
@@ -315,11 +431,28 @@ export function bindStreet360Control(root, options = {}) {
     paint();
 
     try {
-      const availability = await checkGoogleStreetView({
-        longitude: target.longitude,
-        latitude: target.latitude,
-        source: target.source
-      });
+      const existing = getGoogleStreetViewSnapshot();
+      const availability = existing.available && existing.panoId && (
+        existing.hydrantAim?.panorama || existing.panoramaPosition
+      )
+        ? {
+          available: true,
+          panorama: existing.hydrantAim?.panorama || existing.panoramaPosition
+        }
+        : await Promise.race([
+          checkGoogleStreetView({
+            longitude: target.longitude,
+            latitude: target.latitude,
+            source: target.source
+          }),
+          new Promise((resolve) => setTimeout(() => resolve({
+            available: true,
+            panorama: existing.hydrantAim?.panorama || existing.panoramaPosition || {
+              longitude: target.longitude,
+              latitude: target.latitude
+            }
+          }), 4000))
+        ]);
       if (token !== transition) return snapshot();
       if (!availability.available) {
         stageState = STAGE_STATE.UNAVAILABLE;
@@ -340,12 +473,20 @@ export function bindStreet360Control(root, options = {}) {
         preferPosition: target.preferPosition === true
           || target.source === 'worldview-navigation'
           || target.source === 'authored-camera'
+          || target.source === 'hydrant-inventory',
+        availability
       });
       if (token !== transition) return snapshot();
-      if (engine.open !== true || engine.available !== true || engine.error) {
-        throw new Error('Street 360 did not become ready.');
+      const readyEnough = engine.open === true && (
+        engine.available === true
+        || Boolean(engine.panoId)
+        || engine.panoPresent === true
+      );
+      if (!readyEnough) {
+        throw new Error(engine.error || 'STREET 360 UNAVAILABLE');
       }
       stageState = STAGE_STATE.OPEN;
+      resizeGoogleStreetView();
       if (bindMode === 'camera') {
         if (Number.isFinite(Number(target.heading)) || Number.isFinite(Number(target.pitch))) {
           setGoogleStreetViewPov({ heading: target.heading, pitch: target.pitch });
@@ -363,11 +504,20 @@ export function bindStreet360Control(root, options = {}) {
           });
         }
       }
+      await applySelectedHydrant();
       paint();
       return snapshot();
     } catch (error) {
       if (token === transition) {
         detachNavSync();
+        const engine = getGoogleStreetViewSnapshot();
+        if (engine.open === true && (engine.panoId || engine.panoPresent)) {
+          stageState = STAGE_STATE.OPEN;
+          attachNavSync();
+          await applySelectedHydrant().catch(() => {});
+          paint();
+          return snapshot();
+        }
         await closeGoogleStreetView().catch(() => {});
         restoreMapSurface();
         stageState = STAGE_STATE.ERROR;
@@ -377,7 +527,32 @@ export function bindStreet360Control(root, options = {}) {
     }
   }
 
+  async function conceal() {
+    concealed = true;
+    await parkGoogleStreetView();
+    paint();
+    return snapshot();
+  }
+
+  async function reveal() {
+    concealed = false;
+    showSpecialistSurface();
+    paint();
+    await waitForLaidOutStage();
+    const engine = await revealGoogleStreetView(stageHost);
+    if (engine.open === true) {
+      stageState = STAGE_STATE.OPEN;
+    }
+    resizeGoogleStreetView();
+    await applySelectedHydrant().catch(() => {});
+    paint();
+    return snapshot();
+  }
+
   async function close(options = {}) {
+    if (options.conceal === true) {
+      return conceal();
+    }
     const restoreMap = options.restoreMap !== false;
     const token = ++transition;
     stageState = STAGE_STATE.CLOSING;
@@ -392,6 +567,7 @@ export function bindStreet360Control(root, options = {}) {
     }
     bindMode = 'operator';
     cameraTarget = null;
+    concealed = false;
     stageState = STAGE_STATE.IDLE;
     paint();
     return snapshot();
@@ -438,25 +614,97 @@ export function bindStreet360Control(root, options = {}) {
     return snapshot();
   }
 
-  async function lookAtHydrant(record) {
-    let aimed = await aimGoogleStreetViewAtHydrant(record);
-    if (!aimed?.available) return aimed;
-    if (aimed.needsOpen || stageState !== STAGE_STATE.OPEN) {
-      inventoryLook = {
-        longitude: aimed.panorama.longitude,
-        latitude: aimed.panorama.latitude,
-        heading: aimed.heading,
-        pitch: 0,
-        source: 'hydrant-inventory',
-        preferPosition: true
+  async function applySelectedHydrant() {
+    const record = typeof options.getSelectedHydrant === 'function'
+      ? options.getSelectedHydrant()
+      : null;
+    if (!record?.idBi && !record?.sourceId) return snapshot();
+    try {
+      return await aimGoogleStreetViewAtHydrant(record);
+    } catch (error) {
+      return {
+        available: false,
+        message: String(error?.message || error),
+        physicalVisibility: 'NOT CONFIRMED'
       };
-      const opened = await open();
-      inventoryLook = null;
-      if (opened?.open !== true && stageState !== STAGE_STATE.OPEN) return aimed;
-      aimed = await aimGoogleStreetViewAtHydrant(record);
     }
-    paint();
-    return aimed;
+  }
+
+  async function lookAtHydrant(record, aimOptions = {}) {
+    try {
+      let aimed = await aimGoogleStreetViewAtHydrant(record);
+      if (!aimed?.available) return aimed;
+      const engine = getGoogleStreetViewSnapshot();
+      const shouldOpen = aimOptions.openPane !== false
+        && (aimed.needsOpen || concealed || stageState !== STAGE_STATE.OPEN || engine.open !== true);
+      if (shouldOpen) {
+        inventoryLook = {
+          longitude: aimed.panorama.longitude,
+          latitude: aimed.panorama.latitude,
+          heading: aimed.heading,
+          pitch: 0,
+          source: 'hydrant-inventory',
+          preferPosition: true
+        };
+        if (hasRetainedGoogleStreetView()) {
+          const revealed = await reveal();
+          inventoryLook = null;
+          if (revealed?.open === true || hasRetainedGoogleStreetView()) {
+            aimed = await aimGoogleStreetViewAtHydrant(record);
+          }
+        } else {
+          showSpecialistSurface();
+          paint();
+          await waitForLaidOutStage();
+          const presented = await openGoogleStreetView({
+            container: stageHost,
+            longitude: aimed.panorama.longitude,
+            latitude: aimed.panorama.latitude,
+            heading: aimed.heading,
+            pitch: 0,
+            source: 'hydrant-inventory',
+            preferPosition: false,
+            availability: {
+              available: true,
+              panorama: aimed.panorama
+            }
+          }).catch((error) => ({
+            open: false,
+            error: String(error?.message || error)
+          }));
+          inventoryLook = null;
+          if (presented?.open === true || presented?.panoId) {
+            stageState = STAGE_STATE.OPEN;
+            concealed = false;
+            resizeGoogleStreetView();
+            attachNavSync();
+            aimed = await aimGoogleStreetViewAtHydrant(record);
+          } else if (stageState !== STAGE_STATE.OPEN) {
+            const opened = await open().catch((error) => ({
+              open: false,
+              error: String(error?.message || error)
+            }));
+            if (opened?.open !== true && stageState !== STAGE_STATE.OPEN) {
+              return {
+                ...aimed,
+                needsOpen: true,
+                message: opened?.error || presented?.error || aimed.message || 'STREET 360 UNAVAILABLE'
+              };
+            }
+            aimed = await aimGoogleStreetViewAtHydrant(record);
+          }
+        }
+      }
+      paint();
+      return aimed;
+    } catch (error) {
+      paint();
+      return {
+        available: false,
+        message: String(error?.message || error) || 'STREET 360 UNAVAILABLE',
+        physicalVisibility: 'NOT CONFIRMED'
+      };
+    }
   }
 
   paint();
@@ -471,6 +719,8 @@ export function bindStreet360Control(root, options = {}) {
     selectPoint,
     open,
     close,
+    conceal,
+    reveal,
     lookAtHydrant,
     beginCameraBind,
     openForCamera,

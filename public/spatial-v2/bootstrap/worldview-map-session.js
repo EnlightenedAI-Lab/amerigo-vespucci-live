@@ -137,7 +137,10 @@ export function attachWorldviewMapSession(root, chassis, api) {
     getPeerSelectedPoint: () => getActiveSpatialFocus(),
     keepMapVisible: true,
     isPeerSpecialistOpen: () => false,
-    closePeerSpecialist: async () => {}
+    closePeerSpecialist: async () => {},
+    getSelectedHydrant: () => hydrantSelection?.snapshot?.()?.selectedRecord
+      || hydrantLink?.current?.()
+      || null
   });
 
   let worldViewFrame = null;
@@ -453,7 +456,7 @@ export function attachWorldviewMapSession(root, chassis, api) {
       }
       const linked = intent.operation === ASK_MAP_OPERATIONS.SHOW_SELECTED_ALL
         ? await hydrantLink.showInAllViews(record)
-        : await hydrantLink.showInStreet(record);
+        : hydrantLink.dispatchStreet(record);
       return {
         confirmationTitle: intent.confirmationTitle,
         operation: intent.operation,
@@ -468,7 +471,9 @@ export function attachWorldviewMapSession(root, chassis, api) {
           feature: record.feature
         }],
         street: linked.street || null,
-        paint: { painted: true }
+        dispatched: linked.dispatched === true,
+        representation: linked.representation || (linked.deferredPanes ? 'PENDING' : 'OPEN'),
+        paint: { painted: linked.dispatched === true ? false : true, reason: linked.dispatched === true ? 'DISPATCHED' : 'OPEN' }
       };
     }
     const { executeGovernedHydrantAction } = await import('../map/woa/hydrant-within.js');

@@ -56,9 +56,13 @@ export function bindWorldViewFrame(root, options = {}) {
   let splitLeft = 63;
   let dragging = null;
 
+  function panesFor(wantedLayout = layout, wantedPair = pairView) {
+    if (wantedLayout === 2) return [WORLDVIEW_PANE.MAP, wantedPair];
+    return LAYOUT_PANES[wantedLayout] || LAYOUT_PANES[1];
+  }
+
   function panesForLayout() {
-    if (layout === 2) return [WORLDVIEW_PANE.MAP, pairView];
-    return LAYOUT_PANES[layout] || LAYOUT_PANES[1];
+    return panesFor(layout, pairView);
   }
 
   function hasGeographicContext() {
@@ -227,9 +231,68 @@ export function bindWorldViewFrame(root, options = {}) {
     if (library && library.parentElement !== mapBody) mapBody.append(library);
   }
 
+  function streetStageEl() {
+    return frame?.querySelector('[data-iqai-view-anchor="STREET 360"]')
+      || root?.querySelector('[data-iqai-view-anchor="STREET 360"]')
+      || root?.querySelector('[data-iqai-street-360-stage]');
+  }
+
+  function waitStreetPaneLaidOut() {
+    const pane = frame?.querySelector('[data-iqai-pane="STREET 360"]');
+    const stage = streetStageEl();
+    return new Promise((resolve) => {
+      const started = Date.now();
+      const raf = typeof requestAnimationFrame === 'function'
+        ? requestAnimationFrame
+        : (fn) => setTimeout(fn, 16);
+      const tick = () => {
+        const visiblePane = pane && pane.hidden !== true;
+        const width = Number(pane?.offsetWidth) || Number(stage?.offsetWidth) || 0;
+        const height = Number(pane?.offsetHeight) || Number(stage?.offsetHeight) || 0;
+        if (visiblePane && width > 8 && height > 8) {
+          resolve(true);
+          return;
+        }
+        if (Date.now() - started > 2000) {
+          resolve(false);
+          return;
+        }
+        raf(tick);
+      };
+      raf(tick);
+    });
+  }
+
+  async function syncSpecialistPanes() {
+    const panes = panesForLayout();
+    if (panes.includes(WORLDVIEW_PANE.STREET_360)) {
+      await waitStreetPaneLaidOut();
+      await ensureStreet();
+    } else if (layout === 1) {
+      await closeStreet();
+    } else {
+      await concealStreet();
+    }
+    if (panesForLayout().includes(WORLDVIEW_PANE.VISUAL_3D)) {
+      await ensureVisual();
+    } else {
+      void closeVisual();
+    }
+  }
+
   async function ensureStreet() {
     if (!hasGeographicContext()) return street360?.snapshot?.() || null;
-    return street360.open();
+    try {
+      if (street360?.snapshot?.()?.concealed === true) {
+        return await street360.reveal?.() || street360.open();
+      }
+      return await street360.open();
+    } catch (error) {
+      return street360?.snapshot?.() || {
+        open: false,
+        error: String(error?.message || error)
+      };
+    }
   }
 
   async function ensureVisual() {
@@ -239,6 +302,17 @@ export function bindWorldViewFrame(root, options = {}) {
       return await google3d.open();
     } finally {
       beginProgrammaticTraversal(4000);
+    }
+  }
+
+  async function concealStreet() {
+    const snap = street360?.snapshot?.() || {};
+    if (snap.retained === true || snap.stageState === 'OPEN' || snap.stageState === 'OPENING' || snap.concealed === true) {
+      if (typeof street360.conceal === 'function') {
+        await street360.conceal();
+      } else {
+        await street360.close?.({ conceal: true });
+      }
     }
   }
 
@@ -268,17 +342,28 @@ export function bindWorldViewFrame(root, options = {}) {
     }
   }
 
+  let pendingSpecialists = false;
+
   async function applyLayout(nextLayout, nextPair = pairView) {
-    if (busy) return snapshot();
     const wanted = Math.max(1, Math.min(4, Number(nextLayout) || 1));
-    busy = true;
-    beginProgrammaticTraversal(3000);
-    layout = wanted;
-    pairView = nextPair === WORLDVIEW_PANE.VISUAL_3D
+    const wantedPair = nextPair === WORLDVIEW_PANE.VISUAL_3D
       ? WORLDVIEW_PANE.VISUAL_3D
       : WORLDVIEW_PANE.STREET_360;
+    const streetLeaving = panesForLayout().includes(WORLDVIEW_PANE.STREET_360)
+      && !panesFor(wanted, wantedPair).includes(WORLDVIEW_PANE.STREET_360);
+    if (streetLeaving && wanted > 1) {
+      await concealStreet();
+    }
+    layout = wanted;
+    pairView = wantedPair;
     if (wanted === 1) maximized = null;
     paint();
+    if (busy) {
+      pendingSpecialists = true;
+      return snapshot();
+    }
+    busy = true;
+    beginProgrammaticTraversal(3000);
     try {
       if (wanted === 1) {
         options.leaveImagery?.();
@@ -291,19 +376,22 @@ export function bindWorldViewFrame(root, options = {}) {
         if (!hasGeographicContext()) {
           options.armDropPin?.();
         } else {
-          const panes = panesForLayout();
-          if (panes.includes(WORLDVIEW_PANE.STREET_360)) await ensureStreet();
-          else await closeStreet();
-          if (panes.includes(WORLDVIEW_PANE.VISUAL_3D)) await ensureVisual();
-          else await closeVisual();
+          await syncSpecialistPanes();
         }
-        if (wanted === 4) await options.ensureImagery?.();
+        if (layout === 4) await options.ensureImagery?.();
         else options.leaveImagery?.();
       }
     } finally {
-      busy = false;
-      beginProgrammaticTraversal(2500);
-      paint();
+      try {
+        while (pendingSpecialists && layout > 1) {
+          pendingSpecialists = false;
+          await syncSpecialistPanes();
+        }
+      } finally {
+        busy = false;
+        beginProgrammaticTraversal(2500);
+        paint();
+      }
     }
     return snapshot();
   }
@@ -332,9 +420,8 @@ export function bindWorldViewFrame(root, options = {}) {
       await closeAnalyze();
     }
     if (view === WORLDVIEW_PANE.STREET_360) {
-      if (layout === 1) return applyLayout(2, WORLDVIEW_PANE.STREET_360);
-      if (layout === 2 && pairView === WORLDVIEW_PANE.VISUAL_3D) return applyLayout(3);
       if (layout >= 3) {
+        await waitStreetPaneLaidOut();
         await ensureStreet();
         paint();
         return snapshot();
@@ -342,8 +429,6 @@ export function bindWorldViewFrame(root, options = {}) {
       return applyLayout(2, WORLDVIEW_PANE.STREET_360);
     }
     if (view === WORLDVIEW_PANE.VISUAL_3D || view === '3D') {
-      if (layout === 1) return applyLayout(2, WORLDVIEW_PANE.VISUAL_3D);
-      if (layout === 2 && pairView === WORLDVIEW_PANE.STREET_360) return applyLayout(3);
       if (layout >= 3) {
         await ensureVisual();
         paint();
@@ -393,16 +478,23 @@ export function bindWorldViewFrame(root, options = {}) {
   }
 
   function snapshot() {
+    const panes = panesForLayout();
+    const streetSnap = street360?.snapshot?.() || null;
+    const visualSnap = google3d?.snapshot?.() || null;
     return {
       layout,
       pairView,
       maximized,
-      panes: panesForLayout(),
+      panes,
       busy,
+      activePresentation: layout <= 1
+        ? WORLDVIEW_PANE.MAP
+        : (maximized || pairView),
+      streetOperatorVisible: streetSnap?.operatorVisible === true,
       focus: getActiveSpatialFocus(),
       navigation: getWorldviewNavigation(),
-      street360: street360?.snapshot?.() || null,
-      google3d: google3d?.snapshot?.() || null,
+      street360: streetSnap,
+      google3d: visualSnap,
       analyze3d: analyze3d?.snapshot?.() || null
     };
   }

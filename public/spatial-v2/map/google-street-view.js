@@ -8,6 +8,8 @@
 
 import { isGreaterMontrealLongitudeLatitude } from '../../spatial/montreal-operational-config.js';
 import { beginProgrammaticTraversal } from './worldview-traversal.js';
+import { HYDRANT_INVENTORY_POSITION_LABEL } from './woa/hydrant-object.js';
+import { hydrantTrace } from './woa/hydrant-trace.js';
 
 export const GOOGLE_MAPS_JS_CONFIG = '/api/spatial/config';
 export const STREET_360_SEARCH_RADIUS_METERS = 80;
@@ -17,6 +19,10 @@ export const STREET_360_OPERATOR_PRESERVED = 'POINT PRESERVED';
 const BOOTSTRAP_SCRIPT_ID = 'iqai-google-maps-js-3d-bootstrap';
 
 let panorama = null;
+let panoramaContainer = null;
+let panoramaListeners = [];
+let stageDisposeCount = 0;
+let streetLifecycleQueue = Promise.resolve();
 let selectedPoint = null;
 let lastError = null;
 let mapsJsLoaded = false;
@@ -40,6 +46,9 @@ let hydrantStreetMarker = null;
 let hydrantStreetAim = null;
 let hydrantStreetClickListener = null;
 let hydrantAimLockUntil = 0;
+let traversalMuteUntil = 0;
+let streetApplyGeneration = 0;
+let nearbyPanoSearchCount = 0;
 
 function outdoorSource(google) {
   return streetViewLib?.StreetViewSource?.OUTDOOR
@@ -161,9 +170,6 @@ function latLngOf(value) {
 
 function readPanoramaState(options = {}) {
   if (!panorama) {
-    lastPov = null;
-    lastZoom = null;
-    lastPanoramaPosition = null;
     lastLinksCount = 0;
     panoPresent = false;
     return;
@@ -206,12 +212,146 @@ function emitStreetNavigation() {
   }
 }
 
+function bindPanoramaListener(instance, eventName, handler) {
+  const listener = instance?.addListener?.(eventName, handler);
+  if (listener) panoramaListeners.push(listener);
+  return listener;
+}
+
+function forgetPanoramaListeners() {
+  for (const listener of panoramaListeners) {
+    try {
+      listener?.remove?.();
+      window.google?.maps?.event?.removeListener?.(listener);
+    } catch {
+      // Listener may already be gone with the instance.
+    }
+  }
+  panoramaListeners = [];
+}
+
+function disposePanoramaInstance({ restoreAmd = false } = {}) {
+  generation += 1;
+  if (panorama) stageDisposeCount += 1;
+  forgetPanoramaListeners();
+  try {
+    window.google?.maps?.event?.clearInstanceListeners?.(panorama);
+  } catch {
+    // Instance may already be inert.
+  }
+  try { hydrantStreetMarker?.setMap?.(null); } catch { /* already gone */ }
+  hydrantStreetMarker = null;
+  try { panorama?.unbindAll?.(); } catch { /* not all constructors expose unbindAll */ }
+  try { panorama?.setVisible?.(false); } catch { /* ignore */ }
+  const host = panoramaContainer;
+  panorama = null;
+  panoramaContainer = null;
+  lastLinksCount = 0;
+  panoPresent = false;
+  lastError = null;
+  coverageVisitedPanos = [];
+  if (host) {
+    try {
+      host.replaceChildren();
+    } catch {
+      try { host.innerHTML = ''; } catch { /* host already gone */ }
+    }
+  }
+  if (restoreAmd) {
+    restoreAmdDetection?.();
+    restoreAmdDetection = null;
+  }
+  hydrantTrace('street.panorama.dispose', {
+    restoreAmd,
+    disposed: stageDisposeCount,
+    hostCleared: Boolean(host)
+  });
+}
+
+function enqueueStreetLifecycle(work) {
+  const next = streetLifecycleQueue.then(work, work);
+  streetLifecycleQueue = next.catch(() => {});
+  return next;
+}
+
 export function resizeGoogleStreetView() {
   try {
     window.google?.maps?.event?.trigger?.(panorama, 'resize');
   } catch {
     // Street 360 may not be open.
   }
+}
+
+export function hasKnownStreetPano() {
+  return Boolean(lastOutdoorPanoId);
+}
+
+export function hasRetainedGoogleStreetView() {
+  return Boolean(panorama && lastOutdoorPanoId);
+}
+
+export async function parkGoogleStreetView() {
+  return enqueueStreetLifecycle(async () => {
+    const saved = {
+      panoId: lastOutdoorPanoId,
+      aim: hydrantStreetAim ? { ...hydrantStreetAim } : null,
+      pov: lastPov ? { ...lastPov } : null,
+      position: lastPanoramaPosition
+        ? { ...lastPanoramaPosition }
+        : (hydrantStreetAim?.panorama ? { ...hydrantStreetAim.panorama } : null)
+    };
+    disposePanoramaInstance({ restoreAmd: false });
+    lastOutdoorPanoId = saved.panoId;
+    hydrantStreetAim = saved.aim;
+    lastPov = saved.pov;
+    lastPanoramaPosition = saved.position;
+    if (saved.position) {
+      lastAvailability = { available: true, panorama: saved.position };
+    }
+    hydrantTrace('street.panorama.park', {
+      pano: lastOutdoorPanoId,
+      retained: Boolean(lastOutdoorPanoId),
+      disposed: stageDisposeCount
+    });
+    return getGoogleStreetViewSnapshot();
+  });
+}
+
+export function concealGoogleStreetView() {
+  return parkGoogleStreetView();
+}
+
+export async function revealGoogleStreetView(container) {
+  return enqueueStreetLifecycle(async () => {
+    if (!lastOutdoorPanoId) return getGoogleStreetViewSnapshot();
+    const w = Number(container?.offsetWidth) || 0;
+    const h = Number(container?.offsetHeight) || 0;
+    hydrantTrace('street.panorama.reconstruct', {
+      pano: lastOutdoorPanoId,
+      w,
+      h,
+      created: stageCreateCount,
+      disposed: stageDisposeCount
+    });
+    if (w < 8 || h < 8) {
+      hydrantTrace('street.panorama.reconstruct-unmeasurable', { w, h });
+      return getGoogleStreetViewSnapshot();
+    }
+    return constructGoogleStreetView({
+      container,
+      heading: Number.isFinite(Number(hydrantStreetAim?.heading))
+        ? hydrantStreetAim.heading
+        : lastPov?.heading,
+      pitch: 0,
+      source: 'hydrant-inventory',
+      availability: hydrantStreetAim?.panorama || lastPanoramaPosition
+        ? {
+          available: true,
+          panorama: hydrantStreetAim?.panorama || lastPanoramaPosition
+        }
+        : undefined
+    });
+  });
 }
 
 export function getGoogleStreetViewSnapshot() {
@@ -239,15 +379,38 @@ export function getGoogleStreetViewSnapshot() {
     panoPresent,
     panoId: panorama?.getPano?.() || lastOutdoorPanoId || null,
     stageCreateCount,
+    stageDisposeCount,
     error: lastError,
     searchRadiusMeters: STREET_360_SEARCH_RADIUS_METERS,
     hydrantAim: hydrantStreetAim ? { ...hydrantStreetAim } : null,
     hydrantMarkerPresent: Boolean(hydrantStreetMarker),
-    physicalHydrantVisibility: hydrantStreetAim?.physicalVisibility || 'NOT CONFIRMED'
+    hydrantMarkerApi: hydrantStreetAim?.markerApi || null,
+    physicalHydrantVisibility: hydrantStreetAim?.physicalVisibility || 'NOT CONFIRMED',
+    retained: Boolean(panorama && lastOutdoorPanoId),
+    nearbyPanoSearchCount
   };
 }
 
+export function getStreetNearbySearchCount() {
+  return nearbyPanoSearchCount;
+}
+
 async function ensureStreetViewLibrary({ holdAmd = false } = {}) {
+  const maps = window.google?.maps;
+  if (maps?.StreetViewService && maps?.StreetViewPanorama) {
+    streetViewLoaded = true;
+    mapsJsLoaded = true;
+    if (holdAmd && !restoreAmdDetection) {
+      restoreAmdDetection = suppressArcgisAmdDetection();
+    }
+    return window.google;
+  }
+  if (streetViewLoaded && maps) {
+    if (holdAmd && !restoreAmdDetection) {
+      restoreAmdDetection = suppressArcgisAmdDetection();
+    }
+    return window.google;
+  }
   const key = await fetchBrowserKey();
   if (!key && !window.google?.maps?.importLibrary) {
     throw new Error('Google Maps browser API key is not configured.');
@@ -256,21 +419,33 @@ async function ensureStreetViewLibrary({ holdAmd = false } = {}) {
   try {
     if (key) installMapsJsBootstrap(key);
     const started = Date.now();
-    while (!window.google?.maps?.importLibrary && Date.now() - started < 20000) {
+    while (!window.google?.maps?.importLibrary && Date.now() - started < 8000) {
       await new Promise((resolve) => setTimeout(resolve, 50));
     }
     if (!window.google?.maps?.importLibrary) {
       throw new Error('Google Maps JavaScript API failed to initialize.');
     }
     mapsJsLoaded = true;
-    streetViewLib = await window.google.maps.importLibrary('streetView');
+    if (window.google.maps.StreetViewService && window.google.maps.StreetViewPanorama) {
+      streetViewLoaded = true;
+      return window.google;
+    }
+    streetViewLib = await Promise.race([
+      window.google.maps.importLibrary('streetView'),
+      new Promise((resolve) => setTimeout(() => resolve(null), 2500))
+    ]);
     streetViewLoaded = Boolean(
       window.google?.maps?.StreetViewService
       || streetViewLib?.StreetViewService
+      || window.google?.maps?.StreetViewPanorama
+      || streetViewLib?.StreetViewPanorama
     );
     if (!streetViewLoaded) {
-      await window.google.maps.importLibrary('maps');
-      streetViewLoaded = Boolean(window.google?.maps?.StreetViewService);
+      await Promise.race([
+        window.google.maps.importLibrary('maps'),
+        new Promise((resolve) => setTimeout(() => resolve(null), 2500))
+      ]);
+      streetViewLoaded = Boolean(window.google?.maps?.StreetViewService || window.google?.maps?.StreetViewPanorama);
     }
     if (!streetViewLoaded) {
       throw new Error('Google Street View library failed to initialize.');
@@ -295,24 +470,34 @@ function googleMapsJsFailedVisually(container) {
 }
 
 async function queryPanorama(google, request) {
+  if (request?.location && Number(request?.radius) > 0) {
+    nearbyPanoSearchCount += 1;
+  }
   const Service = google.maps.StreetViewService || streetViewLib?.StreetViewService;
   const service = new Service();
   const maybe = service.getPanorama(request);
-  if (maybe && typeof maybe.then === 'function') {
-    try {
-      const result = await maybe;
-      if (result && !result.location && result.data) return { result: result.data, status: 'OK' };
-      return { result, status: 'OK' };
-    } catch (error) {
-      const status = String(error?.code || error?.status || error?.message || 'ZERO_RESULTS');
-      return { result: null, status: /OK/.test(status) ? 'ZERO_RESULTS' : status };
+  const queried = (async () => {
+    if (maybe && typeof maybe.then === 'function') {
+      try {
+        const result = await maybe;
+        if (result && !result.location && result.data) return { result: result.data, status: 'OK' };
+        return { result, status: 'OK' };
+      } catch (error) {
+        const status = String(error?.code || error?.status || error?.message || 'ZERO_RESULTS');
+        return { result: null, status: /OK/.test(status) ? 'ZERO_RESULTS' : status };
+      }
     }
-  }
-  return new Promise((resolve) => {
-    service.getPanorama(request, (result, status) => {
-      resolve({ result, status: String(status || 'ZERO_RESULTS') });
+    return new Promise((resolve) => {
+      service.getPanorama(request, (result, status) => {
+        resolve({ result, status: String(status || 'ZERO_RESULTS') });
+      });
     });
-  });
+  })();
+  const timed = await Promise.race([
+    queried,
+    new Promise((resolve) => setTimeout(() => resolve({ result: null, status: 'TIMEOUT' }), 12000))
+  ]);
+  return timed;
 }
 
 function panoramaLocationOf(result) {
@@ -365,43 +550,109 @@ export async function checkGoogleStreetView(options = {}) {
   };
 }
 
-function waitForPanoramaReady(instance, google, container, timeoutMs = 25000) {
+function statusTextOf(instance, google) {
+  const status = instance?.getStatus?.();
+  if (status == null || status === '') return '';
+  if (typeof status === 'string') return status;
+  return String(status.value || status.name || status);
+}
+
+function panoramaStatusIsOk(instance, google) {
+  const status = instance?.getStatus?.();
+  const text = statusTextOf(instance, google);
+  const Ok = google?.maps?.StreetViewStatus?.OK;
+  return text === 'OK'
+    || status === Ok
+    || status === 0
+    || (Ok != null && String(Ok) === text);
+}
+
+function panoramaHasIdentity(instance) {
+  return Boolean(instance?.getPano?.() || lastOutdoorPanoId);
+}
+
+function waitForPanoramaReady(instance, google, container, timeoutMs = 8000) {
   return new Promise((resolve, reject) => {
     let settled = false;
-    let listener = null;
+    const listeners = [];
     const finish = (ok, error) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
       clearInterval(visualTimer);
-      if (listener && google.maps.event?.removeListener) {
-        google.maps.event.removeListener(listener);
+      clearInterval(poll);
+      for (const listener of listeners) {
+        try {
+          if (listener && google?.maps?.event?.removeListener) {
+            google.maps.event.removeListener(listener);
+          }
+        } catch {
+          /* ignore */
+        }
       }
       if (ok) resolve();
-      else reject(error || new Error('Street View panorama is not available.'));
+      else reject(error || new Error('STREET 360 UNAVAILABLE'));
+    };
+    const isReady = () => {
+      if (googleMapsJsFailedVisually(container || instance?.getContainer?.())) return 'fail';
+      if (instance?.getPano?.()) return 'ok';
+      if (panoramaStatusIsOk(instance, google)) return 'ok';
+      if (container?.querySelector?.('.gm-style canvas, .gm-style img, .gm-style')) return 'ok';
+      return 'wait';
     };
     const visualTimer = setInterval(() => {
       if (googleMapsJsFailedVisually(container || instance?.getContainer?.())) {
         finish(false, new Error(STREET_360_OPERATOR_UNAVAILABLE));
       }
     }, 200);
+    const poll = setInterval(() => {
+      const state = isReady();
+      if (state === 'ok') {
+        hydrantTrace('street.ready', {
+          status: statusTextOf(instance, google) || null,
+          pano: instance?.getPano?.() || lastOutdoorPanoId || null
+        });
+        finish(true);
+      }
+    }, 150);
+    const knownPano = Boolean(lastOutdoorPanoId);
     const timer = setTimeout(() => {
-      finish(false, new Error('Street View panorama did not become ready.'));
-    }, timeoutMs);
-    const isOk = (status) => (
-      status === 'OK' || status === String(google.maps.StreetViewStatus?.OK || 'OK')
-    );
-    const check = () => {
-      const status = String(instance.getStatus?.() || '');
-      if (isOk(status)) {
+      hydrantTrace('street.ready.timeout', {
+        status: statusTextOf(instance, google) || null,
+        pano: instance?.getPano?.() || lastOutdoorPanoId || null
+      });
+      if (isReady() === 'ok' || panoramaHasIdentity(instance) || knownPano) {
         finish(true);
         return;
       }
-      if (status && status !== 'UNKNOWN' && status !== String(google.maps.StreetViewStatus?.UNKNOWN || '')) {
-        finish(false);
+      finish(false, new Error('Street View panorama did not become ready.'));
+    }, knownPano ? Math.min(timeoutMs, 8000) : timeoutMs);
+    const check = () => {
+      const state = isReady();
+      if (state === 'ok') {
+        hydrantTrace('street.ready', {
+          status: statusTextOf(instance, google) || null,
+          pano: instance?.getPano?.() || lastOutdoorPanoId || null
+        });
+        finish(true);
+        return;
+      }
+      const text = statusTextOf(instance, google);
+      if (
+        state === 'fail'
+        || (
+          text
+          && text !== 'UNKNOWN'
+          && text !== 'OK'
+          && text !== String(google?.maps?.StreetViewStatus?.UNKNOWN || '')
+        )
+      ) {
+        finish(false, new Error(text === 'ZERO_RESULTS' ? 'NO STREET CAPTURE NEAR THIS HYDRANT' : 'STREET 360 UNAVAILABLE'));
       }
     };
-    listener = instance.addListener?.('status_changed', check);
+    listeners.push(instance.addListener?.('status_changed', check));
+    listeners.push(instance.addListener?.('pano_changed', check));
+    listeners.push(instance.addListener?.('position_changed', check));
     check();
   });
 }
@@ -482,14 +733,20 @@ function waitForLinks(instance, google, timeoutMs = 5000) {
 }
 
 export async function openGoogleStreetView(options = {}) {
+  return enqueueStreetLifecycle(() => constructGoogleStreetView(options));
+}
+
+async function constructGoogleStreetView(options = {}) {
   const container = options.container;
   if (!container) throw new Error('Street 360 container is required.');
-  const availability = await checkGoogleStreetView(options);
+  const availability = options.availability?.available && options.availability?.panorama
+    ? options.availability
+    : await checkGoogleStreetView(options);
   if (!availability.available || !availability.panorama) {
     return getGoogleStreetViewSnapshot();
   }
 
-  await closeGoogleStreetView();
+  if (panorama) disposePanoramaInstance({ restoreAmd: false });
   const google = await ensureStreetViewLibrary({ holdAmd: true });
   const token = ++generation;
   stageCreateCount += 1;
@@ -512,25 +769,40 @@ export async function openGoogleStreetView(options = {}) {
     imageDateControl: false,
     showRoadLabels: false
   };
-  if (options.preferPosition === true || !lastOutdoorPanoId) {
+  if (lastOutdoorPanoId) {
+    panoramaOptions.pano = lastOutdoorPanoId;
+  } else {
     panoramaOptions.position = {
       lat: availability.panorama.latitude,
       lng: availability.panorama.longitude
     };
-  } else {
-    panoramaOptions.pano = lastOutdoorPanoId;
+  }
+  hydrantTrace('street.panorama.construct', {
+    hasCtor: typeof Panorama === 'function',
+    pano: lastOutdoorPanoId,
+    w: Number(container?.offsetWidth) || 0,
+    h: Number(container?.offsetHeight) || 0,
+    created: stageCreateCount,
+    disposed: stageDisposeCount
+  });
+  if (typeof Panorama !== 'function') {
+    throw new Error('STREET 360 UNAVAILABLE');
   }
   panorama = new Panorama(container, panoramaOptions);
+  panoramaContainer = container;
+  restoreAmdDetection?.();
+  restoreAmdDetection = null;
+  hydrantTrace('street.panorama.constructed', { pano: lastOutdoorPanoId });
   try {
     google.maps.event?.trigger?.(panorama, 'resize');
   } catch {
     // Layout may settle after the first paint.
   }
-  panorama.addListener?.('pov_changed', () => readPanoramaState());
-  panorama.addListener?.('zoom_changed', () => readPanoramaState());
-  panorama.addListener?.('position_changed', () => readPanoramaState());
-  panorama.addListener?.('links_changed', () => readPanoramaState());
-  panorama.addListener?.('pano_changed', async () => {
+  bindPanoramaListener(panorama, 'pov_changed', () => readPanoramaState());
+  bindPanoramaListener(panorama, 'zoom_changed', () => readPanoramaState());
+  bindPanoramaListener(panorama, 'position_changed', () => readPanoramaState());
+  bindPanoramaListener(panorama, 'links_changed', () => readPanoramaState());
+  bindPanoramaListener(panorama, 'pano_changed', async () => {
     readPanoramaState();
     try {
       const googleMaps = window.google;
@@ -543,42 +815,63 @@ export async function openGoogleStreetView(options = {}) {
     }
   });
 
-  await waitForPanoramaReady(panorama, google, container);
-  await waitForLinks(panorama, google);
-  if (token !== generation) return getGoogleStreetViewSnapshot();
-  if (requestedPov.specified) applyStreetViewPov(requestedPov);
-  if (googleMapsJsFailedVisually(container)) {
-    lastError = STREET_360_OPERATOR_UNAVAILABLE;
-    await closeGoogleStreetView();
-    throw new Error(STREET_360_OPERATOR_UNAVAILABLE);
+  const settle = async () => {
+    try {
+      await waitForPanoramaReady(panorama, google, container, lastOutdoorPanoId ? 4000 : 8000);
+    } catch (error) {
+      lastError = String(error?.message || error);
+      hydrantTrace('street.open.ready-failed', { message: lastError, pano: lastOutdoorPanoId });
+      if (!panoramaHasIdentity(panorama) && !lastOutdoorPanoId) throw error;
+    }
+    if (token !== generation) return;
+    if (lastOutdoorPanoId && !panorama.getPano?.()) {
+      try { panorama.setPano?.(lastOutdoorPanoId); } catch { /* keep constructed stage */ }
+    }
+    await waitForLinks(panorama, google, lastOutdoorPanoId ? 800 : 1500);
+    if (token !== generation) return;
+    if (requestedPov.specified) applyStreetViewPov(requestedPov);
+    else if (Number.isFinite(Number(hydrantStreetAim?.heading))) {
+      applyStreetViewPov({ heading: hydrantStreetAim.heading, pitch: 0 });
+    }
+    if (googleMapsJsFailedVisually(container)) {
+      lastError = STREET_360_OPERATOR_UNAVAILABLE;
+      return;
+    }
+    readPanoramaState();
+    if (panoramaHasIdentity(panorama)) {
+      lastError = lastError && /did not become ready/i.test(lastError) ? null : lastError;
+    }
+    hydrantTrace('street.open.settled', {
+      pano: panorama.getPano?.() || lastOutdoorPanoId || null,
+      error: lastError
+    });
+    if (hydrantStreetAim?.hydrant) {
+      await attachHydrantStreetMarker(hydrantStreetAim.hydrant, hydrantStreetAim).catch(() => {});
+    }
+  };
+  if (lastOutdoorPanoId) {
+    void settle().catch((error) => {
+      hydrantTrace('street.open.settle-error', { message: String(error?.message || error) });
+    });
+    readPanoramaState();
+    hydrantTrace('street.open.end', {
+      pano: lastOutdoorPanoId,
+      deferredSettle: true
+    });
+    return getGoogleStreetViewSnapshot();
   }
-  readPanoramaState();
-  lastError = null;
+  await settle();
   return getGoogleStreetViewSnapshot();
 }
 
 export async function closeGoogleStreetView() {
-  generation += 1;
-  if (panorama) {
-    try {
-      panorama.setVisible?.(false);
-    } catch {
-      // ignore
-    }
-  }
-  restoreAmdDetection?.();
-  restoreAmdDetection = null;
-  panorama = null;
-  lastPov = null;
-  lastZoom = null;
-  lastPanoramaPosition = null;
-  lastLinksCount = 0;
-  panoPresent = false;
-  lastError = null;
-  coverageVisitedPanos = [];
-  try { hydrantStreetMarker?.setMap?.(null); } catch { /* already gone */ }
-  hydrantStreetMarker = null;
-  return getGoogleStreetViewSnapshot();
+  return enqueueStreetLifecycle(async () => {
+    disposePanoramaInstance({ restoreAmd: true });
+    lastPov = null;
+    lastZoom = null;
+    lastPanoramaPosition = null;
+    return getGoogleStreetViewSnapshot();
+  });
 }
 
 export function sphericalHeadingDegrees(from, to) {
@@ -610,10 +903,67 @@ export function notifyGoogleStreetViewHydrantClick(record) {
   return record || null;
 }
 
-export async function aimGoogleStreetViewAtHydrant(record) {
+export function hydrantStreetInventoryLabel(idBi) {
+  const id = String(idBi || '').trim();
+  return id
+    ? `HYDRANT · ID_BI ${id} · ${HYDRANT_INVENTORY_POSITION_LABEL}`
+    : `HYDRANT · ${HYDRANT_INVENTORY_POSITION_LABEL}`;
+}
+
+async function attachHydrantStreetMarker(record, aim = hydrantStreetAim) {
   const longitude = Number(record?.longitude);
   const latitude = Number(record?.latitude);
   const sourceId = String(record?.idBi || record?.sourceId || '').trim();
+  try { hydrantStreetMarker?.setMap?.(null); } catch { /* previous */ }
+  hydrantStreetMarker = null;
+  if (!panorama || !Number.isFinite(longitude) || !Number.isFinite(latitude)) {
+    if (aim) aim.markerApi = null;
+    return null;
+  }
+  const google = window.google;
+  try {
+    await google?.maps?.importLibrary?.('maps');
+  } catch {
+    /* Marker lives on maps library when present. */
+  }
+  const Marker = google?.maps?.Marker;
+  if (typeof Marker !== 'function') {
+    if (aim) {
+      aim.markerApi = null;
+      aim.markerUnavailable = true;
+    }
+    hydrantTrace('street.marker.unavailable', { idBi: sourceId });
+    return null;
+  }
+  const label = hydrantStreetInventoryLabel(sourceId);
+  hydrantStreetMarker = new Marker({
+    position: { lat: latitude, lng: longitude },
+    map: panorama,
+    title: label,
+    clickable: true
+  });
+  hydrantStreetMarker.addListener?.('click', () => notifyGoogleStreetViewHydrantClick(record));
+  if (aim) {
+    aim.markerApi = 'Marker';
+    aim.markerUnavailable = false;
+    aim.label = label;
+  }
+  hydrantTrace('street.marker.attached', { idBi: sourceId, api: 'Marker' });
+  return hydrantStreetMarker;
+}
+
+export async function aimGoogleStreetViewAtHydrant(record) {
+  if (!record) {
+    try { hydrantStreetMarker?.setMap?.(null); } catch { /* ignore */ }
+    hydrantStreetMarker = null;
+    hydrantStreetAim = null;
+    hydrantTrace('street.aim.cleared');
+    return { available: false, cleared: true, physicalVisibility: 'NOT CONFIRMED' };
+  }
+  const longitude = Number(record?.longitude);
+  const latitude = Number(record?.latitude);
+  const sourceId = String(record?.idBi || record?.sourceId || '').trim();
+  hydrantTrace('street.aim.start', { idBi: sourceId, longitude, latitude });
   if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) {
     hydrantStreetAim = {
       available: false,
@@ -621,6 +971,32 @@ export async function aimGoogleStreetViewAtHydrant(record) {
       physicalVisibility: 'NOT CONFIRMED',
       searchRadiusMeters: STREET_360_SEARCH_RADIUS_METERS
     };
+    return hydrantStreetAim;
+  }
+  const sameHydrantKnown = Boolean(panorama)
+    && hydrantStreetAim?.available === true
+    && String(hydrantStreetAim?.hydrant?.sourceId || '') === sourceId
+    && Boolean(lastOutdoorPanoId || hydrantStreetAim?.panoId);
+  if (sameHydrantKnown) {
+    hydrantStreetAim = {
+      ...hydrantStreetAim,
+      needsOpen: !panorama,
+      hydrant: { longitude, latitude, sourceId, objectRef: record.objectRef || null }
+    };
+    hydrantTrace('street.aim.reuse', {
+      idBi: sourceId,
+      panoId: lastOutdoorPanoId || hydrantStreetAim.panoId,
+      heading: hydrantStreetAim.heading
+    });
+    if (!panorama) return hydrantStreetAim;
+    hydrantAimLockUntil = Date.now() + 8000;
+    muteStreetViewTraversal(8000);
+    beginProgrammaticStreetApply(1600);
+    if (hydrantStreetAim.panoId && typeof panorama.setPano === 'function') {
+      panorama.setPano(hydrantStreetAim.panoId);
+    }
+    applyStreetViewPov({ heading: hydrantStreetAim.heading, pitch: 0 });
+    await attachHydrantStreetMarker(record, hydrantStreetAim);
     return hydrantStreetAim;
   }
   const google = await ensureStreetViewLibrary();
@@ -635,6 +1011,7 @@ export async function aimGoogleStreetViewAtHydrant(record) {
     source: outdoorSource(google)
   });
   const pano = panoramaLocationOf(queried.result);
+  const panoId = queried.result?.location?.pano || queried.result?.location?.panoId || null;
   const ok = String(queried.status || '') === 'OK' || String(queried.status || '').endsWith('OK');
   if (!ok || !pano) {
     try { hydrantStreetMarker?.setMap?.(null); } catch { /* ignore */ }
@@ -645,11 +1022,13 @@ export async function aimGoogleStreetViewAtHydrant(record) {
       message: 'NO STREET CAPTURE NEAR THIS HYDRANT',
       physicalVisibility: 'NOT CONFIRMED',
       searchRadiusMeters: STREET_360_SEARCH_RADIUS_METERS,
-      hydrant: { longitude, latitude, sourceId },
+      hydrant: { longitude, latitude, sourceId, objectRef: record.objectRef || null },
       markerApi: null
     };
+    hydrantTrace('street.aim.no-pano', { idBi: sourceId, status: queried.status || null });
     return hydrantStreetAim;
   }
+  lastOutdoorPanoId = panoId || lastOutdoorPanoId;
   const heading = sphericalHeadingDegrees(pano, { longitude, latitude });
   hydrantStreetAim = {
     available: true,
@@ -658,11 +1037,19 @@ export async function aimGoogleStreetViewAtHydrant(record) {
     physicalVisibility: 'NOT CONFIRMED',
     searchRadiusMeters: STREET_360_SEARCH_RADIUS_METERS,
     panorama: { ...pano },
-    panoId: queried.result?.location?.pano || null,
+    panoId,
     heading,
-    hydrant: { longitude, latitude, sourceId },
+    hydrant: { longitude, latitude, sourceId, objectRef: record.objectRef || null },
+    label: hydrantStreetInventoryLabel(sourceId),
     markerApi: null
   };
+  hydrantTrace('street.aim.resolved', {
+    idBi: sourceId,
+    panoId,
+    heading,
+    panoLongitude: pano.longitude,
+    panoLatitude: pano.latitude
+  });
   if (!panorama) return hydrantStreetAim;
   hydrantAimLockUntil = Date.now() + 8000;
   muteStreetViewTraversal(8000);
@@ -673,21 +1060,7 @@ export async function aimGoogleStreetViewAtHydrant(record) {
     panorama.setPosition?.({ lat: pano.latitude, lng: pano.longitude });
   }
   applyStreetViewPov({ heading, pitch: 0 });
-  try { hydrantStreetMarker?.setMap?.(null); } catch { /* ignore */ }
-  hydrantStreetMarker = null;
-  const Marker = google.maps.Marker || window.google?.maps?.Marker;
-  if (typeof Marker === 'function') {
-    hydrantStreetMarker = new Marker({
-      position: { lat: latitude, lng: longitude },
-      map: panorama,
-      title: `HYDRANT · ID_BI ${sourceId} · VILLE INVENTORY POSITION`
-    });
-    hydrantStreetMarker.addListener?.('click', () => notifyGoogleStreetViewHydrantClick(record));
-    hydrantStreetAim.markerApi = 'Marker';
-  } else {
-    hydrantStreetAim.markerApi = null;
-    hydrantStreetAim.markerUnavailable = true;
-  }
+  await attachHydrantStreetMarker(record, hydrantStreetAim);
   return hydrantStreetAim;
 }
 

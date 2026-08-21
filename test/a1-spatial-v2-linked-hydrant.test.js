@@ -45,6 +45,16 @@ import {
 import {
   STREET_360_SEARCH_RADIUS_METERS,
   aimGoogleStreetViewAtHydrant,
+  closeGoogleStreetView,
+  concealGoogleStreetView,
+  getGoogleStreetViewSnapshot,
+  getStreetNearbySearchCount,
+  hasKnownStreetPano,
+  hasRetainedGoogleStreetView,
+  hydrantStreetInventoryLabel,
+  openGoogleStreetView,
+  parkGoogleStreetView,
+  revealGoogleStreetView,
   sphericalHeadingDegrees
 } from '../public/spatial-v2/map/google-street-view.js';
 import {
@@ -763,6 +773,621 @@ test('Google 3D hydrant marker uses the municipal inventory coordinate and Objec
     globalThis.fetch = previous.fetch;
     globalThis.customElements = previous.customElements;
   }
+});
+
+test('linked MAP apply stores Street ObjectRef without opening the pane', async () => {
+  const hit = communeHydrantFeature();
+  const record = rememberHydrantRecord(hit);
+  const seen = [];
+  const link = bindHydrantLink({
+    street360: {
+      snapshot: () => ({ open: false }),
+      lookAtHydrant: async (next, opts) => {
+        seen.push({ idBi: next?.idBi || null, openPane: opts?.openPane });
+        return { available: true, needsOpen: true, hydrant: { sourceId: next?.idBi } };
+      }
+    }
+  });
+  const result = await link.apply(record, { views: 'linked' });
+  assert.equal(result.objectRef.id, '5011151');
+  await nextTurn();
+  assert.equal(seen[0].idBi, '5011151');
+  assert.equal(seen[0].openPane, false);
+});
+
+test('Street 360 hydrant aim keeps pano coordinate separate and heads pano → hydrant', async () => {
+  const hit = communeHydrantFeature();
+  const record = rememberHydrantRecord(hit);
+  const pano = { latitude: 45.49416, longitude: -73.55305 };
+  let panoramaRequest = null;
+  const previous = {
+    window: globalThis.window,
+    document: globalThis.document,
+    google: globalThis.google,
+    fetch: globalThis.fetch
+  };
+  globalThis.window = globalThis;
+  globalThis.document = {
+    getElementById() { return null; },
+    createElement() { return { textContent: '' }; },
+    head: { appendChild() {} },
+    querySelector() { return null; }
+  };
+  class StreetViewService {
+    getPanorama(request) {
+      panoramaRequest = request;
+      return Promise.resolve({
+        location: {
+          pano: 'lFf75IgonZJaGZig34Qsuw',
+          latLng: { lat: () => pano.latitude, lng: () => pano.longitude }
+        }
+      });
+    }
+  }
+  globalThis.google = {
+    maps: {
+      importLibrary: async () => ({ StreetViewService }),
+      StreetViewService,
+      Marker: class {
+        constructor(options) { this.options = options; }
+        setMap() {}
+        addListener() {}
+      }
+    }
+  };
+  globalThis.fetch = async () => ({ json: async () => ({}) });
+  try {
+    const aimed = await aimGoogleStreetViewAtHydrant(record);
+    assert.equal(panoramaRequest.location.lat, record.latitude);
+    assert.equal(panoramaRequest.location.lng, record.longitude);
+    assert.equal(panoramaRequest.radius, 80);
+    assert.equal(aimed.panoId, 'lFf75IgonZJaGZig34Qsuw');
+    assert.equal(aimed.panorama.latitude, pano.latitude);
+    assert.equal(aimed.panorama.longitude, pano.longitude);
+    assert.notEqual(aimed.panorama.latitude, record.latitude);
+    assert.equal(aimed.hydrant.longitude, record.longitude);
+    assert.equal(aimed.heading, sphericalHeadingDegrees(pano, record));
+    assert.equal(aimed.physicalVisibility, 'NOT CONFIRMED');
+    assert.equal(aimed.label, hydrantStreetInventoryLabel('5011151'));
+    assert.match(aimed.label, /VILLE INVENTORY POSITION/);
+  } finally {
+    globalThis.window = previous.window;
+    globalThis.document = previous.document;
+    globalThis.google = previous.google;
+    globalThis.fetch = previous.fetch;
+  }
+});
+
+test('Street panorama readiness accepts getPano even when getStatus never reports OK', async () => {
+  const hit = communeHydrantFeature();
+  const record = rememberHydrantRecord(hit);
+  const previous = {
+    window: globalThis.window,
+    document: globalThis.document,
+    google: globalThis.google,
+    fetch: globalThis.fetch
+  };
+  class StreetViewPanorama {
+    constructor(container, opts) {
+      this.container = container;
+      this._pano = opts.pano || 'lFf75IgonZJaGZig34Qsuw';
+      this._pov = opts.pov || { heading: 0, pitch: 0 };
+    }
+    getStatus() { return ''; }
+    getPano() { return this._pano; }
+    getPov() { return this._pov; }
+    getZoom() { return 1; }
+    getPosition() {
+      return { lat: () => 45.49416, lng: () => -73.55305 };
+    }
+    getLinks() { return [{ pano: 'next', heading: 10 }]; }
+    addListener() { return { remove() {} }; }
+    setVisible() {}
+    setPano(id) { this._pano = id; }
+    setPov(pov) { this._pov = pov; }
+    setPosition() {}
+  }
+  class StreetViewService {
+    getPanorama() {
+      return Promise.resolve({
+        location: {
+          pano: 'lFf75IgonZJaGZig34Qsuw',
+          latLng: { lat: () => 45.49416, lng: () => -73.55305 }
+        }
+      });
+    }
+  }
+  globalThis.window = globalThis;
+  if (typeof globalThis.addEventListener !== 'function') {
+    globalThis.addEventListener = () => {};
+    globalThis.removeEventListener = () => {};
+  }
+  globalThis.document = {
+    getElementById() { return null; },
+    createElement() { return { textContent: '' }; },
+    head: { appendChild() {}, append() {} },
+    querySelector() { return null; }
+  };
+  globalThis.google = {
+    maps: {
+      importLibrary: async (name) => {
+        if (name === 'streetView') return { StreetViewService, StreetViewPanorama };
+        return {};
+      },
+      StreetViewService,
+      StreetViewPanorama,
+      event: { trigger() {}, removeListener() {} },
+      Marker: class {
+        constructor(options) { this.options = options; }
+        setMap() {}
+        addListener() {}
+      }
+    }
+  };
+  globalThis.fetch = async () => ({
+    json: async () => ({ streetLevelContext: { googleMapsBrowserApiKey: 'test-key' } })
+  });
+  const container = {
+    querySelector() { return { className: 'gm-style' }; }
+  };
+  try {
+    await closeGoogleStreetView();
+    const opened = await openGoogleStreetView({
+      container,
+      longitude: record.longitude,
+      latitude: record.latitude
+    });
+    assert.equal(opened.open, true);
+    assert.equal(opened.panoId, 'lFf75IgonZJaGZig34Qsuw');
+    const aimed = await aimGoogleStreetViewAtHydrant(record);
+    assert.equal(aimed.available, true);
+    assert.equal(aimed.needsOpen, false);
+    assert.equal(getGoogleStreetViewSnapshot().hydrantAim?.hydrant?.sourceId, '5011151');
+  } finally {
+    await closeGoogleStreetView();
+    globalThis.window = previous.window;
+    globalThis.document = previous.document;
+    globalThis.google = previous.google;
+    globalThis.fetch = previous.fetch;
+  }
+});
+
+test('Street 360 failure cannot block SelectionSet, Inspector, or Google 3D marker', async () => {
+  const hit = communeHydrantFeature();
+  const record = rememberHydrantRecord(hit);
+  const host = chassisWithHydrant();
+  await host.executeChassis('focus.set', {
+    longitude: COMMUNE_PIN.longitude,
+    latitude: COMMUNE_PIN.latitude,
+    address: COMMUNE_PIN.address
+  });
+  await host.executeChassis('selection.set', {
+    objectRefs: [record.objectRef],
+    primaryObjectRefId: record.objectRefKey,
+    sourceView: 'MAP',
+    sourceAction: 'SELECT_HYDRANT'
+  });
+  await setGoogleMapsJs3dHydrantMarker(record);
+  const before3d = getGoogleMapsJs3dSnapshot().hydrantMarker;
+  const link = bindHydrantLink({
+    street360: {
+      snapshot: () => ({ open: false }),
+      lookAtHydrant: async () => {
+        throw new Error('Street View panorama did not become ready.');
+      }
+    }
+  });
+  const result = await Promise.race([
+    link.apply(record, { views: 'street' }),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('street blocked apply')), 200))
+  ]);
+  assert.equal(result.objectRef.id, '5011151');
+  assert.equal(host.stateStore.getSnapshot().selection.objectRefs[0].id, '5011151');
+  assert.match(String(host.stateStore.getSnapshot().activeFocus.address || ''), /997 de la Commune/i);
+  assert.equal(getGoogleMapsJs3dSnapshot().hydrantMarker.sourceId, before3d.sourceId);
+  assert.equal(getGoogleMapsJs3dSnapshot().hydrantMarker.sourceId, '5011151');
+});
+
+test('Street requested representation becomes the supporting pair and cannot remain OPENING after pano', () => {
+  const frame = read('shell/WorldViewFrame.js');
+  const street = read('shell/Street360Control.js');
+  assert.match(frame, /return applyLayout\(2, WORLDVIEW_PANE\.STREET_360\)/);
+  assert.match(frame, /return applyLayout\(2, WORLDVIEW_PANE\.VISUAL_3D\)/);
+  assert.doesNotMatch(frame, /pairView === WORLDVIEW_PANE\.VISUAL_3D\) return applyLayout\(3\)/);
+  assert.match(frame, /pendingSpecialists/);
+  assert.match(frame, /activePresentation/);
+  assert.match(frame, /waitStreetPaneLaidOut/);
+  assert.match(street, /operatorVisible: operatorVisibleReady\(engine\)/);
+  assert.match(street, /hostLaidOut/);
+  assert.match(street, /hostWidth: size\.width/);
+  assert.match(street, /stageState = STAGE_STATE\.OPEN/);
+  assert.match(street, /engine\.panoId \|\| engine\.panoPresent \|\| engine\.open === true/);
+});
+
+test('zero-size Street host cannot be treated as operator-visible ready', async () => {
+  const { bindStreet360Control } = await import('../public/spatial-v2/shell/Street360Control.js');
+  const stage = {
+    hidden: true,
+    offsetWidth: 0,
+    offsetHeight: 0,
+    style: {},
+    dataset: {},
+    querySelector() { return null; },
+    removeAttribute() {},
+    innerHTML: ''
+  };
+  const pane = { hidden: true };
+  const root = {
+    dataset: {},
+    querySelector(sel) {
+      if (sel === '.iqai-v2-stage__well') return { dataset: {} };
+      if (sel === '[data-iqai-map-host]') return { style: {} };
+      if (sel === '[data-iqai-pane="STREET 360"]') return pane;
+      if (sel === '[data-iqai-view-anchor="STREET 360"]') return stage;
+      if (sel === '[data-iqai-street-360-date]') return { hidden: true, textContent: '' };
+      return null;
+    }
+  };
+  const ctl = bindStreet360Control(root, { keepMapVisible: true });
+  const snap = ctl.snapshot();
+  assert.equal(snap.hostWidth, 0);
+  assert.equal(snap.hostHeight, 0);
+  assert.equal(snap.operatorVisible, false);
+  assert.notEqual(snap.stageState, 'OPEN');
+});
+
+test('showInStreet opens the Street supporting pane then reapplies selected ObjectRef', async () => {
+  const hit = communeHydrantFeature();
+  const record = rememberHydrantRecord(hit);
+  const seen = [];
+  const link = bindHydrantLink({
+    worldViewFrame: {
+      openSupporting: async (view) => {
+        seen.push(['open', view]);
+        return { pairView: 'STREET 360', activePresentation: 'STREET 360', layout: 2 };
+      }
+    },
+    street360: {
+      snapshot: () => ({ open: false, stageState: 'IDLE' }),
+      lookAtHydrant: async (next, opts) => {
+        seen.push(['aim', next?.idBi || null, opts?.openPane === true]);
+        return {
+          available: true,
+          hydrant: { sourceId: next?.idBi },
+          physicalVisibility: 'NOT CONFIRMED'
+        };
+      }
+    }
+  });
+  const result = await link.showInStreet(record);
+  assert.equal(seen[0][0], 'open');
+  assert.equal(seen[0][1], 'STREET 360');
+  const aim = seen.find((item) => item[0] === 'aim');
+  assert.equal(aim[1], '5011151');
+  assert.equal(result.objectRef.id, '5011151');
+});
+
+test('Street failure cannot alter SelectionSet or Inspector', async () => {
+  const hit = communeHydrantFeature();
+  const record = rememberHydrantRecord(hit);
+  const host = chassisWithHydrant();
+  await host.executeChassis('focus.set', {
+    longitude: COMMUNE_PIN.longitude,
+    latitude: COMMUNE_PIN.latitude,
+    address: COMMUNE_PIN.address
+  });
+  await host.executeChassis('selection.set', {
+    objectRefs: [record.objectRef],
+    primaryObjectRefId: record.objectRefKey,
+    sourceView: 'MAP',
+    sourceAction: 'SELECT_HYDRANT'
+  });
+  const before = host.stateStore.getSnapshot();
+  const link = bindHydrantLink({
+    worldViewFrame: {
+      openSupporting: async () => {
+        throw new Error('STREET PANE FAILED');
+      }
+    },
+    street360: {
+      snapshot: () => ({ open: false, stageState: 'ERROR' }),
+      lookAtHydrant: async () => ({ available: false, message: 'STREET 360 UNAVAILABLE' })
+    }
+  });
+  await link.showInStreet(record);
+  const after = host.stateStore.getSnapshot();
+  assert.equal(after.selection.objectRefs[0].id, '5011151');
+  assert.equal(after.selection.objectRefs[0].id, before.selection.objectRefs[0].id);
+  assert.equal(after.activeFocus.address, before.activeFocus.address);
+});
+
+test('BRAIN Show this hydrant in Street View requires selected ObjectRef and does not mint coordinates', async () => {
+  const missing = await chassisWithHydrant(null).submitAsk({ text: 'Show this hydrant in Street View.' });
+  assert.equal(missing.result.needsObject, true);
+  assert.match(String(missing.result.message || ''), /Select a hydrant/);
+  const hit = communeHydrantFeature();
+  const record = rememberHydrantRecord(hit);
+  const host = chassisWithHydrant(record);
+  const proposed = await host.submitAsk({ text: 'Show this hydrant in Street View.' });
+  assert.equal(proposed.result.needsConfirmation, true);
+  assert.equal(proposed.result.objectRef.id, '5011151');
+  assert.match(proposed.result.confirmationDetail, /No coordinates will be minted/);
+  const confirmed = await host.confirmGovernedMapAction();
+  assert.equal(confirmed.result.mapExecuted, true);
+  assert.equal(confirmed.result.objectRef.id, '5011151');
+  assert.equal(confirmed.result.objectRef.id, record.idBi);
+});
+
+test('Street conceal for Google 3D keeps the known pano and return does not search again', async () => {
+  const hit = communeHydrantFeature();
+  const record = rememberHydrantRecord(hit);
+  const previous = {
+    window: globalThis.window,
+    document: globalThis.document,
+    google: globalThis.google,
+    fetch: globalThis.fetch
+  };
+  class StreetViewPanorama {
+    constructor(container, opts) {
+      this.container = container;
+      this._pano = opts.pano || 'NgMTZ71FiuQ7YuYNB-Kh2A';
+      this._pov = opts.pov || { heading: 0, pitch: 0 };
+    }
+    getStatus() { return 'OK'; }
+    getPano() { return this._pano; }
+    getPov() { return this._pov; }
+    getZoom() { return 1; }
+    getPosition() {
+      return { lat: () => 45.494515, lng: () => -73.552964 };
+    }
+    getLinks() { return [{ pano: 'next', heading: 10 }]; }
+    addListener() { return { remove() {} }; }
+    setVisible() {}
+    setPano(id) { this._pano = id; }
+    setPov(pov) { this._pov = pov; }
+    setPosition() {}
+  }
+  class StreetViewService {
+    getPanorama() {
+      return Promise.resolve({
+        location: {
+          pano: 'NgMTZ71FiuQ7YuYNB-Kh2A',
+          latLng: { lat: () => 45.494515, lng: () => -73.552964 }
+        }
+      });
+    }
+  }
+  globalThis.window = globalThis;
+  if (typeof globalThis.addEventListener !== 'function') {
+    globalThis.addEventListener = () => {};
+    globalThis.removeEventListener = () => {};
+  }
+  globalThis.document = {
+    getElementById() { return null; },
+    createElement() { return { textContent: '' }; },
+    head: { appendChild() {}, append() {} },
+    querySelector() { return null; }
+  };
+  globalThis.google = {
+    maps: {
+      importLibrary: async (name) => {
+        if (name === 'streetView') return { StreetViewService, StreetViewPanorama };
+        return {};
+      },
+      StreetViewService,
+      StreetViewPanorama,
+      event: { trigger() {}, removeListener() {} },
+      Marker: class {
+        constructor(options) { this.options = options; }
+        setMap() {}
+        addListener() {}
+      }
+    }
+  };
+  globalThis.fetch = async () => ({
+    json: async () => ({ streetLevelContext: { googleMapsBrowserApiKey: 'test-key' } })
+  });
+  const container = {
+    offsetWidth: 569,
+    offsetHeight: 831,
+    querySelector() { return { className: 'gm-style' }; }
+  };
+  try {
+    await closeGoogleStreetView();
+    const aimed = await aimGoogleStreetViewAtHydrant(record);
+    assert.equal(aimed.panoId, 'NgMTZ71FiuQ7YuYNB-Kh2A');
+    const opened = await openGoogleStreetView({
+      container,
+      longitude: record.longitude,
+      latitude: record.latitude,
+      availability: { available: true, panorama: aimed.panorama }
+    });
+    assert.equal(opened.open, true);
+    assert.equal(hasRetainedGoogleStreetView(), true);
+    const searchesAfterOpen = getStreetNearbySearchCount();
+    await concealGoogleStreetView();
+    assert.equal(hasKnownStreetPano(), true);
+    assert.equal(getGoogleStreetViewSnapshot().panoId, 'NgMTZ71FiuQ7YuYNB-Kh2A');
+    const revealed = await revealGoogleStreetView(container);
+    assert.equal(revealed.open, true);
+    assert.equal(revealed.panoId, 'NgMTZ71FiuQ7YuYNB-Kh2A');
+    const reused = await aimGoogleStreetViewAtHydrant(record);
+    assert.equal(reused.panoId, 'NgMTZ71FiuQ7YuYNB-Kh2A');
+    assert.equal(reused.heading, aimed.heading);
+    assert.equal(getStreetNearbySearchCount(), searchesAfterOpen);
+  } finally {
+    await closeGoogleStreetView();
+    globalThis.window = previous.window;
+    globalThis.document = previous.document;
+    globalThis.google = previous.google;
+    globalThis.fetch = previous.fetch;
+  }
+});
+
+test('repeated Street park/reveal disposes each instance and reapplies known pano without search', async () => {
+  const hit = communeHydrantFeature();
+  const record = rememberHydrantRecord(hit);
+  const previous = {
+    window: globalThis.window,
+    document: globalThis.document,
+    google: globalThis.google,
+    fetch: globalThis.fetch
+  };
+  let constructs = 0;
+  let cleared = 0;
+  class StreetViewPanorama {
+    constructor(container, opts) {
+      constructs += 1;
+      this.container = container;
+      container.owned = constructs;
+      this._pano = opts.pano || 'NgMTZ71FiuQ7YuYNB-Kh2A';
+      this._pov = opts.pov || { heading: 0, pitch: 0 };
+    }
+    getStatus() { return 'OK'; }
+    getPano() { return this._pano; }
+    getPov() { return this._pov; }
+    getZoom() { return 1; }
+    getPosition() {
+      return { lat: () => 45.494515, lng: () => -73.552964 };
+    }
+    getLinks() { return [{ pano: 'next', heading: 10 }]; }
+    addListener() { return { remove() {} }; }
+    setVisible() {}
+    setPano(id) { this._pano = id; }
+    setPov(pov) { this._pov = pov; }
+    setPosition() {}
+  }
+  class StreetViewService {
+    getPanorama() {
+      return Promise.resolve({
+        location: {
+          pano: 'NgMTZ71FiuQ7YuYNB-Kh2A',
+          latLng: { lat: () => 45.494515, lng: () => -73.552964 }
+        }
+      });
+    }
+  }
+  globalThis.window = globalThis;
+  if (typeof globalThis.addEventListener !== 'function') {
+    globalThis.addEventListener = () => {};
+    globalThis.removeEventListener = () => {};
+  }
+  globalThis.document = {
+    getElementById() { return null; },
+    createElement() { return { textContent: '' }; },
+    head: { appendChild() {}, append() {} },
+    querySelector() { return null; }
+  };
+  globalThis.google = {
+    maps: {
+      importLibrary: async (name) => {
+        if (name === 'streetView') return { StreetViewService, StreetViewPanorama };
+        return {};
+      },
+      StreetViewService,
+      StreetViewPanorama,
+      event: {
+        trigger() {},
+        removeListener() {},
+        clearInstanceListeners() { cleared += 1; }
+      },
+      Marker: class {
+        constructor(options) { this.options = options; }
+        setMap() {}
+        addListener() {}
+      }
+    }
+  };
+  globalThis.fetch = async () => ({
+    json: async () => ({ streetLevelContext: { googleMapsBrowserApiKey: 'test-key' } })
+  });
+  const container = {
+    offsetWidth: 569,
+    offsetHeight: 831,
+    owned: null,
+    querySelector() { return { className: 'gm-style', width: 569, height: 831 }; },
+    replaceChildren() { this.owned = null; }
+  };
+  try {
+    await closeGoogleStreetView();
+    const aimed = await aimGoogleStreetViewAtHydrant(record);
+    await openGoogleStreetView({
+      container,
+      availability: { available: true, panorama: aimed.panorama }
+    });
+    const searchesAfterOpen = getStreetNearbySearchCount();
+    const heading = aimed.heading;
+    const createdAfterOpen = getGoogleStreetViewSnapshot().stageCreateCount;
+    const disposedAfterOpen = getGoogleStreetViewSnapshot().stageDisposeCount;
+    const constructsAfterOpen = constructs;
+    for (let cycle = 0; cycle < 4; cycle += 1) {
+      await parkGoogleStreetView();
+      assert.equal(hasRetainedGoogleStreetView(), false);
+      assert.equal(hasKnownStreetPano(), true);
+      assert.equal(container.owned, null);
+      const revealed = await revealGoogleStreetView(container);
+      assert.equal(revealed.open, true);
+      assert.equal(revealed.panoId, 'NgMTZ71FiuQ7YuYNB-Kh2A');
+      const reapplied = await aimGoogleStreetViewAtHydrant(record);
+      assert.equal(reapplied.panoId, 'NgMTZ71FiuQ7YuYNB-Kh2A');
+      assert.equal(reapplied.heading, heading);
+      assert.ok(reapplied.markerApi === 'Marker' || revealed.hydrantMarkerApi === 'Marker');
+    }
+    const snap = getGoogleStreetViewSnapshot();
+    assert.equal(getStreetNearbySearchCount(), searchesAfterOpen);
+    assert.equal(constructs - constructsAfterOpen, 4);
+    assert.equal(snap.stageCreateCount - createdAfterOpen, 4);
+    assert.equal(snap.stageDisposeCount - disposedAfterOpen, 4);
+    assert.ok(cleared >= 4);
+  } finally {
+    await closeGoogleStreetView();
+    globalThis.window = previous.window;
+    globalThis.document = previous.document;
+    globalThis.google = previous.google;
+    globalThis.fetch = previous.fetch;
+  }
+});
+
+test('BRAIN Street dispatch resolves without waiting for panorama paint', async () => {
+  const hit = communeHydrantFeature();
+  const record = rememberHydrantRecord(hit);
+  let lookResolve;
+  const hanging = new Promise((resolve) => { lookResolve = resolve; });
+  const link = bindHydrantLink({
+    worldViewFrame: {
+      openSupporting: async () => ({ pairView: 'STREET 360' })
+    },
+    street360: {
+      snapshot: () => ({ open: false, stageState: 'OPENING' }),
+      lookAtHydrant: async () => hanging
+    }
+  });
+  const result = await Promise.race([
+    Promise.resolve(link.dispatchStreet(record)),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('BRAIN dispatch hung')), 80))
+  ]);
+  assert.equal(result.objectRef.id, '5011151');
+  assert.equal(result.dispatched, true);
+  assert.equal(result.representation, 'PENDING');
+  lookResolve({ available: true, hydrant: { sourceId: '5011151' } });
+});
+
+test('WorldView conceals Street for Google 3D instead of destroying the panorama', () => {
+  const frame = read('shell/WorldViewFrame.js');
+  const street = read('shell/Street360Control.js');
+  const session = read('bootstrap/worldview-map-session.js');
+  const engine = read('map/google-street-view.js');
+  const link = read('map/woa/hydrant-link.js');
+  assert.match(frame, /concealStreet/);
+  assert.match(street, /async function conceal/);
+  assert.match(street, /async function reveal/);
+  assert.match(street, /concealed !== true/);
+  assert.match(engine, /street\.panorama\.reconstruct/);
+  assert.match(engine, /disposePanoramaInstance/);
+  assert.match(engine, /street\.aim\.reuse/);
+  assert.match(session, /dispatchStreet/);
+  assert.match(link, /representation: 'PENDING'/);
+  assert.equal((read('map/map-foundation.js').match(/new MapView\(/g) || []).length, 1);
 });
 
 test('Search/GO geocode is bounded to Greater Montréal', () => {

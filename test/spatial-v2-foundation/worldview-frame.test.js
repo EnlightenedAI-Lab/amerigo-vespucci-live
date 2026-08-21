@@ -53,6 +53,11 @@ test('WorldView Frame exposes 1-4 layout and observation panes without Dual Map'
   assert.match(host, /data-iqai-basemap-picker/);
   assert.match(frame, /paintSplitters/);
   assert.match(frame, /resizeGoogleStreetView/);
+  assert.match(frame, /return applyLayout\(2, WORLDVIEW_PANE\.STREET_360\)/);
+  assert.doesNotMatch(frame, /pairView === WORLDVIEW_PANE\.VISUAL_3D\) return applyLayout\(3\)/);
+  assert.match(frame, /activePresentation/);
+  assert.match(frame, /concealStreet/);
+  assert.match(frame, /await ensureStreet/);
   assert.doesNotMatch(frame, /new MapView\(/);
   assert.equal((read('map/map-foundation.js').match(/new MapView\(/g) || []).length, 1);
   assert.match(host, /data-iqai-imagery-seam/);

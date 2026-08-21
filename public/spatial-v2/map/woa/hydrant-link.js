@@ -56,13 +56,20 @@ export function bindHydrantLink(options = {}) {
     return last3d;
   }
 
-  async function followStreet(record) {
-    hydrantTrace('apply.street.start', { idBi: record?.idBi || null });
-    lastStreetAim = await options.street360?.lookAtHydrant?.(record).catch((error) => {
+  async function followStreet(record, { openPane = false } = {}) {
+    hydrantTrace('apply.street.start', { idBi: record?.idBi || null, openPane });
+    if (openPane) {
+      try {
+        await options.worldViewFrame?.openSupporting?.('STREET 360');
+      } catch (error) {
+        hydrantTrace('apply.street.error', { message: String(error?.message || error) });
+      }
+    }
+    lastStreetAim = await options.street360?.lookAtHydrant?.(record, { openPane }).catch((error) => {
       hydrantTrace('apply.street.error', { message: String(error?.message || error) });
       return {
         available: false,
-        message: String(error?.message || error),
+        message: String(error?.message || error) || 'STREET 360 UNAVAILABLE',
         physicalVisibility: 'NOT CONFIRMED'
       };
     });
@@ -75,8 +82,10 @@ export function bindHydrantLink(options = {}) {
     if (views !== 'street') {
       await followGoogle3d(record, fly3d !== false);
     }
-    if (streetOpen || views === 'street' || views === 'all') {
-      await followStreet(record);
+    if (views === 'linked' || streetOpen || views === 'street' || views === 'all') {
+      await followStreet(record, {
+        openPane: views === 'street' || views === 'all'
+      });
     }
   }
 
@@ -107,6 +116,9 @@ export function bindHydrantLink(options = {}) {
         schedule(() => {
           void followGoogle3d(null, false).catch((error) => {
             hydrantTrace('apply.google3d.error', { message: String(error?.message || error) });
+          });
+          void followStreet(null, { openPane: false }).catch((error) => {
+            hydrantTrace('apply.street.error', { message: String(error?.message || error) });
           });
         });
       } else if (views !== 'street') {
@@ -141,9 +153,33 @@ export function bindHydrantLink(options = {}) {
     };
   }
 
+  function dispatchStreet(record) {
+    hydrantTrace('dispatch.street', { idBi: record?.idBi || null });
+    try {
+      void options.worldViewFrame?.openSupporting?.('STREET 360');
+    } catch (error) {
+      hydrantTrace('apply.street.error', { message: String(error?.message || error) });
+    }
+    schedule(() => {
+      void apply(record, { views: 'street', fly3d: false }).catch((error) => {
+        hydrantTrace('apply.street.error', { message: String(error?.message || error) });
+      });
+    });
+    return {
+      record,
+      objectRef: record?.objectRef || null,
+      street: lastStreetAim,
+      dispatched: true,
+      deferredPanes: true,
+      representation: 'PENDING'
+    };
+  }
+
   async function showInStreet(record) {
-    if (options.worldViewFrame?.snapshot?.()?.layout === 1) {
+    try {
       await options.worldViewFrame?.openSupporting?.('STREET 360');
+    } catch (error) {
+      hydrantTrace('apply.street.error', { message: String(error?.message || error) });
     }
     return apply(record, { views: 'street', fly3d: false });
   }
@@ -157,6 +193,7 @@ export function bindHydrantLink(options = {}) {
   return Object.freeze({
     apply,
     showInStreet,
+    dispatchStreet,
     showInAllViews,
     current: () => current || options.selection?.snapshot?.()?.selectedRecord || getHydrantRecord(current?.idBi),
     streetAim: () => lastStreetAim,
