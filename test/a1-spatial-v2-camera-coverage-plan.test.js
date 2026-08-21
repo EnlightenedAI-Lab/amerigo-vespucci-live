@@ -43,7 +43,7 @@ import {
 } from '../public/spatial-v2/camera/engine/coverage-plan.js';
 import { headingFromPoints, wrapHeading } from '../public/spatial-v2/camera/engine/geodesy.js';
 import { PIXEL_DENSITY_UNKNOWN } from '../public/spatial-v2/camera/engine/dori.js';
-import { HEAVY_VIEWER_LIMIT } from '../public/spatial-v2/camera/engine/view-slot.js';
+import { HEAVY_VIEWER_LIMIT, TRI_VIEW_HEAVY_BUDGET } from '../public/spatial-v2/camera/engine/view-slot.js';
 import {
   buildRelevantCameraWall,
   getCameraWallSnapshot,
@@ -177,7 +177,7 @@ test('20-27 query, wall, provider identity, heavy budget, visibility, one MapVie
   assert.equal(query.observationClaim, false);
   const wall = buildRelevantCameraWall(query);
   assert.equal(wall.slotCount, 3);
-  assert.equal(wall.maxHeavyViewers, HEAVY_VIEWER_LIMIT);
+  assert.equal(wall.maxHeavyViewers, TRI_VIEW_HEAVY_BUDGET);
   assert.equal(HEAVY_VIEWER_LIMIT, 1);
   const poses = listAuthoredCameras().map((item) => ({
     cameraId: item.cameraId,

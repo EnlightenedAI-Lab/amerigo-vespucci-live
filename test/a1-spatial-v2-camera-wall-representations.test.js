@@ -25,7 +25,7 @@ import {
   queryRelevantCameras,
   resetCameraQuerySnapshot
 } from '../public/spatial-v2/camera/spatial-camera-adapter.js';
-import { HEAVY_VIEWER_LIMIT, heavyViewerPolicy } from '../public/spatial-v2/camera/engine/view-slot.js';
+import { HEAVY_VIEWER_LIMIT, TRI_VIEW_HEAVY_BUDGET, heavyViewerPolicy } from '../public/spatial-v2/camera/engine/view-slot.js';
 import {
   buildRelevantCameraWall,
   closeCameraWall,
@@ -202,7 +202,7 @@ test('9-13 planned camera truth and absent representation stay honest', async ()
   restore();
 });
 
-test('14-17 maxHeavyViewers=1; only active slot is heavy; switch parks previous', async () => {
+test('14-17 tri-view budget; provider-bearing slots may all be heavy-eligible', async () => {
   isolate();
   placeFacing(2);
   buildRelevantCameraWall(queryTarget());
@@ -214,20 +214,21 @@ test('14-17 maxHeavyViewers=1; only active slot is heavy; switch parks previous'
   await attachRepresentationsForWall();
   const first = getSlotRepresentationSnapshot();
   assert.equal(HEAVY_VIEWER_LIMIT, 1);
-  assert.equal(first.maxHeavyViewers, 1);
-  assert.equal(first.liveDecoders, 1);
-  assert.equal(first.slots.filter((item) => item.heavy).length, 1);
+  assert.equal(first.maxHeavyViewers, TRI_VIEW_HEAVY_BUDGET);
+  assert.ok(first.liveDecoders <= TRI_VIEW_HEAVY_BUDGET);
+  assert.equal(first.slots.filter((item) => item.heavy).length, 2);
   assert.equal(first.slots[0].heavy, true);
-  assert.equal(first.slots[1].heavy, false);
+  assert.equal(first.slots[1].heavy, true);
   const previousHeavy = first.heavySlotId;
   setActiveSlot(getCameraWallSnapshot().slots[1].slotId);
   const second = getSlotRepresentationSnapshot();
-  assert.equal(second.liveDecoders, 1);
-  assert.equal(second.slots.filter((item) => item.heavy).length, 1);
+  assert.ok(second.liveDecoders <= TRI_VIEW_HEAVY_BUDGET);
+  assert.equal(second.slots.filter((item) => item.heavy).length, 2);
   assert.equal(second.heavySlotId, getCameraWallSnapshot().slots[1].slotId);
-  assert.notEqual(second.heavySlotId, previousHeavy);
-  const policy = heavyViewerPolicy(getCameraWallSnapshot().slots, second.heavySlotId);
-  assert.equal(policy.liveDecoders, 1);
+  const policy = heavyViewerPolicy(getCameraWallSnapshot().slots, second.heavySlotId, {
+    budget: TRI_VIEW_HEAVY_BUDGET
+  });
+  assert.ok(policy.liveDecoders <= TRI_VIEW_HEAVY_BUDGET);
   restore();
 });
 

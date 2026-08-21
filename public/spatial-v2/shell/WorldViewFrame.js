@@ -55,6 +55,8 @@ export function bindWorldViewFrame(root, options = {}) {
   let splitTop = 62;
   let splitLeft = 63;
   let dragging = null;
+  let cameraViz = false;
+  let cameraVizRestore = null;
 
   function panesFor(wantedLayout = layout, wantedPair = pairView) {
     if (wantedLayout === 2) return [WORLDVIEW_PANE.MAP, wantedPair];
@@ -110,7 +112,7 @@ export function bindWorldViewFrame(root, options = {}) {
     const row = host?.querySelector('[data-iqai-split="row"]');
     const col = host?.querySelector('[data-iqai-split="col"]');
     if (!host) return;
-    const show = layout >= 2 && !maximized && !analyzeOpen();
+    const show = layout >= 2 && !maximized && !analyzeOpen() && !cameraViz;
     host.hidden = !show;
     if (row) {
       row.hidden = layout < 3;
@@ -180,7 +182,10 @@ export function bindWorldViewFrame(root, options = {}) {
   function paint() {
     if (well) {
       well.dataset.iqaiWorldviewLayout = String(layout);
-      well.dataset.iqaiWorldviewMaximized = maximized || '';
+      if (maximized) well.dataset.iqaiWorldviewMaximized = maximized;
+      else delete well.dataset.iqaiWorldviewMaximized;
+      if (cameraViz) well.dataset.iqaiCameraViz = 'true';
+      else delete well.dataset.iqaiCameraViz;
       if (!analyzeOpen()) {
         well.dataset.iqaiSpecialistView = layout === 1 ? '2d' : 'worldview';
       }
@@ -191,10 +196,20 @@ export function bindWorldViewFrame(root, options = {}) {
     } else if (root) {
       root.dataset.iqaiWorldviewLayout = String(layout);
     }
+    if (root) {
+      if (maximized) root.dataset.iqaiWorldviewMaximized = maximized;
+      else delete root.dataset.iqaiWorldviewMaximized;
+      if (cameraViz) root.dataset.iqaiCameraViz = 'true';
+      else delete root.dataset.iqaiCameraViz;
+    }
     const visible = new Set(panesForLayout());
     for (const pane of paneEls()) {
       const view = pane.getAttribute('data-iqai-pane');
-      const show = visible.has(view) && (!maximized || maximized === view);
+      let show = visible.has(view) && (!maximized || maximized === view);
+      if (cameraViz) {
+        if (view === WORLDVIEW_PANE.VISUAL_3D || view === WORLDVIEW_PANE.IMAGERY) show = false;
+        if (view === WORLDVIEW_PANE.MAP || view === WORLDVIEW_PANE.STREET_360) show = true;
+      }
       pane.hidden = !show;
       pane.classList.toggle('is-primary', view === WORLDVIEW_PANE.MAP && !maximized);
       pane.classList.toggle('is-maximized', maximized === view);
@@ -204,15 +219,31 @@ export function bindWorldViewFrame(root, options = {}) {
       if (maximize) maximize.hidden = Boolean(maximized) && maximized !== view;
     }
     if (layoutRoot) {
+      layoutRoot.classList.toggle('is-camera-mode-locked', cameraViz);
       for (const button of layoutRoot.querySelectorAll('[data-iqai-layout]')) {
         button.classList.toggle('is-active', Number(button.getAttribute('data-iqai-layout')) === layout);
         button.setAttribute('aria-pressed', Number(button.getAttribute('data-iqai-layout')) === layout ? 'true' : 'false');
+        button.disabled = cameraViz;
+        button.setAttribute('aria-disabled', cameraViz ? 'true' : 'false');
+        if (cameraViz) {
+          button.title = 'CAMERA MODE ACTIVE — BACK TO MAIN VIEW TO CHANGE WORKSPACE';
+        } else {
+          button.removeAttribute('title');
+        }
       }
+    }
+    const modeBar = root?.querySelector('[data-iqai-camera-mode-bar]');
+    if (modeBar) {
+      modeBar.hidden = !cameraViz;
+      modeBar.setAttribute('aria-hidden', cameraViz ? 'false' : 'true');
     }
     dockHistoryStage();
     paintTruth();
     paintSplitters();
-    requestAnimationFrame(resizeMap);
+    requestAnimationFrame(() => {
+      resizeMap();
+      options.onWorkspacePaint?.();
+    });
   }
 
   function dockHistoryStage() {
@@ -345,6 +376,7 @@ export function bindWorldViewFrame(root, options = {}) {
   let pendingSpecialists = false;
 
   async function applyLayout(nextLayout, nextPair = pairView) {
+    if (cameraViz) return snapshot();
     const wanted = Math.max(1, Math.min(4, Number(nextLayout) || 1));
     const wantedPair = nextPair === WORLDVIEW_PANE.VISUAL_3D
       ? WORLDVIEW_PANE.VISUAL_3D
@@ -410,6 +442,7 @@ export function bindWorldViewFrame(root, options = {}) {
   }
 
   async function setLayout(nextLayout) {
+    if (cameraViz) return snapshot();
     return applyLayout(nextLayout, pairView);
   }
 
@@ -477,6 +510,43 @@ export function bindWorldViewFrame(root, options = {}) {
     return snapshot();
   }
 
+  function enterCameraVisualization() {
+    if (!cameraViz) {
+      cameraVizRestore = Object.freeze({
+        layout,
+        pairView,
+        maximized,
+        splitTop,
+        splitLeft
+      });
+    }
+    cameraViz = true;
+    maximized = null;
+    paint();
+    requestAnimationFrame(resizeMap);
+    window.setTimeout(resizeMap, 60);
+    return snapshot();
+  }
+
+  async function exitCameraVisualization() {
+    const saved = cameraVizRestore;
+    cameraViz = false;
+    cameraVizRestore = null;
+    if (saved) {
+      splitTop = saved.splitTop;
+      splitLeft = saved.splitLeft;
+      maximized = saved.maximized;
+      await applyLayout(saved.layout, saved.pairView);
+      maximized = saved.maximized;
+      paint();
+    } else {
+      paint();
+    }
+    requestAnimationFrame(resizeMap);
+    window.setTimeout(resizeMap, 60);
+    return snapshot();
+  }
+
   function snapshot() {
     const panes = panesForLayout();
     const streetSnap = street360?.snapshot?.() || null;
@@ -485,6 +555,10 @@ export function bindWorldViewFrame(root, options = {}) {
       layout,
       pairView,
       maximized,
+      cameraViz,
+      cameraVizRestore: cameraVizRestore
+        ? Object.freeze({ ...cameraVizRestore })
+        : null,
       panes,
       busy,
       activePresentation: layout <= 1
@@ -499,9 +573,24 @@ export function bindWorldViewFrame(root, options = {}) {
     };
   }
 
+  async function backToMainView() {
+    if (typeof options.backToMainView === 'function') {
+      await options.backToMainView();
+      return snapshot();
+    }
+    return exitCameraVisualization();
+  }
+
   const onClick = (event) => {
+    const backMain = event.target.closest('[data-iqai-camera-back-main]');
+    if (backMain) {
+      event.preventDefault();
+      void backToMainView();
+      return;
+    }
     const layoutButton = event.target.closest('[data-iqai-layout]');
     if (layoutButton && layoutRoot?.contains(layoutButton)) {
+      if (cameraViz) return;
       void setLayout(Number(layoutButton.getAttribute('data-iqai-layout')));
       return;
     }
@@ -557,11 +646,25 @@ export function bindWorldViewFrame(root, options = {}) {
     window.setTimeout(resizeMap, 60);
   };
 
+  const onKeyDown = (event) => {
+    if (event.key !== 'Escape') return;
+    if (event.target?.closest?.('input, textarea, select, [contenteditable="true"]')) return;
+    if (cameraViz) {
+      event.preventDefault();
+      void backToMainView();
+      return;
+    }
+    if (!maximized) return;
+    event.preventDefault();
+    void restore();
+  };
+
   root?.addEventListener('click', onClick);
   well?.addEventListener('pointerdown', onPointerDown);
   well?.addEventListener('pointermove', onPointerMove);
   well?.addEventListener('pointerup', onPointerUp);
   well?.addEventListener('pointercancel', onPointerUp);
+  window.addEventListener('keydown', onKeyDown);
   paint();
 
   return Object.freeze({
@@ -572,6 +675,9 @@ export function bindWorldViewFrame(root, options = {}) {
     restore,
     closePane,
     paint,
-    snapshot
+    snapshot,
+    enterCameraVisualization,
+    exitCameraVisualization,
+    backToMainView
   });
 }

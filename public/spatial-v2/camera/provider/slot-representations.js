@@ -28,6 +28,7 @@ export const PROVIDER_PREFERENCE = Object.freeze([
 const bySlotId = new Map();
 const listeners = new Set();
 let googleThumbKey = null;
+let attachInFlight = 0;
 
 let lookups = {
   google: defaultGoogleLookup,
@@ -122,6 +123,10 @@ export function resetSlotRepresentations({ emit: shouldEmit = true } = {}) {
   if (shouldEmit) emit();
 }
 
+export function getRepresentationAttachStatus() {
+  return Object.freeze({ inFlight: attachInFlight > 0 });
+}
+
 export function getSlotRepresentation(slotId) {
   return slotId ? bySlotId.get(String(slotId)) || null : null;
 }
@@ -142,16 +147,19 @@ export function getSlotRepresentationSnapshot() {
       mapillaryStatus: pack?.mapillaryStatus || null,
       representation: selected,
       cameraCoordinate: pack?.cameraCoordinate || null,
-      heavy: slot.active === true && Boolean(selected?.providerId)
+      heavy: Boolean(selected?.providerId)
     });
   });
-  const policy = heavyViewerPolicy(wall.slots || [], wall.activeSlotId);
+  const policy = heavyViewerPolicy(wall.slots || [], wall.activeSlotId, {
+    budget: wall.maxHeavyViewers,
+    enlargedSlotId: wall.enlargedSlotId
+  });
   const live = slots.filter((item) => item.heavy).length;
   return Object.freeze({
     preference: PROVIDER_PREFERENCE,
-    maxHeavyViewers: HEAVY_VIEWER_LIMIT,
+    maxHeavyViewers: wall.maxHeavyViewers ?? HEAVY_VIEWER_LIMIT,
     heavySlotId: live ? wall.activeSlotId : null,
-    liveDecoders: live > 0 ? 1 : 0,
+    liveDecoders: Math.min(live, wall.maxHeavyViewers || 0),
     slots: Object.freeze(slots),
     heavyViewer: policy,
     mutatesCameraPose: false,
@@ -239,31 +247,54 @@ function writeSlotPack(slot, cameraCoordinate, google, mapillaryPack) {
 }
 
 export async function attachRepresentationsForWall(options = {}) {
-  if (!googleThumbKey && typeof lookups.googleKey === 'function') {
-    googleThumbKey = await lookups.googleKey();
+  attachInFlight += 1;
+  emit();
+  try {
+    if (!googleThumbKey && typeof lookups.googleKey === 'function') {
+      googleThumbKey = await lookups.googleKey();
+    }
+    const jobs = listWallSlots()
+      .filter((slot) => slot.cameraRef)
+      .map(async (slot) => {
+        const camera = getAuthoredCamera(slot.cameraRef);
+        if (!camera) return null;
+        const cameraCoordinate = Object.freeze({
+          longitude: Number(camera.longitude),
+          latitude: Number(camera.latitude)
+        });
+        const mapillaryResult = await lookups.mapillary(camera).catch((error) => {
+          console.warn('[IQAI CAMERA WALL] Mapillary lookup failed', error);
+          return { status: 'MAPILLARY_FETCH_FAILED' };
+        });
+        const mapillaryPack = classifyMapillaryLookup(mapillaryResult, cameraCoordinate);
+        writeSlotPack(slot, cameraCoordinate, null, mapillaryPack);
+        const googleResult = await lookups.google(camera).catch((error) => {
+          console.warn('[IQAI CAMERA WALL] Google Street360 lookup failed', error);
+          return { error: true };
+        });
+        const google = classifyGoogleLookup(googleResult, cameraCoordinate);
+        return writeSlotPack(slot, cameraCoordinate, google, mapillaryPack);
+      });
+    await Promise.all(jobs);
+    return getSlotRepresentationSnapshot();
+  } finally {
+    attachInFlight = Math.max(0, attachInFlight - 1);
+    emit();
   }
-  const jobs = listWallSlots()
-    .filter((slot) => slot.cameraRef)
-    .map(async (slot) => {
-      const camera = getAuthoredCamera(slot.cameraRef);
-      if (!camera) return null;
-      const cameraCoordinate = Object.freeze({
-        longitude: Number(camera.longitude),
-        latitude: Number(camera.latitude)
-      });
-      const mapillaryResult = await lookups.mapillary(camera).catch((error) => {
-        console.warn('[IQAI CAMERA WALL] Mapillary lookup failed', error);
-        return { status: 'MAPILLARY_FETCH_FAILED' };
-      });
-      const mapillaryPack = classifyMapillaryLookup(mapillaryResult, cameraCoordinate);
-      writeSlotPack(slot, cameraCoordinate, null, mapillaryPack);
-      const googleResult = await lookups.google(camera).catch((error) => {
-        console.warn('[IQAI CAMERA WALL] Google Street360 lookup failed', error);
-        return { error: true };
-      });
-      const google = classifyGoogleLookup(googleResult, cameraCoordinate);
-      return writeSlotPack(slot, cameraCoordinate, google, mapillaryPack);
+}
+
+export function attachVisualCoverageToWall(viewpoints = []) {
+  const slots = listWallSlots();
+  (Array.isArray(viewpoints) ? viewpoints : []).forEach((viewpoint, index) => {
+    const slot = slots[index];
+    if (!slot) return;
+    const google = viewpoint.provider === VISUAL_PROVIDER.GOOGLE_STREET360 ? viewpoint.representation : null;
+    const mapillary = viewpoint.provider === VISUAL_PROVIDER.MAPILLARY ? viewpoint.representation : null;
+    writeSlotPack(slot, viewpoint.captureCoordinate || null, google, {
+      mapillary,
+      usableMapillary: mapillary,
+      mapillaryStatus: null
     });
-  await Promise.all(jobs);
+  });
   return getSlotRepresentationSnapshot();
 }

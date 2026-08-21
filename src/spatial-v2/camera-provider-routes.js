@@ -80,6 +80,7 @@ async function queryMapillaryNearby(cameraCoordinate, radiusM) {
     cameraCoordinate,
     searchRadiusM: request.bbox.radiusM,
     selected: picked.selected,
+    ranked: picked.ranked,
     count: images.length,
     retrievedAt: new Date().toISOString()
   };
@@ -126,8 +127,11 @@ export function registerCameraProviderRoutes(app) {
       });
       return;
     }
+    const radiusM = Number(req.query.radiusM ?? req.query.radius);
     try {
-      const pack = await queryMapillaryForCamera(cameraCoordinate);
+      const pack = Number.isFinite(radiusM) && radiusM > 0
+        ? await queryMapillaryNearby(cameraCoordinate, Math.min(radiusM, 400))
+        : await queryMapillaryForCamera(cameraCoordinate);
       res.json(pack);
     } catch (error) {
       res.status(502).json({

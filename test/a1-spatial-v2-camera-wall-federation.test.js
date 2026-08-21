@@ -254,6 +254,9 @@ test('19 one MapView remains', () => {
   const html = renderCameraWallSurface();
   assert.match(html, /CLOSE WALL/);
   assert.match(html, /CAMERA WALL/);
+  assert.match(html, /data-iqai-camera-wall-layout="tri-view"/);
+  assert.match(html, /data-iqai-camera-wall-heavy-stage/);
+  assert.match(html, /VIRTUAL VIEW/);
   assert.match(renderCameraRelevanceSurface(), /BUILD RELEVANT WALL/);
   assert.match(renderCameraRelevanceSurface(), /GENERATE CAMERA COVERAGE/);
   assert.equal(createViewSlot({ slotId: 'view-slot-x' }).kind, VIEW_SLOT_KIND);

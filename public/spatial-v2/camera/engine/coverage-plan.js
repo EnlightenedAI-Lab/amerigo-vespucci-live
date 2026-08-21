@@ -4,6 +4,7 @@
  * Reuses authored-cameras store. Does not invent CameraModel specs.
  */
 
+import { VIEW_ID, createDropPinFocusRef } from '../../foundation/contracts/index.js';
 import { createCameraRef } from '../camera-ref.js';
 import {
   CREATION_MODE,
@@ -92,6 +93,37 @@ export function listAutoPlanCameras(planId = null) {
     if (camera.creationMode !== CREATION_MODE.AUTO_PLAN) return false;
     if (!planId) return true;
     return camera.planId === planId;
+  });
+}
+
+export function coverageTargetPoint(value) {
+  if (!value) return null;
+  const longitude = Number(value.longitude ?? value.geometry?.coordinates?.[0]);
+  const latitude = Number(value.latitude ?? value.geometry?.coordinates?.[1]);
+  if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) return null;
+  return Object.freeze({ longitude, latitude });
+}
+
+export function rememberedCoverageTarget() {
+  for (const camera of listAutoPlanCameras()) {
+    const point = coverageTargetPoint(camera?.targetFocus);
+    if (!point) continue;
+    return Object.freeze({
+      ...point,
+      planId: camera.planId || null,
+      cameraId: camera.cameraId || null
+    });
+  }
+  return null;
+}
+
+export function rememberedCoverageFocusRef() {
+  const target = rememberedCoverageTarget();
+  if (!target) return null;
+  return createDropPinFocusRef({
+    longitude: target.longitude,
+    latitude: target.latitude,
+    sourceView: VIEW_ID.MAP
   });
 }
 

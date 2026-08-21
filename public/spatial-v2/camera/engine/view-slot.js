@@ -24,6 +24,11 @@ export const WALL_LAYOUT = Object.freeze({
 });
 export const WALL_SLOT_CAP = 3;
 export const HEAVY_VIEWER_LIMIT = 1;
+export const TRI_VIEW_HEAVY_BUDGET = 3;
+export const WALL_MODE = Object.freeze({
+  TRI_VIEW: 'TRI_VIEW',
+  MASTER_DETAIL: 'MASTER_DETAIL'
+});
 
 export function isHeavyRepresentation(kind) {
   return kind === REPRESENTATION_KIND.STREET360 || kind === REPRESENTATION_KIND.MAPILLARY;
@@ -47,8 +52,10 @@ export function createViewSlot(input = {}) {
     viewHeading,
     active: input.active === true,
     heavyViewer: input.active === true && isHeavyRepresentation(representationKind),
-    availability: cameraRef ? SLOT_AVAILABILITY.AVAILABLE : SLOT_AVAILABILITY.IDLE,
-    persistence: 'SESSION_ONLY'
+    availability: (cameraRef || input.visualViewpointId) ? SLOT_AVAILABILITY.AVAILABLE : SLOT_AVAILABILITY.IDLE,
+    persistence: 'SESSION_ONLY',
+    source: input.source === 'VISUAL_COVERAGE' ? 'VISUAL_COVERAGE' : 'CAMERA',
+    visualViewpointId: input.visualViewpointId ? String(input.visualViewpointId) : null
   });
 }
 
@@ -59,7 +66,36 @@ export function layoutForCount(count) {
   return WALL_LAYOUT.THREE;
 }
 
-export function heavyViewerPolicy(slots = [], activeSlotId = null) {
+export function resolveHeavyBudget({ open = false, mode = WALL_MODE.TRI_VIEW, enlargedSlotId = null } = {}) {
+  if (!open) return 0;
+  if (enlargedSlotId) return HEAVY_VIEWER_LIMIT;
+  if (mode === WALL_MODE.TRI_VIEW) return TRI_VIEW_HEAVY_BUDGET;
+  return HEAVY_VIEWER_LIMIT;
+}
+
+export function heavyViewerPolicy(slots = [], activeSlotId = null, options = {}) {
+  const budget = Number(options.budget);
+  const maxHeavyViewers = Number.isFinite(budget) && budget > 0 ? budget : HEAVY_VIEWER_LIMIT;
+  const enlarged = options.enlargedSlotId || null;
+  if (enlarged) {
+    return Object.freeze({
+      maxHeavyViewers: HEAVY_VIEWER_LIMIT,
+      heavySlotId: enlarged,
+      heavySlotIds: Object.freeze([enlarged]),
+      liveDecoders: 1,
+      inactivePlaceholder: true
+    });
+  }
+  if (maxHeavyViewers > 1) {
+    const heavySlotIds = (slots || []).slice(0, maxHeavyViewers).map((slot) => slot.slotId);
+    return Object.freeze({
+      maxHeavyViewers,
+      heavySlotId: activeSlotId || heavySlotIds[0] || null,
+      heavySlotIds: Object.freeze(heavySlotIds),
+      liveDecoders: heavySlotIds.length,
+      inactivePlaceholder: heavySlotIds.length < (slots || []).length
+    });
+  }
   const active = (slots || []).find((slot) => slot.slotId === activeSlotId) || null;
   const heavySlotId = active && isHeavyRepresentation(active.representationKind)
     ? active.slotId
@@ -67,6 +103,7 @@ export function heavyViewerPolicy(slots = [], activeSlotId = null) {
   return Object.freeze({
     maxHeavyViewers: HEAVY_VIEWER_LIMIT,
     heavySlotId,
+    heavySlotIds: Object.freeze(heavySlotId ? [heavySlotId] : []),
     liveDecoders: heavySlotId ? 1 : 0,
     inactivePlaceholder: true
   });

@@ -308,7 +308,7 @@ test('13-14 query does not write WorldState.cameras and reuses authored-cameras 
   resetAll();
 });
 
-test('15-16 no Camera lab HTML/CSS/fixtures and no Street360/Mapillary/Road511 dependency', () => {
+test('15-16 no Camera lab HTML/CSS/fixtures and no Road511 dependency', () => {
   const files = [
     'camera/spatial-camera-adapter.js',
     'camera/camera-ref.js',
@@ -326,8 +326,12 @@ test('15-16 no Camera lab HTML/CSS/fixtures and no Street360/Mapillary/Road511 d
     assert.doesNotMatch(text, /camera-planner-lab/);
     assert.doesNotMatch(text, /from ['"].*pose-store/);
     assert.doesNotMatch(text, /camera-planner-lab\/engine\/pose-store/);
-    assert.doesNotMatch(text, /Mapillary|mapillary/);
     assert.doesNotMatch(text, /Road511|road511/);
+  }
+  const engineFiles = files.filter((rel) => rel !== 'shell/CameraRelevanceSurface.js');
+  for (const rel of engineFiles) {
+    const text = read(...rel.split('/'));
+    assert.doesNotMatch(text, /Mapillary|mapillary/);
     assert.doesNotMatch(text, /google-street-view|Street360Control|street360/);
   }
   const surface = read('shell', 'CameraRelevanceSurface.js');

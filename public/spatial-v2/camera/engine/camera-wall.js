@@ -7,11 +7,13 @@
 
 import { createCameraRef } from '../camera-ref.js';
 import {
-  HEAVY_VIEWER_LIMIT,
+  TRI_VIEW_HEAVY_BUDGET,
+  WALL_MODE,
   WALL_SLOT_CAP,
   createViewSlot,
   heavyViewerPolicy,
-  layoutForCount
+  layoutForCount,
+  resolveHeavyBudget
 } from './view-slot.js';
 
 const listeners = new Set();
@@ -20,6 +22,9 @@ let activeSlotId = null;
 let layout = 0;
 let seq = 0;
 let open = false;
+let wallMode = WALL_MODE.TRI_VIEW;
+let enlargedSlotId = null;
+let wallSource = 'CAMERA';
 
 function emit() {
   const snapshot = getCameraWallSnapshot();
@@ -113,11 +118,17 @@ export function listWallSlots() {
 
 export function getCameraWallSnapshot() {
   const items = listWallSlots();
-  const policy = heavyViewerPolicy(items, activeSlotId);
+  const budget = resolveHeavyBudget({ open, mode: wallMode, enlargedSlotId });
+  const policy = heavyViewerPolicy(items, activeSlotId, {
+    budget,
+    enlargedSlotId
+  });
   return Object.freeze({
     kind: 'CAMERA_WALL',
     open,
     layout,
+    mode: wallMode,
+    enlargedSlotId,
     slotCount: items.length,
     renderedCount: items.length,
     activeSlotId,
@@ -131,8 +142,10 @@ export function getCameraWallSnapshot() {
     worldStateCameras: false,
     mutatesCameraPose: false,
     cap: WALL_SLOT_CAP,
-    maxHeavyViewers: HEAVY_VIEWER_LIMIT,
-    heavyViewer: policy
+    maxHeavyViewers: budget,
+    triViewBudget: TRI_VIEW_HEAVY_BUDGET,
+    heavyViewer: policy,
+    source: wallSource
   });
 }
 
@@ -148,7 +161,26 @@ export function resetCameraWall(options = {}) {
   seq = 0;
   layout = 0;
   open = false;
+  wallMode = WALL_MODE.TRI_VIEW;
+  enlargedSlotId = null;
+  wallSource = 'CAMERA';
   if (options.emit !== false) emit();
+  return getCameraWallSnapshot();
+}
+
+export function enlargeWallSlot(slotId) {
+  if (!open || !slotId || !slots.has(slotId)) return getCameraWallSnapshot();
+  enlargedSlotId = slotId;
+  writeSlot({ slotId }, { activate: true });
+  emit();
+  return getCameraWallSnapshot();
+}
+
+export function restoreWallTriView() {
+  if (!open) return getCameraWallSnapshot();
+  enlargedSlotId = null;
+  wallMode = WALL_MODE.TRI_VIEW;
+  emit();
   return getCameraWallSnapshot();
 }
 
@@ -156,16 +188,47 @@ export function closeCameraWall() {
   return resetCameraWall();
 }
 
+export function buildVisualCoverageWall(viewpoints = []) {
+  const items = Array.isArray(viewpoints) ? viewpoints.slice(0, WALL_SLOT_CAP) : [];
+  resetCameraWall({ emit: false });
+  wallSource = 'VISUAL_COVERAGE';
+  if (!items.length) {
+    open = false;
+    emit();
+    return getCameraWallSnapshot();
+  }
+  layout = layoutForCount(items.length);
+  open = true;
+  wallMode = WALL_MODE.TRI_VIEW;
+  enlargedSlotId = null;
+  items.forEach((viewpoint, index) => {
+    writeSlot({
+      cameraRef: null,
+      source: 'VISUAL_COVERAGE',
+      visualViewpointId: viewpoint.viewpointId || `view-360-${String(index + 1).padStart(2, '0')}`,
+      viewHeading: Number.isFinite(Number(viewpoint.viewHeadingTowardTarget))
+        ? Number(viewpoint.viewHeadingTowardTarget)
+        : null,
+      representationKind: viewpoint.representationKind || null
+    }, { activate: index === 0 });
+  });
+  emit();
+  return getCameraWallSnapshot();
+}
+
 export function buildRelevantCameraWall(snapshot = {}, camerasById = null) {
   const cameraIds = relevantCameraIdsFromQuery(snapshot);
   resetCameraWall({ emit: false });
+  wallSource = 'CAMERA';
   if (!cameraIds.length) {
-    open = true;
+    open = false;
     emit();
     return getCameraWallSnapshot();
   }
   layout = layoutForCount(cameraIds.length);
   open = true;
+  wallMode = WALL_MODE.TRI_VIEW;
+  enlargedSlotId = null;
   cameraIds.forEach((cameraId, index) => {
     const camera = camerasById?.get?.(cameraId)
       || camerasById?.[cameraId]
