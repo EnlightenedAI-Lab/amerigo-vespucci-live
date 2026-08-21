@@ -37,6 +37,7 @@ import { applyMapFoundationToStage } from '../shell/MapStage.js';
 import { bindDropPinControl } from '../shell/DropPinControl.js';
 import { bindPlaceCameraControl } from '../shell/PlaceCameraControl.js';
 import { bindViewCameraControl } from '../shell/ViewCameraControl.js';
+import { bindCameraRelevanceSurface } from '../shell/CameraRelevanceSurface.js';
 import { bindStreet360Control } from '../shell/Street360Control.js';
 import { bindGooglePhotorealistic3dControl } from '../shell/GooglePhotorealistic3dControl.js';
 import { bindAnalyze3dControl } from '../shell/Analyze3dControl.js';
@@ -255,6 +256,7 @@ export function attachWorldviewMapSession(root, chassis, api) {
     street360,
     worldViewFrame
   });
+  const cameraRelevance = bindCameraRelevanceSurface(root, { chassis });
   imageryCommand = bindImageryCommandSurface(root, {
     getMapViewCreateCount,
     isWorldviewImagery: () => Number(worldViewFrame?.snapshot?.()?.layout) === 4,
@@ -424,6 +426,7 @@ export function attachWorldviewMapSession(root, chassis, api) {
   api.dropPin = dropPin;
   api.placeCamera = placeCamera;
   api.viewCamera = viewCamera;
+  api.cameraRelevance = cameraRelevance;
   api.imageryCommand = imageryCommand;
   api.focusInstrument = focusInstrument;
   chassis.setHereContextProvider(() => ({
@@ -574,6 +577,7 @@ export function attachWorldviewMapSession(root, chassis, api) {
     dropPin,
     placeCamera,
     viewCamera,
+    cameraRelevance,
     imageryCommand,
     focusInstrument,
     viewSwitcher,

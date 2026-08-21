@@ -14,6 +14,7 @@ import {
   createSelectionSet,
   failClosed
 } from '../foundation/contracts/index.js';
+import { bindCameraQueryAdapter } from '../camera/spatial-camera-adapter.js';
 
 const AUTHORED_LAYER_ID = 'authored-operational-map';
 
@@ -369,4 +370,6 @@ export function bindMapSurfaceAdapters({ capabilityRegistry, idFactory, getMapAc
       };
     }
   });
+
+  bindCameraQueryAdapter({ capabilityRegistry, idFactory });
 }

@@ -2627,6 +2627,60 @@ body.iqai-v2-body {
   width: 16.4rem;
 }
 
+.iqai-v2-camera-relevance {
+  position: absolute;
+  top: calc(var(--iqai-v2-header-h) + 0.7rem);
+  right: 0.7rem;
+  z-index: 8;
+  width: 13.6rem;
+  padding: 0.45rem 0.55rem 0.5rem;
+  border: 1px solid var(--iqai-v2-chrome-border);
+  background: rgba(12, 12, 14, 0.92);
+  color: #f4f0ea;
+  backdrop-filter: blur(10px);
+  pointer-events: auto;
+}
+
+.iqai-v2-camera-relevance__kicker,
+.iqai-v2-camera-relevance p {
+  margin: 0;
+  font-size: 0.52rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+}
+
+.iqai-v2-camera-relevance p + p,
+.iqai-v2-camera-relevance [data-iqai-camera-relevance-list] {
+  margin-top: 0.28rem;
+}
+
+.iqai-v2-camera-relevance__row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.08rem;
+  width: 100%;
+  margin-top: 0.32rem;
+  padding: 0.28rem 0.2rem;
+  border: 1px solid transparent;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.iqai-v2-camera-relevance__row:hover,
+.iqai-v2-camera-relevance__row:focus-visible {
+  border-color: var(--iqai-v2-chrome-border);
+}
+
+.iqai-v2-camera-relevance__note,
+.iqai-v2-camera-relevance [data-iqai-camera-relevance-empty] {
+  margin-top: 0.4rem;
+  opacity: 0.82;
+}
+
 .iqai-v2-place-camera-editor [data-iqai-view-camera] {
   background: transparent;
   color: #f4f0ea;

@@ -7,9 +7,11 @@
 import { isGreaterMontrealLongitudeLatitude } from '../../spatial/montreal-operational-config.js';
 import { getMapView } from '../map/map-foundation.js';
 import {
+  PLANNING_LABEL,
   deleteAuthoredCamera,
   getActiveAuthoredSensorPose,
   getAuthoredCamerasSnapshot,
+  hydrateAuthoredCameras,
   placeAuthoredCamera,
   resetAuthoredCameras,
   selectAuthoredCamera,
@@ -41,6 +43,8 @@ export function bindPlaceCameraControl(root, options = {}) {
   let clickHandle = null;
   let painting = false;
 
+  hydrateAuthoredCameras();
+
   function snapshot() {
     return Object.freeze({
       ...getAuthoredCamerasSnapshot(),
@@ -65,6 +69,8 @@ export function bindPlaceCameraControl(root, options = {}) {
     if (idNode) idNode.textContent = current.cameraId;
     if (llNode) llNode.textContent = `${formatLatitude(current.latitude)}   ${formatLongitude(current.longitude)}`;
     if (zNode) zNode.textContent = current.zKnown ? `Z ${current.z}` : 'Z UNKNOWN';
+    const planNode = field(editor, 'plan');
+    if (planNode) planNode.textContent = current.planningLabel || PLANNING_LABEL;
     if (heading && document.activeElement !== heading) heading.value = String(Math.round(current.heading));
     if (pitch && document.activeElement !== pitch) pitch.value = String(current.pitch);
     if (height && document.activeElement !== height) height.value = String(current.heightAboveGround);

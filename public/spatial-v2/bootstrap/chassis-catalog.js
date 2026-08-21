@@ -329,6 +329,19 @@ export function registerChassisCatalog({
       compatibleViews: [VIEW_ID.MAP]
     },
     {
+      id: 'camera.query-relevant',
+      owner: 'camera',
+      title: 'Query relevant cameras',
+      resultType: 'camera-relevance',
+      requiredPolicyAction: POLICY_ACTION.DISPLAY,
+      effectClass: EFFECT_CLASS.READ_ONLY,
+      execution: { mode: EXECUTION_MODE.SYNC, targets: [] },
+      migrationState: MIGRATION_STATE.MIGRATED,
+      adapterId: 'camera.query-relevant',
+      compatibleViews: [VIEW_ID.MAP],
+      truthPolicy: 'CALCULATED_PLAN_GEOMETRY'
+    },
+    {
       id: 'imagery',
       owner: 'arcgis',
       title: 'Imagery',

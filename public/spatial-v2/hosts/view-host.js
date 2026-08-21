@@ -326,6 +326,7 @@ export function renderMapStageHost() {
           <p class="iqai-v2-place-camera-editor__kicker">PLACE CAMERA</p>
           <p data-iqai-place-camera-id></p>
           <p data-iqai-place-camera-ll></p>
+          <p data-iqai-place-camera-plan>PLANNED · NOT INSTALLED</p>
           <p data-iqai-place-camera-z>Z UNKNOWN</p>
           <label>HEADING
             <input data-iqai-place-camera-heading type="number" min="0" max="359" step="1" aria-label="Camera heading">
@@ -361,7 +362,7 @@ export function renderMapStageHost() {
               <p>STREET360 CAPTURE HEIGHT IS PROVIDER-DEFINED</p>
             </div>
           </div>
-          <p class="iqai-v2-place-camera-editor__note">Orientation / FOV direction. Not LOS. Not WorldState.cameras.</p>
+          <p class="iqai-v2-place-camera-editor__note">Planned local persistence. Not installed. Orientation / FOV direction. Not LOS. Not WorldState.cameras.</p>
         </aside>
         <div class="iqai-v2-imagery-command" data-iqai-imagery-command>
           <div class="iqai-v2-imagery-command__modes iqai-v2-imagery-command__modes--stage" role="radiogroup" aria-label="Imagery surface">
