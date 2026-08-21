@@ -7,8 +7,10 @@
 
 import { createCameraRef } from '../camera-ref.js';
 import {
+  HEAVY_VIEWER_LIMIT,
   WALL_SLOT_CAP,
   createViewSlot,
+  heavyViewerPolicy,
   layoutForCount
 } from './view-slot.js';
 
@@ -94,6 +96,13 @@ export function setActiveSlot(slotId) {
   return getActiveWallSlot();
 }
 
+export function setSlotRepresentation(slotId, representationKind, options = {}) {
+  if (!slotId || !slots.has(slotId)) return null;
+  writeSlot({ slotId, representationKind });
+  if (options.emit !== false) emit();
+  return slots.get(slotId);
+}
+
 export function getActiveWallSlot() {
   return activeSlotId ? slots.get(activeSlotId) || null : null;
 }
@@ -104,6 +113,7 @@ export function listWallSlots() {
 
 export function getCameraWallSnapshot() {
   const items = listWallSlots();
+  const policy = heavyViewerPolicy(items, activeSlotId);
   return Object.freeze({
     kind: 'CAMERA_WALL',
     open,
@@ -120,7 +130,9 @@ export function getCameraWallSnapshot() {
     operationalCameraStore: false,
     worldStateCameras: false,
     mutatesCameraPose: false,
-    cap: WALL_SLOT_CAP
+    cap: WALL_SLOT_CAP,
+    maxHeavyViewers: HEAVY_VIEWER_LIMIT,
+    heavyViewer: policy
   });
 }
 

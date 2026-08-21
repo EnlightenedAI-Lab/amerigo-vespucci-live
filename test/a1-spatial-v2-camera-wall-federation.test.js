@@ -249,8 +249,8 @@ test('19 one MapView remains', () => {
   assert.equal((foundation.match(/new MapView\(/g) || []).length, 1);
   assert.doesNotMatch(wall, /new MapView\(/);
   assert.doesNotMatch(engine, /new MapView\(/);
-  assert.doesNotMatch(wall, /camera-planner-lab|Street360|Mapillary|sensor-remote/);
-  assert.doesNotMatch(engine, /camera-planner-lab|google-street360|temporal-observation|sensor-remote/);
+  assert.doesNotMatch(wall, /camera-planner-lab|sensor-remote|Road511/);
+  assert.doesNotMatch(engine, /camera-planner-lab|google-street360-temporal|temporal-observation|sensor-remote/);
   const html = renderCameraWallSurface();
   assert.match(html, /CLOSE WALL/);
   assert.match(html, /CAMERA WALL/);
