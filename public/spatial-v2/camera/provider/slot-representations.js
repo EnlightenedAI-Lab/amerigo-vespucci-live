@@ -180,6 +180,64 @@ export function selectSlotProvider(slotId, selected) {
   return updated;
 }
 
+function classifyMapillaryLookup(mapillaryResult, cameraCoordinate) {
+  const mapillaryStatus = mapillaryResult?.status || null;
+  let mapillary = null;
+  if (mapillaryStatus === PROVIDER_CREDENTIAL_REQUIRED.MAPILLARY) {
+    mapillary = createProviderRepresentation({
+      provider: VISUAL_PROVIDER.MAPILLARY,
+      providerId: null,
+      cameraCoordinate,
+      status: PROVIDER_CREDENTIAL_REQUIRED.MAPILLARY,
+      labels: ['MAPILLARY', 'MAPILLARY CREDENTIAL REQUIRED'],
+      limitation: 'MAPILLARY_CREDENTIAL_REQUIRED'
+    });
+  } else if (mapillaryResult?.selected?.providerId) {
+    mapillary = mapillaryResult.selected.cameraCoordinate
+      ? mapillaryResult.selected
+      : Object.freeze({
+        ...mapillaryResult.selected,
+        cameraCoordinate,
+        targetCoordinate: cameraCoordinate
+      });
+  }
+  const usable = mapillary?.providerId ? mapillary : null;
+  return {
+    mapillary: usable || (mapillaryStatus === PROVIDER_CREDENTIAL_REQUIRED.MAPILLARY ? mapillary : null),
+    usableMapillary: usable,
+    mapillaryStatus
+  };
+}
+
+function classifyGoogleLookup(googleResult, cameraCoordinate) {
+  if (googleResult?.error) return null;
+  const withThumb = googleResult?.panoId
+    ? {
+      ...googleResult,
+      thumbUrl: googleResult.thumbUrl || googleStreetViewThumbUrl(googleResult.panoId, googleResult.heading, googleThumbKey)
+    }
+    : googleResult;
+  const classified = classifyGoogleStreet360(withThumb || {}, cameraCoordinate);
+  return classified.providerId ? classified : null;
+}
+
+function writeSlotPack(slot, cameraCoordinate, google, mapillaryPack) {
+  const selected = chooseDefaultProvider(google, mapillaryPack.usableMapillary, mapillaryPack.mapillaryStatus);
+  const attached = Object.freeze({
+    slotId: slot.slotId,
+    cameraRef: slot.cameraRef,
+    cameraCoordinate,
+    google,
+    mapillary: mapillaryPack.mapillary,
+    mapillaryStatus: mapillaryPack.mapillaryStatus,
+    selected
+  });
+  bySlotId.set(slot.slotId, attached);
+  setSlotRepresentation(slot.slotId, kindForSelection(attached.selected, selectedRepresentation(attached)), { emit: false });
+  emit();
+  return attached;
+}
+
 export async function attachRepresentationsForWall(options = {}) {
   if (!googleThumbKey && typeof lookups.googleKey === 'function') {
     googleThumbKey = await lookups.googleKey();
@@ -193,63 +251,19 @@ export async function attachRepresentationsForWall(options = {}) {
         longitude: Number(camera.longitude),
         latitude: Number(camera.latitude)
       });
-      const [googleResult, mapillaryResult] = await Promise.all([
-        lookups.google(camera).catch((error) => {
-          console.warn('[IQAI CAMERA WALL] Google Street360 lookup failed', error);
-          return { error: true };
-        }),
-        lookups.mapillary(camera).catch((error) => {
-          console.warn('[IQAI CAMERA WALL] Mapillary lookup failed', error);
-          return { status: 'MAPILLARY_FETCH_FAILED' };
-        })
-      ]);
-      let google = null;
-      if (!googleResult?.error) {
-        const withThumb = googleResult?.panoId
-          ? {
-            ...googleResult,
-            thumbUrl: googleResult.thumbUrl || googleStreetViewThumbUrl(googleResult.panoId, googleResult.heading, googleThumbKey)
-          }
-          : googleResult;
-        const classified = classifyGoogleStreet360(withThumb || {}, cameraCoordinate);
-        google = classified.providerId ? classified : null;
-      }
-      let mapillary = null;
-      const mapillaryStatus = mapillaryResult?.status || null;
-      if (mapillaryStatus === PROVIDER_CREDENTIAL_REQUIRED.MAPILLARY) {
-        mapillary = createProviderRepresentation({
-          provider: VISUAL_PROVIDER.MAPILLARY,
-          providerId: null,
-          cameraCoordinate,
-          status: PROVIDER_CREDENTIAL_REQUIRED.MAPILLARY,
-          labels: ['MAPILLARY', 'MAPILLARY CREDENTIAL REQUIRED'],
-          limitation: 'MAPILLARY_CREDENTIAL_REQUIRED'
-        });
-      } else if (mapillaryResult?.selected?.providerId) {
-        mapillary = mapillaryResult.selected.cameraCoordinate
-          ? mapillaryResult.selected
-          : Object.freeze({
-            ...mapillaryResult.selected,
-            cameraCoordinate,
-            targetCoordinate: cameraCoordinate
-          });
-      }
-      const usableMapillary = mapillary?.providerId ? mapillary : null;
-      const selected = chooseDefaultProvider(google, usableMapillary, mapillaryStatus);
-      const attached = Object.freeze({
-        slotId: slot.slotId,
-        cameraRef: slot.cameraRef,
-        cameraCoordinate,
-        google,
-        mapillary: usableMapillary || (mapillaryStatus === PROVIDER_CREDENTIAL_REQUIRED.MAPILLARY ? mapillary : null),
-        mapillaryStatus,
-        selected
+      const mapillaryResult = await lookups.mapillary(camera).catch((error) => {
+        console.warn('[IQAI CAMERA WALL] Mapillary lookup failed', error);
+        return { status: 'MAPILLARY_FETCH_FAILED' };
       });
-      bySlotId.set(slot.slotId, attached);
-      setSlotRepresentation(slot.slotId, kindForSelection(attached.selected, selectedRepresentation(attached)), { emit: false });
-      return attached;
+      const mapillaryPack = classifyMapillaryLookup(mapillaryResult, cameraCoordinate);
+      writeSlotPack(slot, cameraCoordinate, null, mapillaryPack);
+      const googleResult = await lookups.google(camera).catch((error) => {
+        console.warn('[IQAI CAMERA WALL] Google Street360 lookup failed', error);
+        return { error: true };
+      });
+      const google = classifyGoogleLookup(googleResult, cameraCoordinate);
+      return writeSlotPack(slot, cameraCoordinate, google, mapillaryPack);
     });
   await Promise.all(jobs);
-  emit();
   return getSlotRepresentationSnapshot();
 }

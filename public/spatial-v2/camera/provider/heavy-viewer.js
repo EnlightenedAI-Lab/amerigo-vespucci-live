@@ -55,19 +55,35 @@ export async function parkWallHeavyViewer(stage) {
   if (stage) stage.replaceChildren();
 }
 
+function mapsJsAuthFailed(root) {
+  const node = root?.querySelector?.('.gm-err-container, .gm-err-message, .gm-err-title');
+  if (!node) return false;
+  return /didn't load Google Maps correctly|Oops! Something went wrong/i.test(node.textContent || '');
+}
+
+async function streetViewPanoramaCtor() {
+  const google = window.google;
+  if (typeof google?.maps?.StreetViewPanorama === 'function') return google.maps.StreetViewPanorama;
+  try {
+    const lib = await google?.maps?.importLibrary?.('streetView');
+    return lib?.StreetViewPanorama || google?.maps?.StreetViewPanorama || null;
+  } catch {
+    return google?.maps?.StreetViewPanorama || null;
+  }
+}
+
 export async function activateWallHeavyViewer(stage, representation) {
   const key = representationKey(representation);
   if (!stage || !key) {
     await parkWallHeavyViewer(stage);
     return { liveDecoders: 0, heavy: false };
   }
-  if (key === boundKey && liveCount === 1) {
+  if (key === boundKey && liveCount === 1 && !mapsJsAuthFailed(stage)) {
     return { liveDecoders: 1, heavy: true, provider: representation.provider };
   }
   await parkWallHeavyViewer(stage);
   if (representation.provider === VISUAL_PROVIDER.GOOGLE_STREET360) {
-    const google = window.google;
-    const Panorama = google?.maps?.StreetViewPanorama;
+    const Panorama = await streetViewPanoramaCtor();
     if (typeof Panorama !== 'function') {
       return { liveDecoders: 0, heavy: false, status: 'GOOGLE_STREET_VIEW_UNAVAILABLE' };
     }
@@ -97,6 +113,14 @@ export async function activateWallHeavyViewer(stage, representation) {
     });
     boundKey = key;
     liveCount = 1;
+    for (let i = 0; i < 8; i += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      if (mapsJsAuthFailed(host) || mapsJsAuthFailed(stage)) {
+        await parkWallHeavyViewer(stage);
+        return { liveDecoders: 0, heavy: false, status: 'GOOGLE_MAPS_JS_AUTH_FAILED' };
+      }
+      if (host.querySelector('.gm-style, canvas, iframe')) break;
+    }
     return { liveDecoders: 1, heavy: true, provider: representation.provider };
   }
   if (representation.provider === VISUAL_PROVIDER.MAPILLARY) {

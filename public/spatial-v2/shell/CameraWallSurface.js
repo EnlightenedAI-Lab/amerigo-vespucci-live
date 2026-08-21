@@ -96,7 +96,7 @@ function providerLines(slot) {
     `;
   }
   const thumb = selected.thumbUrl
-    ? `<img alt="PROVIDER REPRESENTATION" src="${selected.thumbUrl}" data-iqai-camera-wall-thumb>`
+    ? `<img alt="PROVIDER REPRESENTATION" src="${selected.thumbUrl}" data-iqai-camera-wall-thumb onerror="this.remove()">`
     : '';
   return `
     ${thumb}
@@ -167,7 +167,20 @@ async function paintHeavy(el, wall) {
     await parkWallHeavyViewer(stage);
     return;
   }
-  await activateWallHeavyViewer(stage, representation);
+  const activated = await activateWallHeavyViewer(stage, representation);
+  if (
+    representation.provider === 'GOOGLE_STREET360'
+    && (activated?.status === 'GOOGLE_MAPS_JS_AUTH_FAILED' || activated?.status === 'GOOGLE_STREET_VIEW_UNAVAILABLE')
+  ) {
+    const pack = getSlotRepresentation(wall.activeSlotId);
+    if (pack?.mapillary?.providerId) {
+      selectSlotProvider(wall.activeSlotId, 'MAPILLARY');
+      await activateWallHeavyViewer(stage, pack.mapillary);
+      if (label) {
+        label.textContent = 'ACTIVE · MAPILLARY · PROVIDER REPRESENTATION · NOT CAMERA FEED';
+      }
+    }
+  }
 }
 
 function paintChrome(el, wall) {

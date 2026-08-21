@@ -286,6 +286,34 @@ test('21-23 close and provider failure preserve cameras; missing Mapillary crede
   restore();
 });
 
+test('Mapillary is not blocked by a slow Google lookup; Google remains preferred when both exist', async () => {
+  isolate();
+  const [camera] = placeFacing(1);
+  buildRelevantCameraWall(queryTarget());
+  configureProviderLookups({
+    google: async (item) => {
+      await new Promise((resolve) => setTimeout(resolve, 40));
+      return googleLookupFor(item);
+    },
+    mapillary: async () => ({
+      status: 'OK',
+      selected: {
+        provider: 'MAPILLARY',
+        providerId: 'map-1',
+        isPano: true,
+        captureCoordinate: { longitude: camera.longitude, latitude: camera.latitude }
+      },
+      count: 1
+    }),
+    googleKey: async () => null
+  });
+  const snap = await attachRepresentationsForWall();
+  assert.equal(snap.slots[0].selected, 'GOOGLE_STREET360');
+  assert.equal(Boolean(snap.slots[0].mapillary?.providerId), true);
+  assert.equal(Boolean(snap.slots[0].google?.providerId), true);
+  restore();
+});
+
 test('24-25 no secret committed; one MapView remains', () => {
   const files = [
     path.join(V2, 'shell', 'CameraWallSurface.js'),
