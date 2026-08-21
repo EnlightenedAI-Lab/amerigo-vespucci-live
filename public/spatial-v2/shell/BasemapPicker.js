@@ -17,9 +17,8 @@ function paintMenu(root) {
   const active = getSessionEsriBasemapId();
   const specs = listSessionBasemaps();
   const groups = [
-    { id: 'vector', label: 'VECTOR' },
-    { id: 'imagery', label: 'ESRI IMAGERY' },
-    { id: 'raster', label: 'RASTER' }
+    { id: 'basemap', label: 'BASEMAPS' },
+    { id: 'imagery', label: 'IMAGERY' }
   ];
   menu.innerHTML = groups.map((group) => {
     const items = specs.filter((spec) => spec.group === group.id);
@@ -33,7 +32,7 @@ function paintMenu(root) {
   }).join('');
   const current = specs.find((spec) => spec.id === active);
   toggle.textContent = current?.title ? current.title.toUpperCase() : 'BASEMAP';
-  toggle.title = 'Esri basemap for the main map. Header AERIAL is still Nearmap.';
+  toggle.title = 'MAP basemap. Header AERIAL is still Nearmap.';
 }
 
 function closeMenu(root) {

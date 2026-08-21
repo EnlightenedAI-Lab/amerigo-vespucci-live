@@ -65,6 +65,11 @@ export function bindViewSwitcher(root, options = {}) {
     const analyzeOpen = analyze3d?.snapshot?.().open === true;
     for (const button of root.querySelectorAll('[data-iqai-view]')) {
       const view = canonicalViewId(button.getAttribute('data-iqai-view'));
+      if (options.isCameraMode?.() === true) {
+        button.disabled = true;
+        button.setAttribute('aria-disabled', 'true');
+        continue;
+      }
       button.disabled = busy && view !== VIEWS.MAP;
       const pressed = exclusive
         ? view === activeView
@@ -253,6 +258,7 @@ export function bindViewSwitcher(root, options = {}) {
   }
 
   async function setView(view) {
+    if (options.isCameraMode?.() === true) return snapshot();
     view = canonicalViewId(view);
     if (busy && view === activeView) return snapshot();
     if (view === VIEWS.MAP) {
@@ -312,6 +318,11 @@ export function bindViewSwitcher(root, options = {}) {
   const onClick = (event) => {
     const button = event.target.closest('[data-iqai-view]');
     if (!button || !root.contains(button)) return;
+    if (options.isCameraMode?.() === true) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
     const view = canonicalViewId(button.getAttribute('data-iqai-view'));
     if (view === VIEWS.ANALYZE_3D) {
       void setView(view);

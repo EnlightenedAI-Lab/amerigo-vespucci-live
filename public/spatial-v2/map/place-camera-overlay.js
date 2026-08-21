@@ -13,22 +13,31 @@ import {
   subscribeAuthoredCameras,
   updateAuthoredCamera
 } from './authored-cameras.js';
-import { rememberedCoverageTarget } from '../camera/engine/coverage-plan.js';
+import { getLastCoveragePlan, rememberedCoverageTarget } from '../camera/engine/coverage-plan.js';
 import { geodesicMeters } from '../camera/engine/geodesy.js';
 import {
   CAMERA_OPERATOR_MODE,
   getCameraOperatorMode,
   subscribeCameraOperatorMode
 } from '../camera/operator-mode.js';
+import {
+  getCoverageIntentSnapshot,
+  subscribeCoverageIntent
+} from '../camera/engine/coverage-intent.js';
 
 export const PLACE_CAMERA_OVERLAY_ID = 'iqai-v2-place-camera-overlay';
 
 const NS = 'http://www.w3.org/2000/svg';
-const INK = '#f4e6c8';
-const KEY = '#0c0c0e';
-const ACTIVE = '#ffcc66';
-const WEDGE_FILL = 'rgba(232,168,23,0.34)';
-const WEDGE_FILL_ACTIVE = 'rgba(255,204,102,0.46)';
+const INK = '#f4f0ea';
+const KEY = '#0b0d10';
+const ACTIVE = '#00e5ff';
+const CAMERA_FILL = '#f4f0ea';
+const TARGET = '#00e5ff';
+const TARGET_FILL = 'rgba(0, 229, 255, 0.18)';
+const BOUNDARY = '#ff9f1c';
+const BOUNDARY_GLOW = 'rgba(255, 159, 28, 0.45)';
+const WEDGE_FILL = 'rgba(0, 229, 255, 0.12)';
+const WEDGE_FILL_ACTIVE = 'rgba(0, 229, 255, 0.22)';
 
 function svgEl(name, attrs) {
   const node = document.createElementNS(NS, name);
@@ -109,6 +118,155 @@ function cameraOrdinal(index) {
   return `CAMERA ${String(index + 1).padStart(2, '0')}`;
 }
 
+function screenPath(view, points) {
+  const screens = (points || []).map((point) => toScreen(view, point.longitude, point.latitude)).filter(Boolean);
+  if (screens.length < 2) return { screens, d: '' };
+  const d = screens.map((pt, index) => `${index === 0 ? 'M' : 'L'} ${pt.x} ${pt.y}`).join(' ') + ' Z';
+  return { screens, d };
+}
+
+function paintTargetLabel(svg, screen, text, attrs = {}) {
+  const label = svgEl('text', {
+    x: screen.x + 16,
+    y: screen.y - 16,
+    fill: TARGET,
+    stroke: KEY,
+    'stroke-width': 4,
+    'paint-order': 'stroke',
+    'font-size': 11,
+    'font-weight': 800,
+    'font-family': 'ui-sans-serif, system-ui, sans-serif',
+    'letter-spacing': '0.12em',
+    'pointer-events': 'none',
+    'data-iqai-coverage-target-label': 'true',
+    ...attrs
+  });
+  label.textContent = text;
+  svg.appendChild(label);
+}
+
+function paintPlanGeometry(svg, view, { target, ring, cameras }) {
+  const intent = getCoverageIntentSnapshot();
+  const draft = (intent.vertices && intent.vertices.length) ? intent.vertices : [];
+  const polygon = (ring && ring.length >= 4) ? ring : (intent.polygon && intent.polygon.length >= 4 ? intent.polygon : null);
+  if (polygon) {
+    const path = screenPath(view, polygon);
+    if (path.d) {
+      svg.appendChild(svgEl('path', {
+        d: path.d,
+        fill: 'none',
+        stroke: BOUNDARY_GLOW,
+        'stroke-width': 8,
+        'stroke-linejoin': 'round',
+        'opacity': '0.55',
+        'pointer-events': 'none'
+      }));
+      svg.appendChild(svgEl('path', {
+        d: path.d,
+        fill: 'none',
+        stroke: BOUNDARY,
+        'stroke-width': 2.4,
+        'stroke-linejoin': 'round',
+        'data-iqai-plan-boundary': 'true',
+        'pointer-events': 'none'
+      }));
+      svg.appendChild(svgEl('path', {
+        d: path.d,
+        fill: TARGET_FILL,
+        stroke: TARGET,
+        'stroke-width': 2,
+        'stroke-linejoin': 'round',
+        'data-iqai-coverage-target': 'polygon',
+        'data-iqai-coverage-target-area': 'true',
+        'pointer-events': 'none'
+      }));
+      for (const screen of path.screens) {
+        svg.appendChild(svgEl('circle', {
+          cx: screen.x,
+          cy: screen.y,
+          r: 3.6,
+          fill: BOUNDARY,
+          stroke: KEY,
+          'stroke-width': 1.4,
+          'data-iqai-plan-boundary-node': 'true',
+          'pointer-events': 'none'
+        }));
+      }
+      if (path.screens[0]) paintTargetLabel(svg, path.screens[0], 'TARGET AREA');
+    }
+  } else if (target) {
+    const targetScreen = toScreen(view, target.longitude, target.latitude);
+    if (targetScreen) {
+      const hull = screenPath(view, cameras);
+      if (cameras.length >= 3 && hull.d) {
+        svg.appendChild(svgEl('path', {
+          d: hull.d,
+          fill: 'none',
+          stroke: BOUNDARY_GLOW,
+          'stroke-width': 5,
+          'stroke-linejoin': 'round',
+          opacity: '0.45',
+          'pointer-events': 'none'
+        }));
+        svg.appendChild(svgEl('path', {
+          d: hull.d,
+          fill: 'none',
+          stroke: BOUNDARY,
+          'stroke-width': 1.8,
+          'stroke-linejoin': 'round',
+          'stroke-dasharray': '5 4',
+          'data-iqai-plan-boundary': 'true',
+          'pointer-events': 'none'
+        }));
+      }
+      svg.appendChild(svgEl('circle', {
+        cx: targetScreen.x,
+        cy: targetScreen.y,
+        r: 22,
+        fill: TARGET_FILL,
+        stroke: TARGET,
+        'stroke-width': 3.6,
+        'data-iqai-coverage-target': 'point',
+        'data-iqai-planned-target': 'true',
+        'pointer-events': 'none'
+      }));
+      svg.appendChild(svgEl('circle', {
+        cx: targetScreen.x,
+        cy: targetScreen.y,
+        r: 6,
+        fill: TARGET,
+        stroke: KEY,
+        'stroke-width': 1.8,
+        'data-iqai-coverage-target-core': 'true',
+        'pointer-events': 'none'
+      }));
+      svg.appendChild(svgEl('line', {
+        x1: targetScreen.x - 26, y1: targetScreen.y, x2: targetScreen.x + 26, y2: targetScreen.y,
+        stroke: TARGET, 'stroke-width': 2, 'pointer-events': 'none'
+      }));
+      svg.appendChild(svgEl('line', {
+        x1: targetScreen.x, y1: targetScreen.y - 26, x2: targetScreen.x, y2: targetScreen.y + 26,
+        stroke: TARGET, 'stroke-width': 2, 'pointer-events': 'none'
+      }));
+      paintTargetLabel(svg, targetScreen, 'TARGET');
+    }
+  }
+  for (const vertex of draft) {
+    const screen = toScreen(view, vertex.longitude, vertex.latitude);
+    if (!screen) continue;
+    svg.appendChild(svgEl('circle', {
+      cx: screen.x,
+      cy: screen.y,
+      r: 4,
+      fill: TARGET,
+      stroke: KEY,
+      'stroke-width': 1.2,
+      'data-iqai-coverage-vertex': 'true',
+      'pointer-events': 'none'
+    }));
+  }
+}
+
 export function bindPlaceCameraOverlay() {
   let viewHandles = [];
   let watchedView = null;
@@ -154,21 +312,15 @@ export function bindPlaceCameraOverlay() {
     svg.replaceChildren();
     if (lookAround) return getAuthoredCamerasSnapshot();
     const snapshot = getAuthoredCamerasSnapshot();
-    const target = rememberedCoverageTarget();
-    const targetScreen = target ? toScreen(view, target.longitude, target.latitude) : null;
-    if (targetScreen) {
-      const targetMark = svgEl('circle', {
-        cx: targetScreen.x,
-        cy: targetScreen.y,
-        r: 5.5,
-        fill: 'none',
-        stroke: ACTIVE,
-        'stroke-width': 2,
-        'data-iqai-planned-target': 'true',
-        'pointer-events': 'none'
-      });
-      svg.appendChild(targetMark);
-    }
+    const remembered = rememberedCoverageTarget();
+    const plan = getLastCoveragePlan();
+    const target = remembered || plan?.target || null;
+    const ring = remembered?.ring || plan?.polygon || getCoverageIntentSnapshot().polygon;
+    paintPlanGeometry(svg, view, {
+      target,
+      ring,
+      cameras: snapshot.cameras.filter((camera) => camera.creationMode === 'AUTO_PLAN' && Number.isFinite(camera.longitude))
+    });
     snapshot.cameras.forEach((camera, index) => {
       const origin = toScreen(view, camera.longitude, camera.latitude);
       if (!origin) return;
@@ -190,15 +342,16 @@ export function bindPlaceCameraOverlay() {
           d: `M ${origin.x} ${origin.y} L ${leftScreen.x} ${leftScreen.y} L ${rightScreen.x} ${rightScreen.y} Z`,
           fill: active ? WEDGE_FILL_ACTIVE : WEDGE_FILL,
           stroke: active ? ACTIVE : INK,
-          'stroke-width': active ? 2.2 : 1.7,
+          'stroke-width': active ? 2.2 : 0.8,
+          opacity: active ? '1' : '0.28',
           'data-iqai-camera-wedge': camera.cameraId,
           'data-iqai-planned-fov': camera.cameraId,
           'data-iqai-planned-fov-truth': 'NOT LOS',
-          'pointer-events': 'stroke'
+          'pointer-events': active ? 'stroke' : 'none'
         });
         group.appendChild(wedge);
       }
-      if (tipScreen) {
+      if (tipScreen && active) {
         const ray = svgEl('line', {
           x1: origin.x,
           y1: origin.y,
@@ -246,54 +399,75 @@ export function bindPlaceCameraOverlay() {
         'pointer-events': 'auto',
         style: 'cursor:move'
       });
-      const fill = active ? ACTIVE : '#e8b84a';
+      const fill = active ? '#ffffff' : CAMERA_FILL;
+      glyph.appendChild(svgEl('circle', {
+        cx: origin.x,
+        cy: origin.y,
+        r: active ? 16 : 12,
+        fill: 'none',
+        stroke: active ? ACTIVE : '#f4f0ea',
+        'stroke-width': active ? 3 : 2,
+        opacity: '0.95',
+        'data-iqai-planned-camera-halo': camera.cameraId,
+        'pointer-events': 'none'
+      }));
+      glyph.appendChild(svgEl('circle', {
+        cx: origin.x,
+        cy: origin.y,
+        r: 2.4,
+        fill: active ? ACTIVE : '#ffffff',
+        stroke: KEY,
+        'stroke-width': 1.6,
+        'data-iqai-planned-camera-anchor': camera.cameraId,
+        'pointer-events': 'none'
+      }));
       const housing = svgEl('rect', {
-        x: origin.x - 5.5,
-        y: origin.y - 1.2,
-        width: 11,
-        height: 7.4,
-        rx: 1.5,
+        x: origin.x - 7.2,
+        y: origin.y - 1.8,
+        width: 14.4,
+        height: 9.4,
+        rx: 1.2,
         fill,
         stroke: KEY,
-        'stroke-width': active ? 1.8 : 1.5
+        'stroke-width': 2.2
       });
       const barrel = svgEl('rect', {
-        x: origin.x - 2.3,
-        y: origin.y - 7.6,
-        width: 4.6,
-        height: 6.6,
-        rx: 0.9,
-        fill: active ? '#ffe08a' : '#d4a017',
+        x: origin.x - 2.8,
+        y: origin.y - 9.6,
+        width: 5.6,
+        height: 8.2,
+        rx: 0.7,
+        fill: '#ffffff',
         stroke: KEY,
-        'stroke-width': 1.2
+        'stroke-width': 2
       });
       const lens = svgEl('circle', {
         cx: origin.x,
-        cy: origin.y - 8.1,
-        r: 2.35,
+        cy: origin.y - 10.4,
+        r: 3.1,
         fill: KEY,
-        stroke: fill,
-        'stroke-width': 1.4
+        stroke: active ? ACTIVE : '#ffffff',
+        'stroke-width': 1.8
       });
       glyph.appendChild(housing);
       glyph.appendChild(barrel);
       glyph.appendChild(lens);
       group.appendChild(glyph);
       const label = svgEl('text', {
-        x: origin.x + 12,
-        y: origin.y - 10,
+        x: origin.x + 14,
+        y: origin.y - 12,
         fill: INK,
         stroke: KEY,
-        'stroke-width': 3.2,
+        'stroke-width': 4.4,
         'paint-order': 'stroke',
-        'font-size': 10,
-        'font-weight': 700,
+        'font-size': 11,
+        'font-weight': 800,
         'font-family': 'ui-sans-serif, system-ui, sans-serif',
-        'letter-spacing': '0.06em',
+        'letter-spacing': '0.08em',
         'pointer-events': 'none',
         'data-iqai-planned-camera-label': camera.cameraId
       });
-      label.textContent = `${cameraOrdinal(index)} · HFOV ${Math.round(Number(camera.horizontalFov) || 0)}°`;
+      label.textContent = String(index + 1).padStart(2, '0');
       group.appendChild(label);
       if (active) {
         const truth = svgEl('text', {
@@ -303,10 +477,11 @@ export function bindPlaceCameraOverlay() {
           stroke: KEY,
           'stroke-width': 3,
           'paint-order': 'stroke',
-          'font-size': 8,
+          'font-size': 0,
           'font-family': 'ui-sans-serif, system-ui, sans-serif',
           'letter-spacing': '0.08em',
           'pointer-events': 'none',
+          'aria-hidden': 'true',
           'data-iqai-planned-fov-label': 'true'
         });
         truth.textContent = 'PLANNED FOV · NOT LOS';
@@ -337,6 +512,7 @@ export function bindPlaceCameraOverlay() {
     event.preventDefault();
     event.stopPropagation();
     selectAuthoredCamera(cameraId);
+    document.getElementById('iqai-spatial-v2')?.dispatchEvent(new CustomEvent('iqai-camera-command-reveal'));
     const view = getMapView();
     drag = {
       cameraId,
@@ -403,6 +579,7 @@ export function bindPlaceCameraOverlay() {
   window.addEventListener('pointercancel', onPointerUp);
   const unsubscribe = subscribeAuthoredCameras(() => paint());
   const unsubscribeMode = subscribeCameraOperatorMode(() => paint());
+  const unsubscribeIntent = subscribeCoverageIntent(() => paint());
   watchView(getMapView());
 
   return Object.freeze({
@@ -414,6 +591,7 @@ export function bindPlaceCameraOverlay() {
     detach() {
       unsubscribe();
       unsubscribeMode();
+      unsubscribeIntent();
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerup', onPointerUp);
       window.removeEventListener('pointercancel', onPointerUp);

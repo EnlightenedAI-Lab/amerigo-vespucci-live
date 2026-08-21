@@ -251,6 +251,12 @@ export function renderMapStageHost() {
               <button type="button" data-iqai-pane-close="STREET 360">CLOSE</button>
             </header>
             <div class="iqai-v2-pane__body" data-iqai-camera-pane-host>
+              <div class="iqai-v2-camera-pane-recovery" data-iqai-camera-pane-recovery hidden>
+                <p class="iqai-v2-camera-pane-recovery__kicker">CAMERA MODE READY</p>
+                <p class="iqai-v2-camera-pane-recovery__state" data-iqai-camera-pane-state>NO CAMERA VIEW ACTIVE</p>
+                <p class="iqai-v2-camera-pane-recovery__hint">RETURN TO MAIN VIEW — this pane has no camera view.</p>
+                <button type="button" class="iqai-v2-camera-pane-recovery__back" data-iqai-camera-back-main>← BACK TO MAIN VIEW</button>
+              </div>
               <div class="iqai-v2-street-360-stage" data-iqai-street-360-stage data-iqai-view-anchor="STREET 360" hidden></div>
             </div>
           </section>
@@ -317,7 +323,7 @@ export function renderMapStageHost() {
             <button type="button" class="iqai-v2-observe-tool" data-iqai-view-camera aria-pressed="false" hidden title="View camera">VIEW</button>
             <button type="button" class="iqai-v2-trace-tool" data-iqai-clear-trace title="Clear Street 360 drive trace">TRACE</button>
             <div class="iqai-v2-basemap-picker" data-iqai-basemap-picker>
-              <button type="button" class="iqai-v2-observe-tool" data-iqai-basemap-toggle aria-expanded="false" title="Esri basemap for the main map">BASEMAP</button>
+              <button type="button" class="iqai-v2-observe-tool" data-iqai-basemap-toggle aria-expanded="false" title="MAP basemaps">BASEMAP</button>
               <div class="iqai-v2-basemap-picker__menu" data-iqai-basemap-menu hidden></div>
             </div>
           </div>
@@ -476,7 +482,7 @@ export function renderMapStageHost() {
         <div class="iqai-v2-workspace-chrome" data-iqai-workspace-chrome>
           <div class="iqai-v2-camera-mode-bar" data-iqai-camera-mode-bar hidden>
             <p class="iqai-v2-camera-mode-bar__indicator" data-iqai-camera-mode-indicator>CAMERA MODE</p>
-            <button type="button" class="iqai-v2-camera-mode-bar__back" data-iqai-camera-back-main>← BACK TO MAIN VIEW</button>
+            <button type="button" class="iqai-v2-camera-mode-bar__back" data-iqai-camera-back-main title="Exit Camera Mode and restore the previous workspace">← BACK TO MAIN VIEW</button>
           </div>
           <div class="iqai-v2-layout-switcher" data-iqai-layout-switcher aria-label="WorldView layout">
             <button type="button" data-iqai-layout="1" aria-pressed="true">1</button>

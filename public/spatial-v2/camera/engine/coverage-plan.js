@@ -10,12 +10,29 @@ import {
   CREATION_MODE,
   deleteAuthoredCamera,
   listAuthoredCameras,
-  placeAuthoredCamera
+  placeAuthoredCamera,
+  resetAuthoredCameras
 } from '../../map/authored-cameras.js';
 import { destinationAlongHeading, geodesicMeters, headingFromPoints, wrapHeading } from './geodesy.js';
 import { pointInHorizontalFov, targetBearingDeg, headingDeltaToPoint } from './incident-relevance.js';
 import { PIXEL_DENSITY_UNKNOWN, DESIGN_BAND_UNKNOWN } from './dori.js';
 import { HEAVY_VIEWER_LIMIT } from './view-slot.js';
+import {
+  COVERAGE_INTENT_VERSION,
+  FOUR_DIRECTION_HONESTY,
+  ORIENTATION_INTENT,
+  PERIMETER_HONESTY,
+  POINT_HONESTY,
+  TARGET_GEOMETRY,
+  FOUR_DIRECTION_SPACING,
+  PERIMETER_SPACING,
+  POINT_SPACING,
+  closePolygonRing,
+  polygonCentroid,
+  proposeFourDirectionCoverage,
+  proposePerimeterCoverage,
+  resetCoverageIntent
+} from './coverage-intent.js';
 
 export const COVERAGE_PLAN_ALGORITHM = 'iqai.camera.balanced-2d-coverage/1.0.0';
 export const COVERAGE_PLAN_VERSION = '1.0.0';
@@ -54,6 +71,31 @@ export function focusPointFromFocusRef(focus = null) {
 
 export function coveragePlanIdForTarget(target) {
   return `coverage-v1:${Number(target.longitude).toFixed(6)},${Number(target.latitude).toFixed(6)}`;
+}
+
+function coveragePlanIdForIntent(pattern, orientation, target, ring) {
+  if (pattern === TARGET_GEOMETRY.FOUR_DIRECTION && target) {
+    return `coverage-v1:four-direction:${orientation}:${Number(target.longitude).toFixed(6)},${Number(target.latitude).toFixed(6)}`;
+  }
+  if (pattern === TARGET_GEOMETRY.PERIMETER && ring) {
+    const key = ring.slice(0, -1).map((point) => `${Number(point.longitude).toFixed(5)},${Number(point.latitude).toFixed(5)}`).join(';');
+    return `coverage-v1:perimeter:${orientation}:${key.slice(0, 72)}`;
+  }
+  return coveragePlanIdForTarget(target);
+}
+
+function resolveIntent(options = {}) {
+  const snapshot = options.intent || options;
+  const rawPattern = snapshot.pattern || snapshot.targetGeometry || TARGET_GEOMETRY.POINT;
+  const pattern = Object.values(TARGET_GEOMETRY).includes(rawPattern) ? rawPattern : TARGET_GEOMETRY.POINT;
+  const orientation = pattern === TARGET_GEOMETRY.POINT
+    ? ORIENTATION_INTENT.INWARD
+    : (snapshot.orientationIntent || snapshot.orientation || ORIENTATION_INTENT.INWARD);
+  return {
+    pattern,
+    orientation: orientation === ORIENTATION_INTENT.OUTWARD ? ORIENTATION_INTENT.OUTWARD : ORIENTATION_INTENT.INWARD,
+    polygon: snapshot.polygon || null
+  };
 }
 
 export function autoPlanCameraId(index) {
@@ -108,10 +150,16 @@ export function rememberedCoverageTarget() {
   for (const camera of listAutoPlanCameras()) {
     const point = coverageTargetPoint(camera?.targetFocus);
     if (!point) continue;
+    const ring = closePolygonRing(camera.targetFocus?.ring || camera.targetRing || null);
     return Object.freeze({
       ...point,
       planId: camera.planId || null,
-      cameraId: camera.cameraId || null
+      cameraId: camera.cameraId || null,
+      pattern: camera.coveragePattern || TARGET_GEOMETRY.POINT,
+      orientation: camera.coverageOrientation || ORIENTATION_INTENT.INWARD,
+      geometryKind: ring ? 'POLYGON' : 'POINT',
+      ring,
+      operatorAdjusted: camera.operatorAdjusted === true
     });
   }
   return null;
@@ -142,9 +190,62 @@ export function clearGeneratedPlan(planId = lastPlan?.planId) {
   });
 }
 
+export function clearAllCameras() {
+  const removed = listAuthoredCameras().map((item) => item.cameraId);
+  resetAuthoredCameras({ persist: true });
+  lastPlan = null;
+  resetCoverageIntent({ emit: true });
+  return Object.freeze({
+    ok: true,
+    removedCount: removed.length,
+    removedCameraIds: Object.freeze(removed),
+    remaining: Object.freeze([])
+  });
+}
+
 export function generateCameraCoverage(focusRef, options = {}) {
-  const target = focusPointFromFocusRef(focusRef);
-  if (!target) {
+  const intent = resolveIntent(options);
+  let target = focusPointFromFocusRef(focusRef);
+  let ring = closePolygonRing(intent.polygon);
+  let proposals;
+  let honesty = COVERAGE_HONESTY;
+  let algorithm = COVERAGE_PLAN_ALGORITHM;
+  let pattern = TARGET_GEOMETRY.POINT;
+  let orientation = ORIENTATION_INTENT.INWARD;
+
+  if (intent.pattern === TARGET_GEOMETRY.PERIMETER) {
+    ring = closePolygonRing(intent.polygon);
+    target = polygonCentroid(ring);
+    if (!target || !ring) {
+      return Object.freeze({
+        ok: false,
+        reason: 'POLYGON_TARGET_REQUIRED',
+        cameras: [],
+        visibilityTested: false,
+        observationClaim: false
+      });
+    }
+    proposals = proposePerimeterCoverage(ring, { ...options, orientation: intent.orientation });
+    honesty = PERIMETER_HONESTY;
+    algorithm = 'iqai.camera.perimeter-2d/1.0.0';
+    pattern = TARGET_GEOMETRY.PERIMETER;
+    orientation = intent.orientation;
+  } else if (intent.pattern === TARGET_GEOMETRY.FOUR_DIRECTION) {
+    if (!target) {
+      return Object.freeze({
+        ok: false,
+        reason: 'FOCUSREF_POINT_REQUIRED',
+        cameras: [],
+        visibilityTested: false,
+        observationClaim: false
+      });
+    }
+    proposals = proposeFourDirectionCoverage(target, { ...options, orientation: intent.orientation });
+    honesty = FOUR_DIRECTION_HONESTY;
+    algorithm = 'iqai.camera.four-direction-2d/1.0.0';
+    pattern = TARGET_GEOMETRY.FOUR_DIRECTION;
+    orientation = intent.orientation;
+  } else if (!target) {
     return Object.freeze({
       ok: false,
       reason: 'FOCUSREF_POINT_REQUIRED',
@@ -152,13 +253,23 @@ export function generateCameraCoverage(focusRef, options = {}) {
       visibilityTested: false,
       observationClaim: false
     });
+  } else {
+    proposals = proposeBalancedCoverage(target, options);
+    honesty = POINT_HONESTY;
+    pattern = TARGET_GEOMETRY.POINT;
+    orientation = ORIENTATION_INTENT.INWARD;
   }
+
   const replaced = listAutoPlanCameras().map((item) => item.cameraId);
   for (const cameraId of replaced) deleteAuthoredCamera(cameraId);
 
-  const planId = coveragePlanIdForTarget(target);
+  const planId = coveragePlanIdForIntent(pattern, orientation, target, ring);
   const generatedAt = options.now || new Date().toISOString();
-  const proposals = proposeBalancedCoverage(target, options);
+  const targetFocus = Object.freeze({
+    ...target,
+    geometryKind: ring ? 'POLYGON' : 'POINT',
+    ring: ring || null
+  });
   const cameras = proposals.map((proposal) => placeAuthoredCamera({
     cameraId: proposal.cameraId,
     longitude: proposal.longitude,
@@ -173,30 +284,45 @@ export function generateCameraCoverage(focusRef, options = {}) {
     creationMode: CREATION_MODE.AUTO_PLAN,
     planId,
     planVersion: COVERAGE_PLAN_VERSION,
-    planningAlgorithm: COVERAGE_PLAN_ALGORITHM,
+    planningAlgorithm: algorithm,
     generatedAt,
     pitchQualification: PITCH_UNQUALIFIED,
     opticalZoomQualification: OPTICAL_ZOOM_UNQUALIFIED,
     cameraModelQualification: CAMERA_MODEL_UNKNOWN,
     planningLabel: AUTO_PLAN_LABEL,
-    targetFocus: target
+    operatorAdjusted: false,
+    coveragePattern: pattern,
+    coverageOrientation: orientation,
+    targetRing: ring,
+    targetFocus
   }, { activate: proposal.index === 0 }));
 
   lastPlan = Object.freeze({
     ok: true,
     reason: null,
     planId,
-    algorithm: COVERAGE_PLAN_ALGORITHM,
+    algorithm,
     version: COVERAGE_PLAN_VERSION,
     generatedAt,
     target,
+    polygon: ring,
+    coverageIntent: Object.freeze({
+      targetGeometry: pattern,
+      pattern,
+      orientationIntent: orientation,
+      cameraCount: cameras.length,
+      spacing: pattern === TARGET_GEOMETRY.FOUR_DIRECTION
+        ? FOUR_DIRECTION_SPACING
+        : (pattern === TARGET_GEOMETRY.PERIMETER ? PERIMETER_SPACING : POINT_SPACING),
+      planVersion: COVERAGE_INTENT_VERSION
+    }),
     standoffM: COVERAGE_STANDOFF_M,
     planViewHfov: PLAN_VIEW_HFOV,
     cameraCount: cameras.length,
     replacedCameraIds: Object.freeze(replaced),
     cameras: Object.freeze(cameras),
     cameraRefs: Object.freeze(cameras.map((camera) => createCameraRef(camera.cameraId))),
-    honesty: COVERAGE_HONESTY,
+    honesty,
     pitchQualification: PITCH_UNQUALIFIED,
     verticalAim: VERTICAL_AIM_NOT_QUALIFIED,
     cameraModelQualification: CAMERA_MODEL_UNKNOWN,
@@ -206,15 +332,25 @@ export function generateCameraCoverage(focusRef, options = {}) {
     visibilityTested: false,
     observationClaim: false,
     mutatesSelectionSet: false,
-    maxHeavyViewers: HEAVY_VIEWER_LIMIT
+    maxHeavyViewers: HEAVY_VIEWER_LIMIT,
+    operatorAdjusted: false,
+    planStatus: 'GENERATED'
   });
   return lastPlan;
 }
 
 export function getLastCoveragePlan() {
-  return lastPlan;
+  if (!lastPlan) return null;
+  const adjusted = listAutoPlanCameras(lastPlan.planId).some((camera) => camera.operatorAdjusted === true);
+  if (!adjusted) return lastPlan;
+  return Object.freeze({
+    ...lastPlan,
+    operatorAdjusted: true,
+    planStatus: 'OPERATOR ADJUSTED'
+  });
 }
 
 export function resetCoveragePlanState() {
   lastPlan = null;
+  resetCoverageIntent({ emit: false });
 }

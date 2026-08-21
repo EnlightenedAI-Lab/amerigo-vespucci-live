@@ -131,7 +131,7 @@ test('2-3 CameraRef preserved; ViewSlot identity is separate', () => {
   restore();
 });
 
-test('4-6 wall supports 1, 2, and caps at 3 relevant cameras', () => {
+test('4-6 wall supports 1, 2, 4, and caps at 4 relevant cameras', () => {
   isolate();
   placeFacing(1);
   assert.equal(buildRelevantCameraWall(queryTarget()).slotCount, 1);
@@ -140,12 +140,16 @@ test('4-6 wall supports 1, 2, and caps at 3 relevant cameras', () => {
   assert.equal(buildRelevantCameraWall(queryTarget()).slotCount, 2);
   resetAuthoredCameras({ persist: false });
   placeFacing(4);
+  const four = buildRelevantCameraWall(queryTarget());
+  assert.equal(four.slotCount, 4);
+  resetAuthoredCameras({ persist: false });
+  placeFacing(5);
   const query = queryTarget();
-  assert.ok(query.relevantCount >= 3);
+  assert.ok(query.relevantCount >= 4);
   const wall = buildRelevantCameraWall(query);
-  assert.equal(wall.slotCount, 3);
-  assert.equal(WALL_SLOT_CAP, 3);
-  assert.equal(relevantCameraIdsFromQuery(query).length, 3);
+  assert.equal(wall.slotCount, 4);
+  assert.equal(WALL_SLOT_CAP, 4);
+  assert.equal(relevantCameraIdsFromQuery(query).length, 4);
   restore();
 });
 

@@ -165,7 +165,7 @@ test('10-14 tri-view heavy budget, enlarge, restore, pose immutability', () => {
   const refs = listAuthoredCameras().map((item) => createCameraRef(item.cameraId));
   const wall = buildRelevantCameraWall(queryRelevantCameras({ focusRef: focus() }));
   assert.equal(wall.maxHeavyViewers, TRI_VIEW_HEAVY_BUDGET);
-  assert.equal(resolveHeavyBudget({ open: true, mode: WALL_MODE.TRI_VIEW }), 3);
+  assert.equal(resolveHeavyBudget({ open: true, mode: WALL_MODE.TRI_VIEW }), TRI_VIEW_HEAVY_BUDGET);
   assert.equal(resolveHeavyBudget({ open: false }), 0);
   assert.equal(resolveHeavyBudget({ open: true, enlargedSlotId: wall.slots[1].slotId }), HEAVY_VIEWER_LIMIT);
   const enlarged = enlargeWallSlot(wall.slots[1].slotId);

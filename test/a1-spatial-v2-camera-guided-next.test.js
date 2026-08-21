@@ -505,7 +505,7 @@ test('22 maxHeavyViewers closed/open remains 0/tri-view budget', () => {
   assert.equal(getCameraWallSnapshot().maxHeavyViewers, 0);
   const open = wallFromPlan();
   assert.equal(open.maxHeavyViewers, TRI_VIEW_HEAVY_BUDGET);
-  assert.equal(open.maxHeavyViewers, 3);
+  assert.equal(open.maxHeavyViewers, 4);
   closeCameraWall();
   assert.equal(getCameraWallSnapshot().maxHeavyViewers, 0);
   restore();

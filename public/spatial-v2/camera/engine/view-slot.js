@@ -20,11 +20,12 @@ export const SLOT_AVAILABILITY = Object.freeze({
 export const WALL_LAYOUT = Object.freeze({
   ONE: 1,
   TWO: 2,
-  THREE: 3
+  THREE: 3,
+  FOUR: 4
 });
-export const WALL_SLOT_CAP = 3;
+export const WALL_SLOT_CAP = 4;
 export const HEAVY_VIEWER_LIMIT = 1;
-export const TRI_VIEW_HEAVY_BUDGET = 3;
+export const TRI_VIEW_HEAVY_BUDGET = 4;
 export const WALL_MODE = Object.freeze({
   TRI_VIEW: 'TRI_VIEW',
   MASTER_DETAIL: 'MASTER_DETAIL'
@@ -63,7 +64,8 @@ export function layoutForCount(count) {
   const n = Math.max(0, Math.min(WALL_SLOT_CAP, Number(count) || 0));
   if (n <= 1) return WALL_LAYOUT.ONE;
   if (n === 2) return WALL_LAYOUT.TWO;
-  return WALL_LAYOUT.THREE;
+  if (n === 3) return WALL_LAYOUT.THREE;
+  return WALL_LAYOUT.FOUR;
 }
 
 export function resolveHeavyBudget({ open = false, mode = WALL_MODE.TRI_VIEW, enlargedSlotId = null } = {}) {

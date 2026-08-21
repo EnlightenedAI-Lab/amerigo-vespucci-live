@@ -93,22 +93,14 @@ export function mountAppShell(root, host = {}) {
   root.dataset.iqaiConsole = 'command-console-v1';
   root.dataset.iqaiLayersCollapsed = 'true';
   root.dataset.iqaiInspectorCollapsed = 'true';
-  const savedTheme = typeof localStorage !== 'undefined' ? localStorage.getItem('iqai-v2-theme') : null;
-  root.dataset.iqaiTheme = savedTheme === 'light' ? 'light' : 'dark';
+  root.dataset.iqaiTheme = 'dark';
+  root.dataset.iqaiBasemapTone = 'light';
+  try { localStorage.setItem('iqai-v2-theme', 'dark'); } catch {}
   startHeaderClock(root);
 
   const resizeMap = () => {
     requestAnimationFrame(() => getMapView()?.resize?.());
   };
-
-  const paintThemeToggle = () => {
-    const toggle = root.querySelector('[data-iqai-theme-toggle]');
-    if (!toggle) return;
-    const dark = root.dataset.iqaiTheme !== 'light';
-    toggle.textContent = dark ? 'WHITE' : 'BLACK';
-    toggle.setAttribute('aria-pressed', dark ? 'true' : 'false');
-  };
-  paintThemeToggle();
 
   const paint = () => {
     const model = typeof host.getViewModel === 'function' ? host.getViewModel() : {};
@@ -186,9 +178,7 @@ export function mountAppShell(root, host = {}) {
     const themeToggle = event.target.closest('[data-iqai-theme-toggle]');
     if (themeToggle && root.contains(themeToggle)) {
       event.preventDefault();
-      root.dataset.iqaiTheme = root.dataset.iqaiTheme === 'light' ? 'dark' : 'light';
-      try { localStorage.setItem('iqai-v2-theme', root.dataset.iqaiTheme); } catch {}
-      paintThemeToggle();
+      root.dataset.iqaiTheme = 'dark';
     }
   });
   bindSystemsRail(root, {

@@ -178,6 +178,12 @@ function freezeCamera(camera) {
     installed: false,
     qualification: PLANNING_QUALIFICATION,
     planningLabel: camera.planningLabel || PLANNING_LABEL,
+    operatorAdjusted: camera.operatorAdjusted === true,
+    coveragePattern: camera.coveragePattern || null,
+    coverageOrientation: camera.coverageOrientation || null,
+    targetRing: Array.isArray(camera.targetRing)
+      ? Object.freeze(camera.targetRing.map((point) => Object.freeze({ ...point })))
+      : null,
     creationMode: camera.creationMode === CREATION_MODE.AUTO_PLAN
       ? CREATION_MODE.AUTO_PLAN
       : CREATION_MODE.OPERATOR_AUTHORED,
@@ -220,6 +226,10 @@ function serializeCamera(camera) {
     installed: false,
     qualification: PLANNING_QUALIFICATION,
     planningLabel: camera.planningLabel || PLANNING_LABEL,
+    operatorAdjusted: camera.operatorAdjusted === true,
+    coveragePattern: camera.coveragePattern || null,
+    coverageOrientation: camera.coverageOrientation || null,
+    targetRing: camera.targetRing || null,
     creationMode: camera.creationMode || CREATION_MODE.OPERATOR_AUTHORED,
     planId: camera.planId || null,
     planVersion: camera.planVersion || null,
@@ -397,6 +407,16 @@ function writeCamera(input, { activate = true, persist = true } = {}) {
       ? input.targetFocus
       : (existing?.targetFocus ?? null),
     planningLabel: input.planningLabel || existing?.planningLabel || PLANNING_LABEL,
+    operatorAdjusted: input.operatorAdjusted === true || existing?.operatorAdjusted === true,
+    coveragePattern: Object.prototype.hasOwnProperty.call(input, 'coveragePattern')
+      ? input.coveragePattern
+      : (existing?.coveragePattern ?? null),
+    coverageOrientation: Object.prototype.hasOwnProperty.call(input, 'coverageOrientation')
+      ? input.coverageOrientation
+      : (existing?.coverageOrientation ?? null),
+    targetRing: Object.prototype.hasOwnProperty.call(input, 'targetRing')
+      ? input.targetRing
+      : (existing?.targetRing ?? null),
     provenance: input.creationMode === CREATION_MODE.AUTO_PLAN || existing?.creationMode === CREATION_MODE.AUTO_PLAN
       ? (input.provenance || AUTO_PLAN_PROVENANCE)
       : AUTHORED_CAMERA_PROVENANCE,
@@ -420,7 +440,17 @@ export function placeAuthoredCamera(input = {}, options = {}) {
 export function updateAuthoredCamera(cameraId, fields = {}) {
   const current = cameras.get(cameraId);
   if (!current) return null;
-  return writeCamera({ ...current, ...fields, cameraId }, { activate: true });
+  const poseKeys = ['longitude', 'latitude', 'heading', 'pitch', 'horizontalFov', 'heightAboveGround'];
+  const poseChanged = poseKeys.some((key) => Object.prototype.hasOwnProperty.call(fields, key));
+  const extra = {};
+  if (current.creationMode === CREATION_MODE.AUTO_PLAN && poseChanged) {
+    extra.operatorAdjusted = true;
+    const label = current.planningLabel || PLANNING_LABEL;
+    extra.planningLabel = label.includes('OPERATOR ADJUSTED')
+      ? label
+      : `${label} · OPERATOR ADJUSTED`;
+  }
+  return writeCamera({ ...current, ...fields, ...extra, cameraId }, { activate: true });
 }
 
 export function selectAuthoredCamera(cameraId) {

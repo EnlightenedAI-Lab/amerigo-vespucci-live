@@ -63,11 +63,13 @@ const MIN_HOST_PX = 24;
 function paneStateLabel(state, provider) {
   if (state === VIEWER_PANE_STATE.SEARCHING) return 'FINDING STREET VIEW';
   if (state === VIEWER_PANE_STATE.LOADING) {
-    return provider === VISUAL_PROVIDER.MAPILLARY ? 'LOADING MAPILLARY' : 'LOADING GOOGLE 360';
+    if (provider === VISUAL_PROVIDER.MAPILLARY) return 'LOADING MAPILLARY';
+    if (provider) return 'LOADING GOOGLE 360';
+    return 'LOADING CAMERA VIEW';
   }
   if (state === VIEWER_PANE_STATE.RETRYING) return 'RECONNECTING VIEW';
   if (state === VIEWER_PANE_STATE.UNAVAILABLE) return 'VIEW UNAVAILABLE';
-  return '';
+  return 'CAMERA MODE READY';
 }
 
 export function setViewerPaneState(stage, slotId, state, label = null, provider = null) {

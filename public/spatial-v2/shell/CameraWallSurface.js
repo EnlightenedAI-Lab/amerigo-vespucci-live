@@ -31,6 +31,7 @@ import {
   getSlotRepresentation,
   getSlotRepresentationSnapshot,
   resetSlotRepresentations,
+  selectSlotCaptureDate,
   selectSlotProvider,
   subscribeSlotRepresentations
 } from '../camera/provider/slot-representations.js';
@@ -50,6 +51,14 @@ import {
   subscribeWallHeavyVirtualView,
   VIEWER_PANE_STATE
 } from '../camera/provider/heavy-viewer.js';
+import {
+  DATE_SEARCH_HONESTY,
+  GOOGLE_DATE_LIMIT,
+  calendarMonth,
+  captureDay,
+  captureYear
+} from '../camera/provider/capture-catalog.js';
+import { printCameraPlan } from '../camera/engine/plan-print.js';
 import { markGuidedSlotInspected } from '../camera/guided-next.js';
 import { CAMERA_OPERATOR_MODE, getCameraOperatorMode } from '../camera/operator-mode.js';
 import { refreshGuidedNext } from './GuidedNextSurface.js';
@@ -141,6 +150,62 @@ function compactCapture(slot) {
   return match ? match[1] : '—';
 }
 
+function paintDateChrome(pane, slot, wall) {
+  const host = pane?.querySelector('[data-iqai-camera-date]');
+  if (!host) return;
+  const focused = document.activeElement;
+  if (focused && host.contains(focused) && focused.matches('[data-iqai-camera-date-input]')) return;
+  const pack = getSlotRepresentation(slot.slotId) || {};
+  const catalog = pack.catalog || { dates: [], years: [], searchable: false };
+  const selected = selectedRepresentation(slot);
+  const current = pack.nearestDate || captureDay(selected?.capturedAt || selected?.capturedAtIso);
+  const year = captureYear(current) || catalog.years?.[catalog.years.length - 1] || '';
+  const searchable = catalog.searchable === true;
+  const enlarged = wall?.enlargedSlotId === slot.slotId;
+  if (!enlarged) {
+    host.hidden = true;
+    host.innerHTML = '';
+    return;
+  }
+  host.hidden = false;
+  const monthKey = current ? current.slice(0, 7) : (catalog.dates.at(-1)?.month || '');
+  const cal = searchable && enlarged ? calendarMonth(catalog, monthKey) : null;
+  const years = (catalog.years || []).map((item) => (
+    `<button type="button" data-iqai-camera-date-year="${item}" data-iqai-camera-date-slot="${slot.slotId}" aria-pressed="${item === year ? 'true' : 'false'}">${item}</button>`
+  )).join('');
+  const days = (cal?.cells || []).map((cell) => {
+    if (cell.empty) return '<span class="iqai-v2-camera-date__empty"></span>';
+    if (!cell.available) return `<span class="iqai-v2-camera-date__muted">${cell.day}</span>`;
+    return `<button type="button" data-iqai-camera-date-day="${cell.date}" data-iqai-camera-date-slot="${slot.slotId}" aria-pressed="${cell.date === current ? 'true' : 'false'}">${cell.day}</button>`;
+  }).join('');
+  const film = searchable && enlarged
+    ? (catalog.dates || []).slice(-8).map((item) => `
+        <button type="button" class="iqai-v2-camera-date__thumb" data-iqai-camera-date-day="${item.date}" data-iqai-camera-date-slot="${slot.slotId}" title="${item.date}">
+          ${item.thumbUrl ? `<img alt="" src="${item.thumbUrl}">` : ''}
+          <span>${item.year}</span>
+        </button>
+      `).join('')
+    : '';
+  const availableDays = !enlarged && searchable
+    ? (catalog.dates || []).slice(-6).map((item) => (
+      `<button type="button" data-iqai-camera-date-day="${item.date}" data-iqai-camera-date-slot="${slot.slotId}" aria-pressed="${item.date === current ? 'true' : 'false'}">${item.date}</button>`
+    )).join('')
+    : '';
+  const nearest = pack.exactDate === false && pack.nearestDate ? `NEAREST AVAILABLE ${pack.nearestDate}` : '';
+  host.innerHTML = `
+    <p class="iqai-v2-camera-date__year">${year || 'YEAR —'}</p>
+    <p class="iqai-v2-camera-date__honesty">${searchable ? DATE_SEARCH_HONESTY : (catalog.googleLimit || GOOGLE_DATE_LIMIT)}</p>
+    <label class="iqai-v2-camera-date__go">DATE
+      <input type="date" data-iqai-camera-date-input data-iqai-camera-date-slot="${slot.slotId}" value="${current || ''}" ${searchable ? '' : 'disabled'}>
+    </label>
+    <div class="iqai-v2-camera-date__years">${years || '<span>NO YEARS</span>'}</div>
+    ${availableDays ? `<div class="iqai-v2-camera-date__years">${availableDays}</div>` : ''}
+    ${cal ? `<div class="iqai-v2-camera-date__cal">${days}</div>` : ''}
+    ${nearest ? `<p class="iqai-v2-camera-date__nearest">${nearest}</p>` : ''}
+    ${film ? `<div class="iqai-v2-camera-date__film">${film}</div>` : ''}
+  `;
+}
+
 function selectorState(slot, wall) {
   if (wall?.enlargedSlotId === slot.slotId) return 'ENLARGED';
   if (slot.active) return 'ACTIVE';
@@ -154,7 +219,7 @@ function renderPane(slot, index, wall) {
   return `
     <article class="iqai-v2-camera-wall__pane${slot.active ? ' is-active' : ''}${enlarged ? ' is-enlarged' : ''}" data-iqai-camera-wall-pane="${slot.slotId}" data-iqai-camera-wall-slot="${slot.slotId}" data-iqai-camera-wall-selector="${index + 1}" data-iqai-camera-wall-id="${slot.cameraRef || slot.visualViewpointId || ''}"${slot.active ? ' data-iqai-camera-wall-heavy-slot="true"' : ''} title="${ordinal}">
       <header class="iqai-v2-camera-wall__pane-head">
-        <span data-iqai-camera-wall-selector-label>${ordinal}</span>
+        <span data-iqai-camera-wall-selector-label>${String(index + 1).padStart(2, '0')}</span>
         <button type="button" class="iqai-v2-camera-wall__enlarge" data-iqai-camera-wall-enlarge="${slot.slotId}" title="Enlarge ${ordinal}" aria-label="Enlarge ${ordinal}">⛶</button>
       </header>
       <p data-iqai-camera-wall-selector-provider>${compactProvider(slot)}</p>
@@ -162,7 +227,10 @@ function renderPane(slot, index, wall) {
       <p data-iqai-camera-wall-selector-offset>${compactOffset(slot, wall)}</p>
       <span hidden data-iqai-camera-wall-selector-distance>${distanceLabel(item, slot)}</span>
       <span hidden data-iqai-camera-wall-selector-state>${selectorState(slot, wall)}</span>
-      <div class="iqai-v2-camera-wall__heavy-stage" data-iqai-camera-wall-heavy-stage data-iqai-camera-wall-pane-stage="${slot.slotId}"></div>
+      <div class="iqai-v2-camera-date" data-iqai-camera-date="${slot.slotId}"></div>
+      <div class="iqai-v2-camera-wall__heavy-stage" data-iqai-camera-wall-heavy-stage data-iqai-camera-wall-pane-stage="${slot.slotId}">
+        <p class="iqai-v2-camera-wall__viewer-state" data-iqai-viewer-state="LOADING">LOADING CAMERA VIEW</p>
+      </div>
     </article>
   `;
 }
@@ -196,19 +264,25 @@ function paintSlots(el, wall) {
       const distance = pane.querySelector('[data-iqai-camera-wall-selector-distance]');
       if (distance) distance.textContent = distanceLabel(item, slot);
       const label = pane.querySelector('[data-iqai-camera-wall-selector-label]');
-      if (label) label.textContent = slotOrdinal(index, wall);
+      if (label) label.textContent = String(index + 1).padStart(2, '0');
+      paintDateChrome(pane, slot, wall);
     });
     return;
   }
   slots.dataset.iqaiCameraWallSlotIds = ids;
   slots.innerHTML = open && count
     ? (wall.slots || []).map((slot, index) => renderPane(slot, index, wall)).join('')
-    : `<p data-iqai-camera-wall-empty>${emptyWallMessage()}</p>`;
+    : `<div class="iqai-v2-camera-pane-recovery" data-iqai-camera-wall-empty>
+        <p class="iqai-v2-camera-pane-recovery__state">NO CAMERA VIEW ACTIVE</p>
+        <p class="iqai-v2-camera-pane-recovery__hint">${emptyWallMessage()}</p>
+        <button type="button" class="iqai-v2-camera-pane-recovery__back" data-iqai-camera-back-main>← BACK TO MAIN VIEW</button>
+      </div>`;
   (wall.slots || []).forEach((slot) => {
     const pane = slots.querySelector(`[data-iqai-camera-wall-pane="${slot.slotId}"]`);
     if (pane) {
       pane.hidden = false;
       pane.classList.toggle('is-parked', Boolean(wall.enlargedSlotId) && wall.enlargedSlotId !== slot.slotId);
+      paintDateChrome(pane, slot, wall);
     }
   });
 }
@@ -237,7 +311,10 @@ function paintSharedChrome(el, wall) {
   const providers = el.querySelector('[data-iqai-camera-wall-active-providers]');
   const restore = el.querySelector('[data-iqai-camera-wall-restore-tri]');
   const close = el.querySelector('[data-iqai-camera-wall-close]');
-  if (restore) restore.hidden = !wall?.enlargedSlotId;
+  if (restore) {
+    restore.hidden = !wall?.enlargedSlotId;
+    restore.textContent = `RESTORE ${countLayoutLabel(wall)}`;
+  }
   if (close) close.hidden = getCameraOperatorMode() === CAMERA_OPERATOR_MODE.LOOK_AROUND;
   if (footer) {
     footer.textContent = visual
@@ -361,11 +438,13 @@ function paintChrome(el, wall) {
   const open = wall?.open === true;
   el.hidden = !open;
   el.dataset.iqaiCameraWallOpen = open ? 'true' : 'false';
-  el.dataset.iqaiCameraWallLayout = wall?.enlargedSlotId ? 'enlarged' : 'tri-view';
+  el.dataset.iqaiCameraWallLayout = wallLayoutName(wall);
   el.dataset.iqaiCameraWallContained = 'true';
   el.dataset.iqaiCameraWallMode = wall?.mode || 'TRI_VIEW';
   const pane = el.closest('[data-iqai-pane="STREET 360"]');
   if (pane) pane.classList.toggle('has-camera-wall', open);
+  const recovery = pane?.querySelector('[data-iqai-camera-pane-recovery]');
+  if (open && recovery) recovery.hidden = true;
   const kicker = el.querySelector('[data-iqai-camera-wall-kicker]');
   const honesty = el.querySelector('[data-iqai-camera-wall-honesty]');
   const count = wall?.slotCount || 0;
@@ -387,7 +466,13 @@ function countLayoutLabel(wall) {
   const n = Number(wall?.layout || wall?.slotCount || 0);
   if (n <= 1) return '1-UP';
   if (n === 2) return '2-UP';
+  if (n === 4) return '4-UP';
   return '3-UP';
+}
+
+function wallLayoutName(wall) {
+  if (wall?.enlargedSlotId) return 'enlarged';
+  return Number(wall?.layout || wall?.slotCount || 0) >= 4 ? 'quad-view' : 'tri-view';
 }
 
 export function renderCameraWallSurface() {
@@ -396,6 +481,7 @@ export function renderCameraWallSurface() {
       <div class="iqai-v2-camera-wall__head">
         <p class="iqai-v2-camera-wall__kicker" data-iqai-camera-wall-kicker>CAMERA WALL · 0</p>
         <button type="button" data-iqai-camera-wall-restore-tri hidden>RESTORE 3-UP</button>
+        <button type="button" data-iqai-camera-plan-print>PRINT PLAN</button>
         <button type="button" data-iqai-camera-wall-close>CLOSE WALL</button>
       </div>
       <div class="iqai-v2-camera-wall__slots" data-iqai-camera-wall-slots></div>
@@ -453,7 +539,7 @@ export function bindCameraWallSurface(root, options = {}) {
     return {
       wall,
       representations: getSlotRepresentationSnapshot(),
-      layout: wall.enlargedSlotId ? 'enlarged' : 'tri-view',
+      layout: wallLayoutName(wall),
       contained: true,
       pane: pane?.getAttribute('data-iqai-pane') || null,
       selectorCount: el.querySelectorAll('[data-iqai-camera-wall-selector]').length,
@@ -583,12 +669,12 @@ export function bindCameraWallSurface(root, options = {}) {
     el.hidden = true;
     el.dataset.iqaiCameraWallOpen = 'false';
     el.closest('[data-iqai-pane="STREET 360"]')?.classList.remove('has-camera-wall');
+    if (typeof options.exitCameraVisualization === 'function') {
+      try { await options.exitCameraVisualization(); } catch { /* restore best-effort */ }
+    }
     await parkAllWallHeavyViewers();
     resetSlotRepresentations({ emit: false });
     const wall = closeCameraWall();
-    if (typeof options.exitCameraVisualization === 'function') {
-      try { options.exitCameraVisualization(); } catch { /* restore best-effort */ }
-    }
     await paint();
     return wall;
   }
@@ -609,6 +695,33 @@ export function bindCameraWallSurface(root, options = {}) {
       event.preventDefault();
       event.stopPropagation();
       restoreTri();
+      return;
+    }
+    if (event.target.closest('[data-iqai-camera-plan-print]')) {
+      event.preventDefault();
+      event.stopPropagation();
+      printCameraPlan();
+      return;
+    }
+    const dateDay = event.target.closest('[data-iqai-camera-date-day]');
+    if (dateDay && el.contains(dateDay)) {
+      event.preventDefault();
+      event.stopPropagation();
+      selectSlotCaptureDate(dateDay.getAttribute('data-iqai-camera-date-slot'), dateDay.getAttribute('data-iqai-camera-date-day'));
+      void paint();
+      return;
+    }
+    const dateYear = event.target.closest('[data-iqai-camera-date-year]');
+    if (dateYear && el.contains(dateYear)) {
+      event.preventDefault();
+      event.stopPropagation();
+      const year = dateYear.getAttribute('data-iqai-camera-date-year');
+      selectSlotCaptureDate(dateYear.getAttribute('data-iqai-camera-date-slot'), `${year}-06-15`);
+      void paint();
+      return;
+    }
+    if (event.target.closest('[data-iqai-camera-date]')) {
+      event.stopPropagation();
       return;
     }
     const enlarge = event.target.closest('[data-iqai-camera-wall-enlarge]');
@@ -642,6 +755,14 @@ export function bindCameraWallSurface(root, options = {}) {
     const slot = setActiveSlot(slotId);
     if (slot?.slotId && slot.active === true) markGuidedSlotInspected(slot.slotId);
     if (slot?.cameraRef) selectAuthoredCamera(slot.cameraRef);
+    void paint();
+  });
+
+  el.addEventListener('change', (event) => {
+    const input = event.target?.closest?.('[data-iqai-camera-date-input]');
+    if (!input || !el.contains(input)) return;
+    event.stopPropagation();
+    selectSlotCaptureDate(input.getAttribute('data-iqai-camera-date-slot'), input.value);
     void paint();
   });
 

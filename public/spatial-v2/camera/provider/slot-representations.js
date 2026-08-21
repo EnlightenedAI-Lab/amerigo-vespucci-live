@@ -17,6 +17,13 @@ import {
   createProviderRepresentation
 } from './provider-representation.js';
 import { classifyGoogleStreet360, googleStreetViewThumbUrl } from './google-street360-representation.js';
+import {
+  DATE_SEARCH_HONESTY,
+  GOOGLE_DATE_LIMIT,
+  buildCaptureCatalog,
+  captureDay,
+  nearestCapture
+} from './capture-catalog.js';
 
 export const PROVIDER_PREFERENCE = Object.freeze([
   'GOOGLE_STREET360',
@@ -146,6 +153,10 @@ export function getSlotRepresentationSnapshot() {
       mapillary: pack?.mapillary || null,
       mapillaryStatus: pack?.mapillaryStatus || null,
       representation: selected,
+      catalog: pack?.catalog || null,
+      requestedDate: pack?.requestedDate || null,
+      nearestDate: pack?.nearestDate || captureDay(selected?.capturedAt || selected?.capturedAtIso),
+      exactDate: pack?.exactDate !== false,
       cameraCoordinate: pack?.cameraCoordinate || null,
       heavy: Boolean(selected?.providerId)
     });
@@ -210,10 +221,16 @@ function classifyMapillaryLookup(mapillaryResult, cameraCoordinate) {
       });
   }
   const usable = mapillary?.providerId ? mapillary : null;
+  const ranked = Array.isArray(mapillaryResult?.ranked)
+    ? mapillaryResult.ranked.map((item) => (
+      item?.cameraCoordinate ? item : Object.freeze({ ...item, cameraCoordinate, targetCoordinate: cameraCoordinate })
+    ))
+    : (usable ? [usable] : []);
   return {
     mapillary: usable || (mapillaryStatus === PROVIDER_CREDENTIAL_REQUIRED.MAPILLARY ? mapillary : null),
     usableMapillary: usable,
-    mapillaryStatus
+    mapillaryStatus,
+    ranked
   };
 }
 
@@ -230,20 +247,101 @@ function classifyGoogleLookup(googleResult, cameraCoordinate) {
 }
 
 function writeSlotPack(slot, cameraCoordinate, google, mapillaryPack) {
+  const previous = getSlotRepresentation(slot.slotId);
   const selected = chooseDefaultProvider(google, mapillaryPack.usableMapillary, mapillaryPack.mapillaryStatus);
-  const attached = Object.freeze({
+  const catalog = buildCaptureCatalog({
+    mapillaryRanked: mapillaryPack.ranked,
+    mapillary: mapillaryPack.usableMapillary,
+    google
+  });
+  let attached = {
     slotId: slot.slotId,
     cameraRef: slot.cameraRef,
     cameraCoordinate,
     google,
     mapillary: mapillaryPack.mapillary,
     mapillaryStatus: mapillaryPack.mapillaryStatus,
-    selected
-  });
+    ranked: Object.freeze(mapillaryPack.ranked || []),
+    catalog,
+    selected,
+    requestedDate: null,
+    nearestDate: captureDay(
+      (selected === 'GOOGLE_STREET360' ? google : mapillaryPack.usableMapillary)?.capturedAt
+      || (selected === 'GOOGLE_STREET360' ? google : mapillaryPack.usableMapillary)?.capturedAtIso
+    ),
+    exactDate: true
+  };
+  if (previous?.requestedDate && catalog.searchable) {
+    const hit = nearestCapture(catalog, previous.requestedDate);
+    if (hit.ok && (hit.item.source === 'MAPILLARY' || hit.item.provider === VISUAL_PROVIDER.MAPILLARY)) {
+      attached = {
+        ...attached,
+        mapillary: hit.item.representation,
+        selected: 'MAPILLARY',
+        requestedDate: hit.requested,
+        nearestDate: hit.date,
+        exactDate: hit.exact === true
+      };
+    }
+  }
+  attached = Object.freeze(attached);
   bySlotId.set(slot.slotId, attached);
   setSlotRepresentation(slot.slotId, kindForSelection(attached.selected, selectedRepresentation(attached)), { emit: false });
   emit();
   return attached;
+}
+
+export function selectSlotCaptureDate(slotId, requestedDate) {
+  const pack = getSlotRepresentation(slotId);
+  if (!pack) return Object.freeze({ ok: false, reason: 'SLOT_NOT_FOUND', slotId });
+  const catalog = pack.catalog || buildCaptureCatalog({
+    mapillaryRanked: pack.ranked,
+    mapillary: pack.mapillary,
+    google: pack.google
+  });
+  if (!catalog.searchable) {
+    return Object.freeze({
+      ok: false,
+      reason: 'GOOGLE_THIS_CAPTURE_ONLY',
+      slotId,
+      honesty: catalog.googleLimit || GOOGLE_DATE_LIMIT,
+      catalog
+    });
+  }
+  const hit = nearestCapture(catalog, requestedDate);
+  if (!hit.ok) return Object.freeze({ ...hit, slotId, catalog });
+  if (hit.item.source !== 'MAPILLARY' && hit.item.provider !== VISUAL_PROVIDER.MAPILLARY) {
+    return Object.freeze({
+      ok: false,
+      reason: 'GOOGLE_THIS_CAPTURE_ONLY',
+      slotId,
+      date: hit.date,
+      honesty: GOOGLE_DATE_LIMIT,
+      catalog
+    });
+  }
+  const updated = Object.freeze({
+    ...pack,
+    catalog,
+    mapillary: hit.item.representation,
+    selected: 'MAPILLARY',
+    requestedDate: hit.requested,
+    nearestDate: hit.date,
+    exactDate: hit.exact === true
+  });
+  bySlotId.set(String(slotId), updated);
+  setSlotRepresentation(slotId, kindForSelection(updated.selected, selectedRepresentation(updated)));
+  emit();
+  return Object.freeze({
+    ok: true,
+    slotId,
+    exact: hit.exact === true,
+    requested: hit.requested,
+    date: hit.date,
+    label: hit.label,
+    honesty: DATE_SEARCH_HONESTY,
+    catalog
+  });
 }
 
 export async function attachRepresentationsForWall(options = {}) {

@@ -78,18 +78,29 @@ test('V2 map foundation boots a Portal-independent IQAI Map', () => {
   assert.doesNotMatch(foundation, /1c907de6411740a6a8ac463e40955d1a/);
 });
 
-test('V2 MAP surface can switch Esri vector and imagery basemaps without a second MapView', () => {
+test('V2 MAP surface can switch working White/Black/Streets basemaps without a second MapView', () => {
   const foundation = read('map', 'map-foundation.js');
   const picker = read('shell', 'BasemapPicker.js');
   const session = read('bootstrap', 'worldview-map-session.js');
+  const publicBasemap = read('map', 'iqai-public-basemap.js');
   assert.equal((foundation.match(/new MapView\(/g) || []).length, 1);
   assert.match(foundation, /IQAI_SESSION_BASEMAPS/);
   assert.match(foundation, /setSessionEsriBasemap/);
-  assert.match(foundation, /Basemap\.fromId/);
+  assert.match(foundation, /title: 'White'/);
+  assert.match(foundation, /title: 'Black'/);
+  assert.match(foundation, /group: 'basemap'/);
   assert.match(foundation, /esriIds: \['satellite'\]/);
   assert.match(foundation, /esriIds: \['hybrid'\]/);
-  assert.match(foundation, /esriIds: \['topo-vector', 'topo'\]/);
-  assert.match(foundation, /styleId: 'arcgis\/imagery'/);
+  assert.match(publicBasemap, /createIqaiWhiteBasemap/);
+  assert.match(publicBasemap, /createIqaiBlackBasemap/);
+  assert.match(publicBasemap, /ESRI_WORLD_BASEMAP_STYLE_URL/);
+  assert.match(publicBasemap, /World_Basemap_v2\/VectorTileServer/);
+  assert.match(publicBasemap, /if \(layer.type === 'symbol'\) return \[\];/);
+  assert.match(publicBasemap, /land: '#ffffff'/);
+  assert.doesNotMatch(publicBasemap, /sharing\/rest\/content\/items/);
+  assert.doesNotMatch(publicBasemap, /portalItem/);
+  assert.match(picker, /BASEMAPS/);
+  assert.doesNotMatch(picker, /label: 'VECTOR'/);
   assert.match(picker, /setSessionEsriBasemap/);
   assert.match(picker, /setMapSurface/);
   assert.match(session, /bindBasemapPicker/);

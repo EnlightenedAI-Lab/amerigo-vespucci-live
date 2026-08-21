@@ -100,6 +100,8 @@ test('2-5 LOOK AROUND is one map click, auto search, no GENERATE or BUILD WALL r
   assert.match(command, /data-iqai-camera-look-around/);
   assert.match(command, /CHANGE TARGET/);
   assert.match(relevance, /await options\.buildVisualCoverage/);
+  assert.match(relevance, /collapseCameraCommandPanel/);
+  assert.match(relevance, /chooseNewTarget/);
   assert.match(session, /LOOK_AROUND/);
   assert.match(session, /await cameraRelevance\?\.buildVisualCoverage/);
   assert.match(session, /if \(lookAround\)/);
@@ -132,7 +134,7 @@ test('6-9 PLAN CAMERAS, PLACE anywhere, AUTO_PLAN, and 3-UP remain', () => {
   });
   assert.ok(placed?.cameraId);
   assert.equal(listAuthoredCameras().length, 4);
-  assert.equal(TRI_VIEW_HEAVY_BUDGET, 3);
+  assert.equal(TRI_VIEW_HEAVY_BUDGET, 4);
   restore();
 });
 
