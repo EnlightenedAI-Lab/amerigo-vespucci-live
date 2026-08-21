@@ -118,10 +118,15 @@ export function attachWorldviewMapSession(root, chassis, api) {
     }
   });
 
+  let hydrantSelection = null;
+  let hydrantLink = null;
   const google3d = bindGooglePhotorealistic3dControl(root, {
     getSpatialFocus: () => getActiveSpatialFocus(),
     getPeerSelectedPoint: () => getActiveSpatialFocus(),
-    keepMapVisible: true
+    keepMapVisible: true,
+    getSelectedHydrant: () => hydrantSelection?.snapshot?.()?.selectedRecord
+      || hydrantLink?.current?.()
+      || null
   });
   const analyze3d = bindAnalyze3dControl(root, {
     getSpatialFocus: () => getActiveSpatialFocus(),
@@ -140,8 +145,6 @@ export function attachWorldviewMapSession(root, chassis, api) {
   let focusInstrument = null;
   let placeCamera = null;
   let opsSelection = null;
-  let hydrantSelection = null;
-  let hydrantLink = null;
   let solarIntelligence = null;
   const dropPin = bindDropPinControl(root, {
     getActiveView: () => viewSwitcher?.snapshot?.().activeView || 'map',

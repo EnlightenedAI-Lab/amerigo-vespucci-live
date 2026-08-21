@@ -72,9 +72,8 @@ export function bindHydrantLink(options = {}) {
 
   async function followSpecialistPanes(record, { views, fly3d } = {}) {
     const streetOpen = options.street360?.snapshot?.()?.open === true;
-    const visualOpen = options.google3d?.snapshot?.()?.open === true;
-    if (visualOpen || views === 'all') {
-      await followGoogle3d(record, fly3d && views !== 'street');
+    if (views !== 'street') {
+      await followGoogle3d(record, fly3d !== false);
     }
     if (streetOpen || views === 'street' || views === 'all') {
       await followStreet(record);
@@ -104,6 +103,15 @@ export function bindHydrantLink(options = {}) {
     if (!record) {
       lastStreetAim = null;
       last3d = null;
+      if (views === 'linked') {
+        schedule(() => {
+          void followGoogle3d(null, false).catch((error) => {
+            hydrantTrace('apply.google3d.error', { message: String(error?.message || error) });
+          });
+        });
+      } else if (views !== 'street') {
+        await followGoogle3d(null, false);
+      }
       hydrantTrace('apply.end', { cleared: true });
       return { record: null, street: null, visual3d: null };
     }

@@ -35,8 +35,11 @@ import {
   resolveGovernedHydrantHit
 } from '../public/spatial-v2/map/governed-map-overlay.js';
 import {
+  closeGoogleMapsJs3d,
   getGoogleMapsJs3dSnapshot,
+  hydrantInventoryMarkerLabel,
   notifyGoogleMapsJs3dHydrantClick,
+  openGoogleMapsJs3d,
   setGoogleMapsJs3dHydrantMarker
 } from '../public/spatial-v2/map/google-maps-js-3d.js';
 import {
@@ -572,6 +575,194 @@ test('Inspector facts stay source-backed and do not claim pressure or physical v
   assert.equal(facts.facts.find(([label]) => label === 'ID_BI')[1], record.idBi);
   assert.ok(facts.limitations.some((item) => /NOT CONFIRMED/i.test(item)));
   assert.ok(facts.limitations.some((item) => /Pressure, flow/i.test(item)));
+});
+
+test('linked MAP apply pushes ObjectRef to Google 3D even when the pane is closed', async () => {
+  const hit = communeHydrantFeature();
+  const record = rememberHydrantRecord(hit);
+  const seen = [];
+  const link = bindHydrantLink({
+    google3d: {
+      snapshot: () => ({ open: false }),
+      lookAtHydrant: async (next) => {
+        seen.push(next?.idBi || null);
+        return { hydrantMarker: { sourceId: next?.idBi || null, present: false } };
+      }
+    }
+  });
+  const result = await link.apply(record, { views: 'linked' });
+  assert.equal(result.objectRef.id, '5011151');
+  assert.equal(result.deferredPanes, true);
+  await nextTurn();
+  assert.deepEqual(seen, ['5011151']);
+  await link.apply(null, { views: 'linked' });
+  await nextTurn();
+  assert.deepEqual(seen, ['5011151', null]);
+});
+
+test('Google 3D hydrant marker uses the municipal inventory coordinate and ObjectRef', async () => {
+  const hit = communeHydrantFeature();
+  const record = rememberHydrantRecord(hit);
+  const other = rememberHydrantRecord(filterHydrantsWithin(HYDRANTS, COMMUNE_PIN, 80).find((item) => (
+    String(item.sourceId) !== '5011151'
+  )));
+  assert.ok(other?.idBi);
+  const previous = {
+    window: globalThis.window,
+    document: globalThis.document,
+    google: globalThis.google,
+    fetch: globalThis.fetch,
+    customElements: globalThis.customElements
+  };
+  const created = [];
+  class Marker3DInteractiveElement {
+    constructor(opts) {
+      this.position = opts.position;
+      this.label = opts.label;
+      this.listeners = {};
+      this.attrs = {};
+      this.dataset = {};
+      this.removed = false;
+      created.push(this);
+    }
+    setAttribute(name, value) { this.attrs[name] = String(value); }
+    getAttribute(name) { return this.attrs[name] || null; }
+    addEventListener(type, fn) {
+      this.listeners[type] = this.listeners[type] || [];
+      this.listeners[type].push(fn);
+    }
+    replaceChildren() {}
+    remove() { this.removed = true; }
+    click() {
+      for (const fn of this.listeners['gmp-click'] || []) fn();
+    }
+  }
+  class Map3DElement {
+    constructor(opts) {
+      Object.assign(this, opts);
+      this.children = [];
+      this.style = { cssText: '' };
+      this._listeners = {};
+    }
+    addEventListener(type, fn) {
+      this._listeners[type] = this._listeners[type] || [];
+      this._listeners[type].push(fn);
+      if (type === 'gmp-steadychange') queueMicrotask(() => fn({ isSteady: true }));
+    }
+    removeEventListener(type, fn) {
+      this._listeners[type] = (this._listeners[type] || []).filter((item) => item !== fn);
+    }
+    append(child) { this.children.push(child); }
+    querySelector() { return null; }
+    querySelectorAll(sel) {
+      if (sel === '[data-iqai-hydrant-id]') {
+        return this.children.filter((child) => !child.removed && child.getAttribute?.('data-iqai-hydrant-id'));
+      }
+      return [];
+    }
+    stopCameraAnimation() {}
+    remove() {}
+  }
+  globalThis.window = globalThis;
+  if (typeof globalThis.addEventListener !== 'function') {
+    globalThis.addEventListener = () => {};
+    globalThis.removeEventListener = () => {};
+  }
+  globalThis.document = {
+    getElementById() { return null; },
+    createElement() { return { textContent: '' }; },
+    head: { appendChild() {}, append() {} },
+    querySelector() { return null; }
+  };
+  globalThis.customElements = { whenDefined: async () => {} };
+  globalThis.google = {
+    maps: {
+      importLibrary: async (name) => {
+        if (name === 'maps3d') {
+          return {
+            Map3DElement,
+            Marker3DInteractiveElement,
+            Marker3DElement: class {},
+            AltitudeMode: { RELATIVE_TO_MESH: 'RELATIVE_TO_MESH' },
+            MapMode: { SATELLITE: 'SATELLITE', HYBRID: 'HYBRID' },
+            GestureHandling: { GREEDY: 'GREEDY' }
+          };
+        }
+        if (name === 'marker') return { PinElement: class { constructor(opts) { this.opts = opts; } } };
+        return {};
+      }
+    }
+  };
+  globalThis.fetch = async () => ({ json: async () => ({ streetLevelContext: { googleMapsBrowserApiKey: 'test-key' } }) });
+  const container = {
+    hidden: true,
+    innerHTML: '',
+    removeAttribute() {},
+    append(el) { this.child = el; el.parentElement = this; },
+    querySelector() { return null; }
+  };
+  const clicks = [];
+  try {
+    await setGoogleMapsJs3dHydrantMarker(record);
+    const pending = getGoogleMapsJs3dSnapshot().hydrantMarker;
+    assert.equal(pending.sourceId, '5011151');
+    assert.equal(pending.present, false);
+    assert.equal(pending.unavailableReason, 'PANE_CLOSED');
+    assert.equal(pending.longitude, record.longitude);
+    assert.equal(pending.latitude, record.latitude);
+    assert.equal(pending.label, hydrantInventoryMarkerLabel('5011151'));
+    assert.match(pending.label, /VILLE INVENTORY POSITION/);
+    assert.equal(pending.objectRef.id, '5011151');
+
+    await openGoogleMapsJs3d({
+      container,
+      longitude: COMMUNE_PIN.longitude,
+      latitude: COMMUNE_PIN.latitude
+    });
+    let snap = getGoogleMapsJs3dSnapshot().hydrantMarker;
+    assert.equal(snap.present, true);
+    assert.equal(snap.api, 'Marker3DInteractiveElement');
+    assert.equal(snap.clickable, true);
+    assert.equal(snap.sourceId, '5011151');
+    assert.equal(snap.longitude, record.longitude);
+    assert.equal(snap.latitude, record.latitude);
+    assert.equal(created.at(-1).position.lng, record.longitude);
+    assert.equal(created.at(-1).position.lat, record.latitude);
+    assert.equal(created.at(-1).label, hydrantInventoryMarkerLabel('5011151'));
+    assert.equal(snap.count, 1);
+
+    await setGoogleMapsJs3dHydrantMarker(other);
+    snap = getGoogleMapsJs3dSnapshot().hydrantMarker;
+    assert.equal(snap.sourceId, other.idBi);
+    assert.equal(snap.count, 1);
+    assert.equal(created.filter((item) => !item.removed).length, 1);
+
+    bindHydrantLink({
+      selection: {
+        selectById: async (idBi, sourceView) => {
+          clicks.push({ idBi, sourceView });
+          return true;
+        }
+      }
+    });
+    created.find((item) => !item.removed).click();
+    assert.equal(clicks[0].idBi, other.idBi);
+    assert.equal(clicks[0].sourceView, '3D VISUAL');
+
+    await setGoogleMapsJs3dHydrantMarker(null);
+    snap = getGoogleMapsJs3dSnapshot().hydrantMarker;
+    assert.equal(snap.present, false);
+    assert.equal(snap.sourceId, null);
+    assert.equal(snap.count, 0);
+    assert.equal(created.filter((item) => !item.removed).length, 0);
+  } finally {
+    await closeGoogleMapsJs3d();
+    globalThis.window = previous.window;
+    globalThis.document = previous.document;
+    globalThis.google = previous.google;
+    globalThis.fetch = previous.fetch;
+    globalThis.customElements = previous.customElements;
+  }
 });
 
 test('Search/GO geocode is bounded to Greater Montréal', () => {

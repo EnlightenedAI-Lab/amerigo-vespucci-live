@@ -9,6 +9,8 @@
 import {
   isGreaterMontrealLongitudeLatitude
 } from '../../spatial/montreal-operational-config.js';
+import { HYDRANT_INVENTORY_POSITION_LABEL } from './woa/hydrant-object.js';
+import { hydrantTrace } from './woa/hydrant-trace.js';
 
 export const GOOGLE_MAPS_JS_CONFIG = '/api/spatial/config';
 export const GOOGLE_MAPS_JS_3D_MODE = 'SATELLITE';
@@ -494,18 +496,7 @@ export function getGoogleMapsJs3dSnapshot() {
     camera: cameraSnapshot(),
     cameraFocusOffsetMeters: cameraFocusOffsetMeters(),
     markerPresent: Boolean(marker),
-    hydrantMarker: hydrantMarkerRecord
-      ? {
-          present: Boolean(hydrantMarker),
-          api: hydrantMarkerApi,
-          clickable: hydrantMarkerApi === 'Marker3DInteractiveElement',
-          sourceId: hydrantMarkerRecord.sourceId || hydrantMarkerRecord.idBi || null,
-          objectRef: hydrantMarkerRecord.objectRef || null,
-          longitude: hydrantMarkerRecord.longitude,
-          latitude: hydrantMarkerRecord.latitude,
-          positionKind: 'VILLE INVENTORY POSITION'
-        }
-      : null,
+    hydrantMarker: hydrantMarkerSnapshot(),
     steady: lastSteady,
     browserKeyPresent,
     attributionLikely: attribution,
@@ -543,7 +534,6 @@ export async function closeGoogleMapsJs3d() {
   marker = null;
   hydrantMarker = null;
   hydrantMarkerApi = null;
-  hydrantMarkerRecord = null;
   map3d = null;
   selectedPoint = null;
   lastSteady = false;
@@ -668,7 +658,7 @@ export async function openGoogleMapsJs3d(options = {}) {
     map3d?.stopCameraAnimation?.();
   });
   if (hydrantMarkerRecord) {
-    await setGoogleMapsJs3dHydrantMarker(hydrantMarkerRecord);
+    await attachHydrantInventoryMarker(hydrantMarkerRecord);
   }
   return getGoogleMapsJs3dSnapshot();
 }
@@ -794,12 +784,206 @@ export function updateGoogleMapsJs3dFocusMarker(point) {
   return getGoogleMapsJs3dSnapshot();
 }
 
+export function hydrantInventoryMarkerLabel(idBi) {
+  const id = String(idBi || '').trim();
+  return id
+    ? `HYDRANT · ID_BI ${id} · ${HYDRANT_INVENTORY_POSITION_LABEL}`
+    : `HYDRANT · ${HYDRANT_INVENTORY_POSITION_LABEL}`;
+}
+
 function hydrantMarkerPosition(record) {
   return {
     lat: Number(record.latitude),
     lng: Number(record.longitude),
-    altitude: 8
+    altitude: 14
   };
+}
+
+function hydrantMarkerCtor() {
+  if (maps3dLib?.Marker3DInteractiveElement) {
+    return { Ctor: maps3dLib.Marker3DInteractiveElement, api: 'Marker3DInteractiveElement', clickable: true };
+  }
+  if (maps3dLib?.Marker3DElement) {
+    return { Ctor: maps3dLib.Marker3DElement, api: 'Marker3DElement', clickable: false };
+  }
+  return { Ctor: null, api: null, clickable: false };
+}
+
+function hydrantMarkerUnavailableReason(record = hydrantMarkerRecord) {
+  if (!record) return 'NO_SELECTED_HYDRANT';
+  if (!map3d) return 'PANE_CLOSED';
+  if (!maps3dLib) return 'MAPS3D_NOT_LOADED';
+  if (!hydrantMarkerCtor().Ctor) return 'MARKER_API_UNAVAILABLE';
+  if (!hydrantMarker) return 'MARKER_ATTACH_FAILED';
+  return null;
+}
+
+function countHydrantMarkerNodes() {
+  if (!map3d) return hydrantMarker ? 1 : 0;
+  const listed = map3d.querySelectorAll?.('[data-iqai-hydrant-id]');
+  if (listed && typeof listed.length === 'number') {
+    let live = 0;
+    for (const node of listed) {
+      if (node?.removed === true) continue;
+      live += 1;
+    }
+    return live;
+  }
+  const children = map3d.children || [];
+  let count = 0;
+  for (const child of children) {
+    if (child?.removed === true) continue;
+    const id = child?.getAttribute?.('data-iqai-hydrant-id') || child?.dataset?.iqaiHydrantId;
+    if (id) count += 1;
+  }
+  if (count > 0) return count;
+  return hydrantMarker ? 1 : 0;
+}
+
+function hydrantMarkerSnapshot() {
+  if (!hydrantMarkerRecord) {
+    return {
+      present: false,
+      api: hydrantMarkerApi,
+      clickable: false,
+      sourceId: null,
+      objectRef: null,
+      longitude: null,
+      latitude: null,
+      label: null,
+      positionKind: HYDRANT_INVENTORY_POSITION_LABEL,
+      count: countHydrantMarkerNodes(),
+      unavailableReason: map3d ? 'NO_SELECTED_HYDRANT' : 'PANE_CLOSED'
+    };
+  }
+  const idBi = hydrantMarkerRecord.idBi || hydrantMarkerRecord.sourceId || null;
+  const present = Boolean(hydrantMarker);
+  return {
+    present,
+    api: hydrantMarkerApi,
+    clickable: hydrantMarkerApi === 'Marker3DInteractiveElement',
+    sourceId: idBi,
+    objectRef: hydrantMarkerRecord.objectRef || null,
+    longitude: hydrantMarkerRecord.longitude,
+    latitude: hydrantMarkerRecord.latitude,
+    label: hydrantInventoryMarkerLabel(idBi),
+    positionKind: HYDRANT_INVENTORY_POSITION_LABEL,
+    count: countHydrantMarkerNodes(),
+    unavailableReason: present ? null : hydrantMarkerUnavailableReason()
+  };
+}
+
+function rememberHydrantMarkerRecord(record) {
+  if (!record || !Number.isFinite(Number(record.longitude)) || !Number.isFinite(Number(record.latitude))) {
+    hydrantMarkerRecord = null;
+    return null;
+  }
+  hydrantMarkerRecord = {
+    ...record,
+    sourceId: record.sourceId || record.idBi,
+    idBi: record.idBi || record.sourceId
+  };
+  return hydrantMarkerRecord;
+}
+
+function detachHydrantInventoryMarker() {
+  try { hydrantMarker?.remove?.(); } catch { /* previous marker */ }
+  if (map3d?.querySelectorAll) {
+    for (const node of map3d.querySelectorAll('[data-iqai-hydrant-id]')) {
+      try { node.remove?.(); } catch { /* leftover */ }
+    }
+  }
+  hydrantMarker = null;
+  hydrantMarkerApi = null;
+}
+
+function tagHydrantInventoryMarker(node, record) {
+  const idBi = String(record.idBi || record.sourceId || '');
+  const label = hydrantInventoryMarkerLabel(idBi);
+  try { node.setAttribute?.('data-iqai-hydrant-id', idBi); } catch { /* optional */ }
+  try { node.dataset.iqaiHydrantId = idBi; } catch { /* optional */ }
+  try { node.title = label; } catch { /* optional */ }
+  try { node.ariaLabel = label; } catch { /* optional */ }
+}
+
+async function attachHydrantInventoryMarker(record) {
+  const remembered = rememberHydrantMarkerRecord(record);
+  detachHydrantInventoryMarker();
+  if (!remembered) {
+    hydrantTrace('google3d.marker.cleared');
+    return getGoogleMapsJs3dSnapshot();
+  }
+  hydrantTrace('google3d.marker.start', {
+    idBi: remembered.idBi,
+    longitude: remembered.longitude,
+    latitude: remembered.latitude
+  });
+  if (!map3d || !maps3dLib) {
+    hydrantTrace('google3d.marker.pending', { reason: hydrantMarkerUnavailableReason(remembered) });
+    return getGoogleMapsJs3dSnapshot();
+  }
+  if (typeof customElements?.whenDefined === 'function') {
+    await customElements.whenDefined('gmp-marker-3d-interactive').catch(() => {});
+    await customElements.whenDefined('gmp-marker-3d').catch(() => {});
+  }
+  let chosen = hydrantMarkerCtor();
+  if (!chosen.Ctor) {
+    hydrantTrace('google3d.marker.unavailable', { reason: 'MARKER_API_UNAVAILABLE' });
+    return getGoogleMapsJs3dSnapshot();
+  }
+  const label = hydrantInventoryMarkerLabel(remembered.idBi);
+  const options = {
+    position: hydrantMarkerPosition(remembered),
+    altitudeMode: maps3dLib.AltitudeMode?.RELATIVE_TO_MESH || 'RELATIVE_TO_MESH',
+    extruded: true,
+    label
+  };
+  try {
+    hydrantMarker = new chosen.Ctor(options);
+    hydrantMarkerApi = chosen.api;
+  } catch (error) {
+    if (chosen.api === 'Marker3DInteractiveElement' && maps3dLib.Marker3DElement) {
+      hydrantMarker = new maps3dLib.Marker3DElement(options);
+      hydrantMarkerApi = 'Marker3DElement';
+      chosen = { ...chosen, clickable: false };
+      hydrantTrace('google3d.marker.fallback', { message: String(error?.message || error) });
+    } else {
+      hydrantTrace('google3d.marker.unavailable', { reason: String(error?.message || error) });
+      return getGoogleMapsJs3dSnapshot();
+    }
+  }
+  tagHydrantInventoryMarker(hydrantMarker, remembered);
+  try { hydrantMarker.drawsWhenOccluded = true; } catch { /* optional */ }
+  try { hydrantMarker.sizePreserved = true; } catch { /* optional */ }
+  if (typeof map3d.append === 'function') map3d.append(hydrantMarker);
+  try {
+    const markerLib = await window.google?.maps?.importLibrary?.('marker');
+    const PinElement = markerLib?.PinElement;
+    if (PinElement && hydrantMarker) {
+      const pin = new PinElement({
+        background: '#c42a1c',
+        borderColor: '#ffffff',
+        glyphColor: '#ffffff',
+        scale: 1.55,
+        glyph: 'H'
+      });
+      hydrantMarker.replaceChildren(pin);
+    }
+  } catch {
+    // Default 3D pin still marks the inventory position.
+  }
+  if (hydrantMarkerApi === 'Marker3DInteractiveElement' && hydrantMarker?.addEventListener) {
+    hydrantMarker.addEventListener('gmp-click', () => {
+      notifyGoogleMapsJs3dHydrantClick(hydrantMarkerRecord);
+    });
+  }
+  hydrantTrace('google3d.marker.attached', {
+    idBi: remembered.idBi,
+    api: hydrantMarkerApi,
+    present: Boolean(hydrantMarker),
+    count: countHydrantMarkerNodes()
+  });
+  return getGoogleMapsJs3dSnapshot();
 }
 
 export function setGoogleMapsJs3dHydrantClickListener(listener) {
@@ -812,53 +996,16 @@ export function notifyGoogleMapsJs3dHydrantClick(record = hydrantMarkerRecord) {
 }
 
 export async function setGoogleMapsJs3dHydrantMarker(record) {
-  hydrantMarkerRecord = record && Number.isFinite(Number(record.longitude)) && Number.isFinite(Number(record.latitude))
-    ? {
-        ...record,
-        sourceId: record.sourceId || record.idBi,
-        idBi: record.idBi || record.sourceId
-      }
-    : null;
-  try { hydrantMarker?.remove?.(); } catch { /* previous marker */ }
-  hydrantMarker = null;
-  hydrantMarkerApi = null;
-  if (!map3d || !hydrantMarkerRecord || !maps3dLib) return getGoogleMapsJs3dSnapshot();
-  const Interactive = maps3dLib.Marker3DInteractiveElement;
-  const Static = maps3dLib.Marker3DElement;
-  const Ctor = Interactive || Static;
-  if (!Ctor) return getGoogleMapsJs3dSnapshot();
-  hydrantMarkerApi = Interactive ? 'Marker3DInteractiveElement' : 'Marker3DElement';
-  hydrantMarker = new Ctor({
-    position: hydrantMarkerPosition(hydrantMarkerRecord),
-    altitudeMode: maps3dLib.AltitudeMode?.RELATIVE_TO_MESH || 'RELATIVE_TO_MESH',
-    extruded: true,
-    label: `HYDRANT · ID_BI ${hydrantMarkerRecord.idBi} · VILLE INVENTORY POSITION`
-  });
-  try { hydrantMarker.drawsWhenOccluded = true; } catch { /* optional */ }
-  try { hydrantMarker.sizePreserved = true; } catch { /* optional */ }
-  if (typeof map3d.append === 'function') map3d.append(hydrantMarker);
   try {
-    const markerLib = await window.google?.maps?.importLibrary?.('marker');
-    const PinElement = markerLib?.PinElement;
-    if (PinElement && hydrantMarker) {
-      const pin = new PinElement({
-        background: '#c42a1c',
-        borderColor: '#ffffff',
-        glyphColor: '#ffffff',
-        scale: 1.25,
-        glyph: 'H'
-      });
-      hydrantMarker.replaceChildren(pin);
-    }
-  } catch {
-    // Default 3D pin still marks the inventory position.
+    return await attachHydrantInventoryMarker(record);
+  } catch (error) {
+    hydrantTrace('google3d.marker.error', { message: String(error?.message || error) });
+    return {
+      ...getGoogleMapsJs3dSnapshot(),
+      available: false,
+      error: String(error?.message || error)
+    };
   }
-  if (Interactive && hydrantMarker?.addEventListener) {
-    hydrantMarker.addEventListener('gmp-click', () => {
-      notifyGoogleMapsJs3dHydrantClick(hydrantMarkerRecord);
-    });
-  }
-  return getGoogleMapsJs3dSnapshot();
 }
 
 export async function flyGoogleMapsJs3dTowardHydrant(record) {
@@ -870,7 +1017,7 @@ export async function flyGoogleMapsJs3dTowardHydrant(record) {
       lng: Number(record.longitude),
       altitude: Number.isFinite(camera.altitude) ? camera.altitude : 250
     },
-    range: Math.min(Number.isFinite(camera.range) ? camera.range : 420, 520),
+    range: Math.min(Number.isFinite(camera.range) ? camera.range : 280, 320),
     tilt: Number.isFinite(camera.tilt) ? camera.tilt : GOOGLE_MAPS_JS_3D_TILT_DEG,
     heading: Number.isFinite(camera.heading) ? camera.heading : GOOGLE_MAPS_JS_3D_HEADING_DEG
   });

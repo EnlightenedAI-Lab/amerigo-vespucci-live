@@ -267,6 +267,40 @@ export function bindGooglePhotorealistic3dControl(root, options = {}) {
     };
   }
 
+  async function applySelectedHydrant({ fly = true } = {}) {
+    const record = typeof options.getSelectedHydrant === 'function'
+      ? options.getSelectedHydrant()
+      : null;
+    const engine = getGoogleMapsJs3dSnapshot().hydrantMarker;
+    const pending = record || (
+      engine?.sourceId
+      && Number.isFinite(Number(engine.longitude))
+      && Number.isFinite(Number(engine.latitude))
+        ? {
+            idBi: engine.sourceId,
+            sourceId: engine.sourceId,
+            longitude: engine.longitude,
+            latitude: engine.latitude,
+            objectRef: engine.objectRef
+          }
+        : null
+    );
+    if (!pending) return snapshot();
+    try {
+      const snap = await setGoogleMapsJs3dHydrantMarker(pending);
+      if (fly !== false && stageState === STAGE_STATE.OPEN) {
+        await flyGoogleMapsJs3dTowardHydrant(pending).catch(() => {});
+      }
+      return snap;
+    } catch (error) {
+      return {
+        available: false,
+        error: String(error?.message || error),
+        hydrantMarker: getGoogleMapsJs3dSnapshot().hydrantMarker
+      };
+    }
+  }
+
   function detachNavSync() {
     cameraUnsub?.();
     navUnsub?.();
@@ -336,6 +370,7 @@ export function bindGooglePhotorealistic3dControl(root, options = {}) {
       };
       updateGoogleMapsJs3dFocusMarker(selectedPoint);
       void flyGoogleMapsJs3dToSelectedPoint().catch(() => {});
+      await applySelectedHydrant({ fly: false });
       paint();
       return snapshot();
     }
@@ -396,6 +431,7 @@ export function bindGooglePhotorealistic3dControl(root, options = {}) {
       if (token !== transition) return snapshot();
       stageState = STAGE_STATE.OPEN;
       attachNavSync();
+      await applySelectedHydrant({ fly: true });
       paint();
       return snapshot();
     } catch (error) {
@@ -489,12 +525,22 @@ export function bindGooglePhotorealistic3dControl(root, options = {}) {
     resetNorth: resetGoogleMapsJs3dNorth,
     flyToPoint: flyGoogleMapsJs3dToSelectedPoint,
     lookAtHydrant: async (record, options = {}) => {
-      const snap = await setGoogleMapsJs3dHydrantMarker(record);
-      if (stageState === STAGE_STATE.OPEN && options.fly !== false) {
-        await flyGoogleMapsJs3dTowardHydrant(record).catch(() => {});
+      try {
+        const snap = await setGoogleMapsJs3dHydrantMarker(record);
+        const engineOpen = getGoogleMapsJs3dSnapshot().open === true;
+        if (record && engineOpen && options.fly !== false) {
+          await flyGoogleMapsJs3dTowardHydrant(record).catch(() => {});
+        }
+        paint();
+        return snap;
+      } catch (error) {
+        paint();
+        return {
+          available: false,
+          error: String(error?.message || error),
+          hydrantMarker: getGoogleMapsJs3dSnapshot().hydrantMarker
+        };
       }
-      paint();
-      return snap;
     },
     setTop: setGoogleMapsJs3dTopView,
     setOblique: setGoogleMapsJs3dObliqueView,
