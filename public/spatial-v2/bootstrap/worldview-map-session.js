@@ -39,6 +39,7 @@ import { bindPlaceCameraControl } from '../shell/PlaceCameraControl.js';
 import { bindViewCameraControl } from '../shell/ViewCameraControl.js';
 import { bindCameraRelevanceSurface } from '../shell/CameraRelevanceSurface.js';
 import { bindCameraWallSurface } from '../shell/CameraWallSurface.js';
+import { clearGeneratedPlan, generateCameraCoverage } from '../camera/engine/coverage-plan.js';
 import { bindStreet360Control } from '../shell/Street360Control.js';
 import { bindGooglePhotorealistic3dControl } from '../shell/GooglePhotorealistic3dControl.js';
 import { bindAnalyze3dControl } from '../shell/Analyze3dControl.js';
@@ -266,6 +267,20 @@ export function attachWorldviewMapSession(root, chassis, api) {
         || Boolean((world.selection?.objectRefs || []).length);
       if (hasTarget) await cameraRelevance?.query?.(true);
       return cameraWall?.build?.(cameraRelevance?.snapshot?.());
+    },
+    generateCoverage: async () => {
+      const world = chassis.stateStore.getSnapshot();
+      const result = generateCameraCoverage(world.activeFocus);
+      if (!result.ok) return result;
+      await cameraRelevance?.query?.(true);
+      await cameraWall?.build?.(cameraRelevance?.snapshot?.());
+      return result;
+    },
+    clearCoverage: async () => {
+      const result = clearGeneratedPlan();
+      await cameraRelevance?.query?.(true);
+      await cameraWall?.close?.();
+      return result;
     }
   });
   imageryCommand = bindImageryCommandSurface(root, {
@@ -439,6 +454,10 @@ export function attachWorldviewMapSession(root, chassis, api) {
   api.viewCamera = viewCamera;
   api.cameraRelevance = cameraRelevance;
   api.cameraWall = cameraWall;
+  api.cameraCoverage = Object.freeze({
+    generate: () => generateCameraCoverage(chassis.stateStore.getSnapshot().activeFocus),
+    clear: () => clearGeneratedPlan()
+  });
   api.imageryCommand = imageryCommand;
   api.focusInstrument = focusInstrument;
   chassis.setHereContextProvider(() => ({

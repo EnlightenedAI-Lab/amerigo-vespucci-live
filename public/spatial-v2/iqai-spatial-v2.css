@@ -2695,6 +2695,10 @@ body.iqai-v2-body {
   cursor: pointer;
 }
 
+.iqai-v2-camera-relevance__build + .iqai-v2-camera-relevance__build {
+  margin-top: 0.25rem;
+}
+
 .iqai-v2-camera-wall {
   position: absolute;
   left: 0.7rem;

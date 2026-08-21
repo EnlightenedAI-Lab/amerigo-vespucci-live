@@ -13,6 +13,7 @@ import {
 import { PIXEL_DENSITY_UNKNOWN } from '../camera/engine/dori.js';
 import { CAMERA_QUERY_CAPABILITY } from '../camera/engine/relevance-constants.js';
 import { NO_QUALIFIED_PERSISTENT_CAMERA_POPULATION } from '../camera/donor-population.js';
+import { COVERAGE_HONESTY, getLastCoveragePlan } from '../camera/engine/coverage-plan.js';
 
 function primaryObjectRef(world) {
   const refs = world?.selection?.objectRefs || [];
@@ -75,6 +76,13 @@ function paintSurface(el, snapshot) {
   }
   if (rows) rows.innerHTML = renderRows(snapshot);
   if (footer) footer.textContent = 'PLANNED · NOT INSTALLED · LOCAL PERSISTENCE · PLAN GEOMETRY · VISIBILITY NOT TESTED';
+  const status = el.querySelector('[data-iqai-camera-coverage-status]');
+  const plan = getLastCoveragePlan();
+  if (status) {
+    status.textContent = plan?.ok
+      ? `CAMERA COVERAGE PLAN · ${plan.cameraCount} PLANNED · ${relevant} RELEVANT · AUTO-AIMED AT TARGET · ${COVERAGE_HONESTY}`
+      : (el.dataset.iqaiCameraCoverageReason || '2D CANDIDATE PLACEMENT · NOT INSTALLATION SITING · VISIBILITY NOT TESTED');
+  }
   el.hidden = false;
 }
 
@@ -87,6 +95,9 @@ export function renderCameraRelevanceSurface() {
         <p data-iqai-camera-relevance-empty>WAITING FOR FOCUS OR SELECTION</p>
       </div>
       <p class="iqai-v2-camera-relevance__note" data-iqai-camera-relevance-honesty>PLANNED · NOT INSTALLED · LOCAL PERSISTENCE · PLAN GEOMETRY · VISIBILITY NOT TESTED</p>
+      <p class="iqai-v2-camera-relevance__note" data-iqai-camera-coverage-status>2D CANDIDATE PLACEMENT · NOT INSTALLATION SITING · VISIBILITY NOT TESTED</p>
+      <button type="button" class="iqai-v2-camera-relevance__build" data-iqai-camera-coverage-generate>GENERATE CAMERA COVERAGE</button>
+      <button type="button" class="iqai-v2-camera-relevance__build" data-iqai-camera-coverage-clear>CLEAR GENERATED PLAN</button>
       <button type="button" class="iqai-v2-camera-relevance__build" data-iqai-camera-wall-build>BUILD RELEVANT WALL</button>
     </aside>
   `;
@@ -141,6 +152,28 @@ export function bindCameraRelevanceSurface(root, options = {}) {
 
   paintSurface(el, snapshot());
   el.addEventListener('click', (event) => {
+    if (event.target.closest('[data-iqai-camera-coverage-generate]')) {
+      event.preventDefault();
+      void (async () => {
+        const result = await options.generateCoverage?.();
+        if (result?.ok === false) {
+          el.dataset.iqaiCameraCoverageReason = result.reason || 'FOCUSREF_POINT_REQUIRED';
+        } else {
+          el.dataset.iqaiCameraCoverageReason = '';
+        }
+        paintSurface(el, snapshot());
+      })();
+      return;
+    }
+    if (event.target.closest('[data-iqai-camera-coverage-clear]')) {
+      event.preventDefault();
+      void (async () => {
+        await options.clearCoverage?.();
+        el.dataset.iqaiCameraCoverageReason = 'GENERATED PLAN CLEARED';
+        paintSurface(el, snapshot());
+      })();
+      return;
+    }
     if (event.target.closest('[data-iqai-camera-wall-build]')) {
       event.preventDefault();
       void options.buildWall?.();

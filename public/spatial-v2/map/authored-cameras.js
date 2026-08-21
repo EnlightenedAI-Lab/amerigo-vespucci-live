@@ -13,6 +13,17 @@ import {
 } from '../foundation/contracts/index.js';
 
 export const AUTHORED_CAMERA_SOURCE = 'OPERATOR_AUTHORED';
+export const CREATION_MODE = Object.freeze({
+  OPERATOR_AUTHORED: 'OPERATOR_AUTHORED',
+  AUTO_PLAN: 'AUTO_PLAN'
+});
+export const AUTO_PLAN_PROVENANCE = [
+  'Auto-planned 2D candidate placement.',
+  'Planned. Not installed. Not installation siting.',
+  'Not LOS. Visibility not tested.',
+  'Local planned-camera inventory only.',
+  'Not WorldState.cameras.'
+].join(' ');
 export const AUTHORED_CAMERA_PROVENANCE = [
   'Operator-authored camera pose.',
   'Planned. Not installed.',
@@ -166,7 +177,18 @@ function freezeCamera(camera) {
     planned: true,
     installed: false,
     qualification: PLANNING_QUALIFICATION,
-    planningLabel: PLANNING_LABEL,
+    planningLabel: camera.planningLabel || PLANNING_LABEL,
+    creationMode: camera.creationMode === CREATION_MODE.AUTO_PLAN
+      ? CREATION_MODE.AUTO_PLAN
+      : CREATION_MODE.OPERATOR_AUTHORED,
+    planId: camera.planId || null,
+    planVersion: camera.planVersion || null,
+    planningAlgorithm: camera.planningAlgorithm || null,
+    generatedAt: camera.generatedAt || null,
+    pitchQualification: camera.pitchQualification || null,
+    opticalZoomQualification: camera.opticalZoomQualification || null,
+    cameraModelQualification: camera.cameraModelQualification || null,
+    targetFocus: camera.targetFocus ? Object.freeze({ ...camera.targetFocus }) : null,
     persistenceKind: PERSISTENCE_KIND,
     source: pose.source,
     provenance: pose.provenance,
@@ -197,7 +219,16 @@ function serializeCamera(camera) {
     planned: true,
     installed: false,
     qualification: PLANNING_QUALIFICATION,
-    planningLabel: PLANNING_LABEL,
+    planningLabel: camera.planningLabel || PLANNING_LABEL,
+    creationMode: camera.creationMode || CREATION_MODE.OPERATOR_AUTHORED,
+    planId: camera.planId || null,
+    planVersion: camera.planVersion || null,
+    planningAlgorithm: camera.planningAlgorithm || null,
+    generatedAt: camera.generatedAt || null,
+    pitchQualification: camera.pitchQualification || null,
+    opticalZoomQualification: camera.opticalZoomQualification || null,
+    cameraModelQualification: camera.cameraModelQualification || null,
+    targetFocus: camera.targetFocus || null,
     provenance: camera.provenance,
     schemaId: camera.schemaId,
     schemaVersion: camera.schemaVersion,
@@ -342,7 +373,33 @@ function writeCamera(input, { activate = true, persist = true } = {}) {
     resolutionHeight: Object.prototype.hasOwnProperty.call(input, 'resolutionHeight')
       ? input.resolutionHeight
       : (existing?.resolutionHeight ?? null),
-    provenance: AUTHORED_CAMERA_PROVENANCE,
+    creationMode: input.creationMode === CREATION_MODE.AUTO_PLAN
+      ? CREATION_MODE.AUTO_PLAN
+      : (existing?.creationMode || CREATION_MODE.OPERATOR_AUTHORED),
+    planId: Object.prototype.hasOwnProperty.call(input, 'planId') ? input.planId : (existing?.planId ?? null),
+    planVersion: Object.prototype.hasOwnProperty.call(input, 'planVersion') ? input.planVersion : (existing?.planVersion ?? null),
+    planningAlgorithm: Object.prototype.hasOwnProperty.call(input, 'planningAlgorithm')
+      ? input.planningAlgorithm
+      : (existing?.planningAlgorithm ?? null),
+    generatedAt: Object.prototype.hasOwnProperty.call(input, 'generatedAt')
+      ? input.generatedAt
+      : (existing?.generatedAt ?? null),
+    pitchQualification: Object.prototype.hasOwnProperty.call(input, 'pitchQualification')
+      ? input.pitchQualification
+      : (existing?.pitchQualification ?? null),
+    opticalZoomQualification: Object.prototype.hasOwnProperty.call(input, 'opticalZoomQualification')
+      ? input.opticalZoomQualification
+      : (existing?.opticalZoomQualification ?? null),
+    cameraModelQualification: Object.prototype.hasOwnProperty.call(input, 'cameraModelQualification')
+      ? input.cameraModelQualification
+      : (existing?.cameraModelQualification ?? null),
+    targetFocus: Object.prototype.hasOwnProperty.call(input, 'targetFocus')
+      ? input.targetFocus
+      : (existing?.targetFocus ?? null),
+    planningLabel: input.planningLabel || existing?.planningLabel || PLANNING_LABEL,
+    provenance: input.creationMode === CREATION_MODE.AUTO_PLAN || existing?.creationMode === CREATION_MODE.AUTO_PLAN
+      ? (input.provenance || AUTO_PLAN_PROVENANCE)
+      : AUTHORED_CAMERA_PROVENANCE,
     updatedAt: input.updatedAt || new Date().toISOString()
   };
   if (!Number.isFinite(next.longitude) || !Number.isFinite(next.latitude)) {

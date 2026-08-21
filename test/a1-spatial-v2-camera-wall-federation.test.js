@@ -255,5 +255,6 @@ test('19 one MapView remains', () => {
   assert.match(html, /CLOSE WALL/);
   assert.match(html, /CAMERA WALL/);
   assert.match(renderCameraRelevanceSurface(), /BUILD RELEVANT WALL/);
+  assert.match(renderCameraRelevanceSurface(), /GENERATE CAMERA COVERAGE/);
   assert.equal(createViewSlot({ slotId: 'view-slot-x' }).kind, VIEW_SLOT_KIND);
 });
