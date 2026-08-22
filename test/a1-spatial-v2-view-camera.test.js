@@ -44,7 +44,7 @@ test('VIEW CAMERA is a compact active-camera control on production PLACE CAMERA'
   const street = read('shell', 'Street360Control.js');
   const geometric = read('map', 'view-camera-geometric.js');
   const bind = read('map', 'view-camera-bind.js');
-  assert.match(host, />VIEW CAMERA</);
+  assert.match(host, />VIEW</);
   assert.match(host, /data-iqai-view-camera/);
   assert.match(host, />GEOMETRIC</);
   assert.match(host, />STREET360</);

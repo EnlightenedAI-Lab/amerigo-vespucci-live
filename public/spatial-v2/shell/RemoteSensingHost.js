@@ -935,7 +935,11 @@ export function bindRemoteSensingHost(root, options = {}) {
     setOpen,
     isOpen: () => open,
     snapshot: () => ({ open, aoi, aoiSource, product, receiptId: receipt?.receiptId || null }),
-    close: () => setOpen(false)
+    close: () => setOpen(false),
+    clear: async () => {
+      await clearAll();
+      await setOpen(false);
+    }
   });
 }
 

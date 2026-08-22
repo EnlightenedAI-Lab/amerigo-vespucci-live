@@ -29,6 +29,8 @@ test('WorldView shell keeps a permanent map-first anatomy without a dashboard', 
   assert.doesNotMatch(header, /MONTRÉAL/);
   assert.match(header, /placeholder="Address or place"/);
   assert.match(header, />GO</);
+  assert.match(header, />MAIN SCREEN</);
+  assert.match(header, />CLEAR SCREEN</);
   assert.match(header, />BRAIN</);
   assert.match(header, /aria-label="Ask IQAI"/);
   assert.doesNotMatch(header, /SYSTEM STATUS/);

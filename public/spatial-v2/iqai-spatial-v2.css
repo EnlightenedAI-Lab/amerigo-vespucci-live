@@ -1744,7 +1744,7 @@ body.iqai-v2-body {
 }
 
 .iqai-v2-header {
-  z-index: 12;
+  z-index: 40;
   padding: 0 0.7rem 0 0.85rem;
   background: #0b0d10;
   border-bottom: 1px solid var(--iqai-v2-chrome-border);
@@ -6418,6 +6418,8 @@ body.iqai-v2-body {
 }
 
 #iqai-spatial-v2 .iqai-v2-theme-toggle,
+#iqai-spatial-v2 .iqai-v2-main-screen,
+#iqai-spatial-v2 .iqai-v2-clear-screen,
 #iqai-spatial-v2 .iqai-v2-ask-toggle {
   flex-shrink: 0;
   height: 1.85rem;
@@ -7172,6 +7174,18 @@ body.iqai-v2-body,
   background: #000 !important;
   color: #fff !important;
   border: 1px solid #fff !important;
+}
+
+#iqai-spatial-v2 .iqai-v2-main-screen,
+#iqai-spatial-v2 .iqai-v2-clear-screen,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-main-screen,
+#iqai-spatial-v2[data-iqai-theme="dark"] .iqai-v2-clear-screen,
+#iqai-spatial-v2[data-iqai-theme="light"] .iqai-v2-main-screen,
+#iqai-spatial-v2[data-iqai-theme="light"] .iqai-v2-clear-screen {
+  background: #000 !important;
+  color: #fff !important;
+  border: 1px solid rgba(255, 255, 255, 0.35) !important;
+  box-shadow: none !important;
 }
 
 #iqai-spatial-v2 .iqai-v2-header__surfaces button,

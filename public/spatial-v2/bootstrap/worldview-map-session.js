@@ -291,13 +291,16 @@ export function attachWorldviewMapSession(root, chassis, api) {
     },
     backToMainView: async () => {
       try {
+        if (typeof cameraRelevance?.exitCameraMode === 'function') await cameraRelevance.exitCameraMode();
+      } catch {
+        /* still restore workspace */
+      }
+      try {
         if (typeof cameraWall?.close === 'function') await cameraWall.close();
       } catch {
         /* still restore workspace */
       }
-      if (worldViewFrame?.snapshot?.()?.cameraViz === true) {
-        await worldViewFrame.exitCameraVisualization();
-      }
+      await worldViewFrame?.returnToMainScreen?.();
     }
   });
   const viewCamera = bindViewCameraControl(root, {
@@ -325,6 +328,7 @@ export function attachWorldviewMapSession(root, chassis, api) {
   });
   cameraRelevance = bindCameraRelevanceSurface(root, {
     chassis,
+    returnToMainScreen: () => worldViewFrame?.returnToMainScreen?.(),
     buildWall: async () => {
       let snap = cameraRelevance?.snapshot?.();
       if (!Number(snap?.relevantCount) || !Array.isArray(snap?.relevant) || snap.relevant.length === 0) {
@@ -743,6 +747,42 @@ export function attachWorldviewMapSession(root, chassis, api) {
   api.solarIntelligence = {
     snapshot: () => solarIntelligence?.snapshot?.() || null,
     runAction: (name) => solarIntelligence?.runAction?.(name)
+  };
+  api.returnToMainScreen = async () => {
+    dropPin.disarm?.();
+    placeCamera?.disarm?.();
+    try { await cameraRelevance?.exitCameraMode?.(); } catch { /* still go home */ }
+    try { await cameraWall?.close?.(); } catch { /* still go home */ }
+    try { await imageryCommand?.returnToMainMap?.(); } catch { /* still go home */ }
+    try { await worldViewFrame?.returnToMainScreen?.(); } catch { /* still go home */ }
+    chassis.closeAsk?.();
+    chassis.closeTimeDrawer?.();
+    void chassis.executeChassis?.('view.select', { viewId: VIEW_ID.MAP });
+    return Object.freeze({
+      ok: true,
+      surface: 'MAP',
+      layout: worldViewFrame?.snapshot?.()?.layout || 1
+    });
+  };
+  api.clearScreen = async () => {
+    dropPin.disarm?.();
+    placeCamera?.disarm?.();
+    try { await dropPin.clear?.(); } catch { /* still wipe drawings */ }
+    try { await cameraWall?.close?.(); } catch { /* still wipe drawings */ }
+    try { await imageryCommand?.clearMapDrawings?.(); } catch { /* still wipe drawings */ }
+    try {
+      resetVisualCoverageState({ emit: true });
+      visualCoverageOverlay?.paint?.();
+    } catch { /* overlay may be absent */ }
+    try { await worldViewFrame?.returnToMainScreen?.(); } catch { /* still wipe drawings */ }
+    chassis.closeAsk?.();
+    chassis.closeTimeDrawer?.();
+    void chassis.executeChassis?.('view.select', { viewId: VIEW_ID.MAP });
+    return Object.freeze({
+      ok: true,
+      cleared: true,
+      surface: 'MAP'
+    });
   };
 
   return Object.freeze({

@@ -633,6 +633,18 @@ export function bindWorldViewFrame(root, options = {}) {
     return exitCameraVisualization();
   }
 
+  async function returnToMainScreen() {
+    maximized = null;
+    if (cameraViz) {
+      cameraViz = false;
+      cameraVizRestore = null;
+    }
+    await closeAnalyze();
+    await closeStreet();
+    await closeVisual();
+    return applyLayout(1);
+  }
+
   const onClick = (event) => {
     const backMain = event.target.closest('[data-iqai-camera-back-main]');
     if (backMain) {
@@ -737,6 +749,7 @@ export function bindWorldViewFrame(root, options = {}) {
     snapshot,
     enterCameraVisualization,
     exitCameraVisualization,
-    backToMainView
+    backToMainView,
+    returnToMainScreen
   });
 }

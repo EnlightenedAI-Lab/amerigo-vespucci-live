@@ -317,6 +317,30 @@ export function bindImageryCommandSurface(root, options = {}) {
     return snapshot();
   }
 
+  async function returnToMainMap() {
+    await remoteSensing?.close?.();
+    leaveWorldviewImagery();
+    historyHost?.toggleLibrary?.(false);
+    calendarOpen = false;
+    detailsOpen = false;
+    compareOpen = false;
+    if (mode !== IMAGE_SURFACE.MAP) await setMode(IMAGE_SURFACE.MAP);
+    else paintModes();
+    return snapshot();
+  }
+
+  async function clearMapDrawings() {
+    await remoteSensing?.clear?.();
+    leaveWorldviewImagery();
+    historyHost?.toggleLibrary?.(false);
+    calendarOpen = false;
+    detailsOpen = false;
+    compareOpen = false;
+    if (mode !== IMAGE_SURFACE.MAP) await setMode(IMAGE_SURFACE.MAP);
+    else paintModes();
+    return snapshot();
+  }
+
   async function enterHistory() {
     const view = getMapView();
     preserved = readViewpoint(view) || preserved;
@@ -548,6 +572,8 @@ export function bindImageryCommandSurface(root, options = {}) {
     snapshot,
     openWorldviewImagery,
     leaveWorldviewImagery,
+    returnToMainMap,
+    clearMapDrawings,
     overlayHydrantMarks,
     previous: () => historyHost?.step(-1),
     next: () => historyHost?.step(1),

@@ -7,7 +7,9 @@
 
 import { IQAI_SPATIAL_V2_SHELL_VERSION, SHELL_SLOTS } from './layout-registry.js';
 import {
+  bindClearScreenControl,
   bindExperienceControls,
+  bindMainScreenControl,
   bindSearchControl,
   bindSystemStatusControl,
   paintExperienceControl,
@@ -219,6 +221,18 @@ export function mountAppShell(root, host = {}) {
     const live = globalThis.__iqaiSpatialV2?.searchPlace;
     return (live || host.searchPlace)?.(query);
   };
+  bindMainScreenControl(root, {
+    onMainScreen: () => {
+      const live = globalThis.__iqaiSpatialV2?.returnToMainScreen;
+      return (live || host.returnToMainScreen)?.();
+    }
+  });
+  bindClearScreenControl(root, {
+    onClearScreen: () => {
+      const live = globalThis.__iqaiSpatialV2?.clearScreen;
+      return (live || host.clearScreen)?.();
+    }
+  });
   bindSearchControl(root, {
     onSearch: searchPlace
   });

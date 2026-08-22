@@ -51,8 +51,18 @@ test('REMOTE SENSING is a top-level command, not a ground mode and not a layer',
   assert.match(host, />FOLLOW-UP</);
   assert.match(host, />DETAILS</);
   assert.match(header, /data-iqai-remote-sensing-toggle/);
+  assert.match(header, /data-iqai-main-screen/);
+  assert.match(header, />MAIN SCREEN</);
+  assert.match(header, /data-iqai-clear-screen/);
+  assert.match(header, />CLEAR SCREEN</);
   assert.match(command, /bindRemoteSensingHost/);
+  assert.match(command, /returnToMainMap/);
+  assert.match(command, /clearMapDrawings/);
+  assert.match(command, /remoteSensing\?\.close/);
+  assert.match(command, /remoteSensing\?\.clear/);
   assert.match(session, /bindImageryCommandSurface/);
+  assert.match(session, /api\.returnToMainScreen/);
+  assert.match(session, /api\.clearScreen/);
   assert.equal(IMAGE_SURFACE.MAP, 'MAP');
   assert.equal(IMAGE_SURFACE.AERIAL, 'AERIAL');
   assert.equal(IMAGE_SURFACE.HISTORY, 'HISTORY');

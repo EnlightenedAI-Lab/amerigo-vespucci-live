@@ -262,8 +262,9 @@ export function bindDropPinControl(root, options = {}) {
       }));
     }
     const halo = [
-      { size: 22, width: 1.35, color: PIN_INK },
-      { size: 22, width: 0.7, color: PIN_CYAN }
+      { size: 42, width: 1.1, color: PIN_CYAN_SOFT },
+      { size: 26, width: 0.9, color: [244, 240, 234, 0.28] },
+      { size: 16, width: 1.35, color: PIN_CYAN }
     ];
     for (const ring of halo) {
       layer.add(new Graphic({
@@ -282,9 +283,9 @@ export function bindDropPinControl(root, options = {}) {
       symbol: {
         type: 'simple-marker',
         style: 'diamond',
-        color: [140, 245, 255, 0.16],
-        size: 9,
-        outline: { color: PIN_CYAN, width: 1.05 }
+        color: [140, 245, 255, 0.18],
+        size: 13,
+        outline: { color: PIN_CYAN, width: 1.1 }
       }
     }));
     layer.add(new Graphic({
@@ -293,8 +294,8 @@ export function bindDropPinControl(root, options = {}) {
         type: 'simple-marker',
         style: 'cross',
         color: PIN_CREAM,
-        size: 15,
-        outline: { color: PIN_INK, width: 1.15 }
+        size: 12,
+        outline: { color: PIN_INK, width: 1 }
       }
     }));
     layer.add(new Graphic({
@@ -302,9 +303,9 @@ export function bindDropPinControl(root, options = {}) {
       symbol: {
         type: 'simple-marker',
         style: 'circle',
-        color: PIN_CYAN,
-        size: 3.2,
-        outline: { color: PIN_INK, width: 0.9 }
+        color: PIN_CREAM,
+        size: 3.4,
+        outline: { color: PIN_INK, width: 1 }
       }
     }));
     if (pulse) {
@@ -314,8 +315,8 @@ export function bindDropPinControl(root, options = {}) {
           type: 'simple-marker',
           style: 'circle',
           color: [0, 0, 0, 0],
-          size: 30,
-          outline: { color: [140, 245, 255, 0.7], width: 1 }
+          size: 40,
+          outline: { color: [244, 240, 234, 0.55], width: 1 }
         }
       });
       layer.add(pulseGraphic);
@@ -523,6 +524,14 @@ export function bindDropPinControl(root, options = {}) {
     placeFocus,
     placeFromSearch,
     snapshot,
-    paint: paintChrome
+    paint: paintChrome,
+    clear: async () => {
+      disarm();
+      setActiveSpatialFocus(null);
+      const layer = await ensureFocusLayer();
+      layer?.removeAll?.();
+      paintChrome();
+      return snapshot();
+    }
   });
 }
