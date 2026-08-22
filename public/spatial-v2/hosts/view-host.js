@@ -168,7 +168,7 @@ export function renderMapStageHost() {
               <span class="iqai-v2-pane__type">MAP</span>
               <span class="iqai-v2-pane__truth" data-iqai-pane-truth="MAP"></span>
               <span class="iqai-v2-pane__sync" data-iqai-pane-sync="MAP">FOCUS</span>
-              <button type="button" data-iqai-pane-maximize="MAP">MAX</button>
+              <button type="button" data-iqai-pane-maximize="MAP" aria-label="Maximize pane" title="EXPAND">⛶</button>
               <button type="button" data-iqai-pane-restore="MAP" hidden>RESTORE</button>
             </header>
             <div class="iqai-v2-pane__body">
@@ -220,7 +220,7 @@ export function renderMapStageHost() {
               <span class="iqai-v2-pane__type">3D</span>
               <span class="iqai-v2-pane__truth" data-iqai-pane-truth="3D VISUAL"></span>
               <span class="iqai-v2-pane__sync" data-iqai-pane-sync="3D VISUAL">FOCUS</span>
-              <button type="button" data-iqai-pane-maximize="3D VISUAL">MAX</button>
+              <button type="button" data-iqai-pane-maximize="3D VISUAL" aria-label="Maximize pane" title="EXPAND">⛶</button>
               <button type="button" data-iqai-pane-restore="3D VISUAL" hidden>RESTORE</button>
               <button type="button" data-iqai-pane-change="3D VISUAL">CHANGE</button>
               <button type="button" data-iqai-pane-close="3D VISUAL">CLOSE</button>
@@ -245,12 +245,18 @@ export function renderMapStageHost() {
               <span class="iqai-v2-pane__type">STREET 360</span>
               <span class="iqai-v2-pane__truth" data-iqai-pane-truth="STREET 360"></span>
               <span class="iqai-v2-pane__sync" data-iqai-pane-sync="STREET 360">FOCUS</span>
-              <button type="button" data-iqai-pane-maximize="STREET 360">MAX</button>
+              <button type="button" data-iqai-pane-maximize="STREET 360" aria-label="Maximize pane" title="EXPAND">⛶</button>
               <button type="button" data-iqai-pane-restore="STREET 360" hidden>RESTORE</button>
               <button type="button" data-iqai-pane-change="STREET 360">CHANGE</button>
               <button type="button" data-iqai-pane-close="STREET 360">CLOSE</button>
             </header>
-            <div class="iqai-v2-pane__body">
+            <div class="iqai-v2-pane__body" data-iqai-camera-pane-host>
+              <div class="iqai-v2-camera-pane-recovery" data-iqai-camera-pane-recovery hidden>
+                <p class="iqai-v2-camera-pane-recovery__kicker">CAMERA MODE READY</p>
+                <p class="iqai-v2-camera-pane-recovery__state" data-iqai-camera-pane-state>NO CAMERA VIEW ACTIVE</p>
+                <p class="iqai-v2-camera-pane-recovery__hint">RETURN TO MAIN VIEW — this pane has no camera view.</p>
+                <button type="button" class="iqai-v2-camera-pane-recovery__back" data-iqai-camera-back-main>← BACK TO MAIN VIEW</button>
+              </div>
               <div class="iqai-v2-street-360-stage" data-iqai-street-360-stage data-iqai-view-anchor="STREET 360" hidden></div>
             </div>
           </section>
@@ -259,7 +265,7 @@ export function renderMapStageHost() {
               <span class="iqai-v2-pane__type">IMAGERY</span>
               <span class="iqai-v2-pane__truth" data-iqai-pane-truth="IMAGERY">NEARMAP / LIBRARY</span>
               <span class="iqai-v2-pane__sync" data-iqai-pane-sync="IMAGERY">FOCUS</span>
-              <button type="button" data-iqai-pane-maximize="IMAGERY">MAX</button>
+              <button type="button" data-iqai-pane-maximize="IMAGERY" aria-label="Maximize pane" title="EXPAND">⛶</button>
               <button type="button" data-iqai-pane-restore="IMAGERY" hidden>RESTORE</button>
               <button type="button" data-iqai-pane-close="IMAGERY">CLOSE</button>
             </header>
@@ -312,56 +318,62 @@ export function renderMapStageHost() {
           <div class="iqai-v2-map-nav" data-iqai-map-nav></div>
           <div class="iqai-v2-map-observe">
             <button type="button" class="iqai-v2-focus-tool" data-iqai-drop-pin aria-pressed="false" title="Arm Focus">FOCUS</button>
-            <button type="button" class="iqai-v2-observe-tool" data-iqai-place-camera aria-pressed="false" title="Place an authored camera pose">CAMERA</button>
+            <button type="button" class="iqai-v2-observe-tool" data-iqai-camera-manual aria-pressed="false" title="Show expert manual camera placement">MANUAL</button>
+            <button type="button" class="iqai-v2-observe-tool" data-iqai-place-camera aria-pressed="false" hidden title="Place an authored camera pose">PLACE CAMERA</button>
             <button type="button" class="iqai-v2-observe-tool" data-iqai-view-camera aria-pressed="false" hidden title="View camera">VIEW</button>
             <button type="button" class="iqai-v2-trace-tool" data-iqai-clear-trace title="Clear Street 360 drive trace">TRACE</button>
             <div class="iqai-v2-basemap-picker" data-iqai-basemap-picker>
-              <button type="button" class="iqai-v2-observe-tool" data-iqai-basemap-toggle aria-expanded="false" title="Esri basemap for the main map">BASEMAP</button>
+              <button type="button" class="iqai-v2-observe-tool" data-iqai-basemap-toggle aria-expanded="false" title="MAP basemaps">BASEMAP</button>
               <div class="iqai-v2-basemap-picker__menu" data-iqai-basemap-menu hidden></div>
             </div>
           </div>
         </div>
         <aside id="solar-hud" class="solar-hud" data-iqai-solar-hud hidden aria-label="Solar Intelligence"></aside>
         <aside class="iqai-v2-place-camera-editor" data-iqai-place-camera-editor hidden>
-          <p class="iqai-v2-place-camera-editor__kicker">PLACE CAMERA</p>
+          <p class="iqai-v2-place-camera-editor__kicker">PLACE CAMERA · EXPERT</p>
           <p data-iqai-place-camera-id></p>
-          <p data-iqai-place-camera-ll></p>
-          <p data-iqai-place-camera-z>Z UNKNOWN</p>
-          <label>HEADING
-            <input data-iqai-place-camera-heading type="number" min="0" max="359" step="1" aria-label="Camera heading">
-          </label>
-          <label>PITCH
-            <input data-iqai-place-camera-pitch type="number" min="-90" max="90" step="1" aria-label="Camera pitch">
-          </label>
-          <label>HEIGHT AGL
-            <input data-iqai-place-camera-height type="number" min="0.5" max="200" step="0.5" aria-label="Height above ground">
-          </label>
-          <label>HFOV
-            <input data-iqai-place-camera-fov type="number" min="10" max="120" step="1" aria-label="Horizontal field of view">
-          </label>
-          <button type="button" data-iqai-place-camera-delete>DELETE CAMERA</button>
-          <div class="iqai-v2-view-camera-panel" data-iqai-view-camera-panel hidden>
-            <div class="iqai-v2-view-camera-modes">
-              <button type="button" data-iqai-view-camera-mode="geometric" aria-pressed="true">GEOMETRIC</button>
-              <button type="button" data-iqai-view-camera-mode="street360" aria-pressed="false">STREET360</button>
+          <p data-iqai-place-camera-summary></p>
+          <p data-iqai-place-camera-plan>PLANNED · NOT INSTALLED</p>
+          <button type="button" data-iqai-place-camera-edit>EDIT</button>
+          <div data-iqai-place-camera-fields hidden>
+            <p data-iqai-place-camera-ll></p>
+            <p data-iqai-place-camera-z>Z UNKNOWN</p>
+            <label>HEADING
+              <input data-iqai-place-camera-heading type="number" min="0" max="359" step="1" aria-label="Camera heading">
+            </label>
+            <label>PITCH
+              <input data-iqai-place-camera-pitch type="number" min="-90" max="90" step="1" aria-label="Camera pitch">
+            </label>
+            <label>HEIGHT AGL
+              <input data-iqai-place-camera-height type="number" min="0.5" max="200" step="0.5" aria-label="Height above ground">
+            </label>
+            <label>HFOV
+              <input data-iqai-place-camera-fov type="number" min="10" max="120" step="1" aria-label="Horizontal field of view">
+            </label>
+            <button type="button" data-iqai-place-camera-delete>DELETE CAMERA</button>
+            <div class="iqai-v2-view-camera-panel" data-iqai-view-camera-panel hidden>
+              <div class="iqai-v2-view-camera-modes">
+                <button type="button" data-iqai-view-camera-mode="geometric" aria-pressed="true">GEOMETRIC</button>
+                <button type="button" data-iqai-view-camera-mode="street360" aria-pressed="false">STREET360</button>
+              </div>
+              <canvas class="iqai-v2-view-camera-geometric" data-iqai-view-camera-geometric width="240" height="140" aria-label="Geometric camera view"></canvas>
+              <div class="iqai-v2-view-camera-truth" data-iqai-view-camera-truth hidden>
+                <p data-iqai-view-camera-status>UNAVAILABLE</p>
+                <p>CAMERA LOCATION</p>
+                <p data-iqai-view-camera-authored>—</p>
+                <p>STREET360 CAPTURE LOCATION</p>
+                <p data-iqai-view-camera-capture>—</p>
+                <p>CAPTURE OFFSET</p>
+                <p data-iqai-view-camera-offset>—</p>
+                <p>CAMERA HFOV: <span data-iqai-view-camera-hfov>—</span></p>
+                <p>HDG <span data-iqai-view-camera-heading>—</span>  PITCH <span data-iqai-view-camera-pitch>—</span></p>
+                <p>STREET360 PROVIDER POV</p>
+                <p>NOT OPTICALLY MATCHED</p>
+                <p>STREET360 CAPTURE HEIGHT IS PROVIDER-DEFINED</p>
+              </div>
             </div>
-            <canvas class="iqai-v2-view-camera-geometric" data-iqai-view-camera-geometric width="240" height="140" aria-label="Geometric camera view"></canvas>
-            <div class="iqai-v2-view-camera-truth" data-iqai-view-camera-truth hidden>
-              <p data-iqai-view-camera-status>UNAVAILABLE</p>
-              <p>CAMERA LOCATION</p>
-              <p data-iqai-view-camera-authored>—</p>
-              <p>STREET360 CAPTURE LOCATION</p>
-              <p data-iqai-view-camera-capture>—</p>
-              <p>CAPTURE OFFSET</p>
-              <p data-iqai-view-camera-offset>—</p>
-              <p>CAMERA HFOV: <span data-iqai-view-camera-hfov>—</span></p>
-              <p>HDG <span data-iqai-view-camera-heading>—</span>  PITCH <span data-iqai-view-camera-pitch>—</span></p>
-              <p>STREET360 PROVIDER POV</p>
-              <p>NOT OPTICALLY MATCHED</p>
-              <p>STREET360 CAPTURE HEIGHT IS PROVIDER-DEFINED</p>
-            </div>
+            <p class="iqai-v2-place-camera-editor__note">Planned local persistence. Not installed. Orientation / FOV direction. Not LOS. Not WorldState.cameras.</p>
           </div>
-          <p class="iqai-v2-place-camera-editor__note">Orientation / FOV direction. Not LOS. Not WorldState.cameras.</p>
         </aside>
         <div class="iqai-v2-imagery-command" data-iqai-imagery-command>
           <div class="iqai-v2-imagery-command__modes iqai-v2-imagery-command__modes--stage" role="radiogroup" aria-label="Imagery surface">
@@ -467,11 +479,17 @@ export function renderMapStageHost() {
           <button type="button" data-iqai-view="3D VISUAL" aria-pressed="false">3D</button>
           <button type="button" data-iqai-view="3D ANALYZE" aria-pressed="false">3D ANALYZE</button>
         </div>
-        <div class="iqai-v2-layout-switcher" data-iqai-layout-switcher aria-label="WorldView layout">
-          <button type="button" data-iqai-layout="1" aria-pressed="true">1</button>
-          <button type="button" data-iqai-layout="2" aria-pressed="false">2</button>
-          <button type="button" data-iqai-layout="3" aria-pressed="false">3</button>
-          <button type="button" data-iqai-layout="4" aria-pressed="false">4</button>
+        <div class="iqai-v2-workspace-chrome" data-iqai-workspace-chrome>
+          <div class="iqai-v2-camera-mode-bar" data-iqai-camera-mode-bar hidden>
+            <p class="iqai-v2-camera-mode-bar__indicator" data-iqai-camera-mode-indicator>CAMERA MODE</p>
+            <button type="button" class="iqai-v2-camera-mode-bar__back" data-iqai-camera-back-main title="Exit Camera Mode and restore the previous workspace">← BACK TO MAIN VIEW</button>
+          </div>
+          <div class="iqai-v2-layout-switcher" data-iqai-layout-switcher aria-label="WorldView layout">
+            <button type="button" data-iqai-layout="1" aria-pressed="true">1</button>
+            <button type="button" data-iqai-layout="2" aria-pressed="false">2</button>
+            <button type="button" data-iqai-layout="3" aria-pressed="false">3</button>
+            <button type="button" data-iqai-layout="4" aria-pressed="false">4</button>
+          </div>
         </div>
         <p class="iqai-v2-visually-hidden">DROP PIN SECOND VIEW STREET 360 3D VISUAL 3D ANALYZE UNMIGRATED NOT MIGRATED DUAL MAP</p>
         <span data-iqai-street-360-date hidden></span>

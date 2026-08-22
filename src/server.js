@@ -32,6 +32,7 @@ import { registerImageryV2Routes } from './spatial-v2/imagery-routes.js';
 import { registerTemporalCatalogProxy } from './spatial-v2/temporal-catalog-proxy.js';
 import { registerEarthObservationBridge } from './spatial-v2/earth-observation-bridge.js';
 import { registerOperationalLayerRoutes } from './spatial-v2/ops-layers/routes.js';
+import { registerCameraProviderRoutes } from './spatial-v2/camera-provider-routes.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
@@ -490,6 +491,7 @@ export function createServer(state, config, arcgis, options = {}) {
   registerTemporalCatalogProxy(app);
   registerEarthObservationBridge(app);
   registerOperationalLayerRoutes(app);
+  registerCameraProviderRoutes(app);
 
   app.get('/api/spatial/stm/live-buses', async (_req, res) => {
     res.set('Cache-Control', 'no-store');

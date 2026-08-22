@@ -55,7 +55,7 @@ test('PLACE CAMERA is a MAP operator control and does not create a second MapVie
   assert.equal((foundation.match(/new MapView\(/g) || []).length, 1);
   assert.doesNotMatch(overlay, /new MapView\(/);
   assert.doesNotMatch(overlay, /new GraphicsLayer\(/);
-  assert.match(overlay, /FOV DIRECTION — NOT LOS/);
+  assert.match(overlay, /PLANNED FOV · NOT LOS/);
   assert.doesNotMatch(overlay, /new SceneView\(/);
   assert.doesNotMatch(overlay, /hitTest\(|Viewshed|LineOfSight/);
   assert.match(overlay, /not Building_Montreal/);

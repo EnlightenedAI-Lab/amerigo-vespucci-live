@@ -79,11 +79,12 @@ function suppressArcgisAmdDetection() {
 
 function installMapsJsBootstrap(apiKey) {
   if (window.google?.maps?.importLibrary) return;
-  if (document.getElementById(BOOTSTRAP_SCRIPT_ID)) return;
+  if (window.__IQAI_GOOGLE_MAPS_JS_BOOTSTRAP__ || document.getElementById(BOOTSTRAP_SCRIPT_ID)) return;
+  window.__IQAI_GOOGLE_MAPS_JS_BOOTSTRAP__ = true;
   const script = document.createElement('script');
   script.id = BOOTSTRAP_SCRIPT_ID;
   script.textContent = `
-    (g=>{var h,a,k,p="The Google Maps JavaScript API",c="google",l="importLibrary",q="__ib__",m=document,b=window;b=b[c]||(b[c]={});var d=b.maps||(b.maps={}),r=new Set,e=new URLSearchParams,u=()=>h||(h=new Promise(async(f,n)=>{await (a=m.createElement("script"));e.set("libraries",[...r]+"");for(k in g)e.set(k.replace(/[A-Z]/g,t=>"_"+t[0].toLowerCase()),g[k]);e.set("callback",c+".maps."+q);a.src=\`https://maps.\${c}apis.com/maps/api/js?\`+e;d[q]=f;a.onerror=()=>h=n(Error(p+" could not load."));a.nonce=m.querySelector("script[nonce]")?.nonce||"";m.head.append(a)}));d[l]?console.warn(p+" only loads once. Ignoring:",g):d[l]=(f,...n)=>r.add(f)&&u().then(()=>d[l](f,...n))})({
+    (g=>{var h,a,k,p="The Google Maps JavaScript API",c="google",l="importLibrary",q="__ib__",m=document,b=window;b=b[c]||(b[c]={});var d=b.maps||(b.maps={}),r=new Set,e=new URLSearchParams,u=()=>h||(h=new Promise(async(f,n)=>{await (a=m.createElement("script"));e.set("libraries",[...r]+"");for(k in g)e.set(k.replace(/[A-Z]/g,t=>"_"+t[0].toLowerCase()),g[k]);e.set("callback",c+".maps."+q);a.referrerPolicy="origin";a.src=\`https://maps.\${c}apis.com/maps/api/js?\`+e;d[q]=f;a.onerror=()=>h=n(Error(p+" could not load."));a.nonce=m.querySelector("script[nonce]")?.nonce||"";m.head.append(a)}));d[l]?console.warn(p+" only loads once. Ignoring:",g):d[l]=(f,...n)=>r.add(f)&&u().then(()=>d[l](f,...n))})({
       key: ${JSON.stringify(apiKey)},
       v: "weekly"
     });
@@ -393,6 +394,58 @@ export function getGoogleStreetViewSnapshot() {
 
 export function getStreetNearbySearchCount() {
   return nearbyPanoSearchCount;
+}
+
+export async function lookupGoogleStreetViewNear(input = {}) {
+  const longitude = Number(input.longitude);
+  const latitude = Number(input.latitude);
+  const radiusMeters = Number(input.radiusMeters) > 0
+    ? Number(input.radiusMeters)
+    : STREET_360_SEARCH_RADIUS_METERS;
+  if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) {
+    return Object.freeze({
+      available: false,
+      status: 'INVALID_LOCATION',
+      panoId: null,
+      captureCoordinate: null,
+      cameraCoordinate: null,
+      offsetMeters: null,
+      imageDate: null,
+      heading: null,
+      searchRadiusMeters: radiusMeters,
+      mutatesCameraPose: false
+    });
+  }
+  const google = await ensureStreetViewLibrary();
+  const queried = await queryPanorama(google, {
+    location: { lat: latitude, lng: longitude },
+    radius: radiusMeters,
+    source: outdoorSource(google)
+  });
+  const captureCoordinate = panoramaLocationOf(queried.result);
+  const panoId = queried.result?.location?.pano || queried.result?.location?.panoId || null;
+  const ok = String(queried.status || '') === 'OK' || String(queried.status || '').endsWith('OK');
+  const offsetMeters = captureCoordinate
+    ? offsetMetersBetween({ longitude, latitude }, captureCoordinate)
+    : null;
+  const available = Boolean(ok && panoId && captureCoordinate
+    && (!Number.isFinite(offsetMeters) || offsetMeters <= radiusMeters));
+  const originHeading = Number(queried.result?.tiles?.originHeading);
+  const heading = Number.isFinite(originHeading)
+    ? originHeading
+    : (captureCoordinate ? sphericalHeadingDegrees(captureCoordinate, { longitude, latitude }) : null);
+  return Object.freeze({
+    available,
+    status: available ? 'OK' : String(queried.status || 'ZERO_RESULTS'),
+    panoId: available ? String(panoId) : null,
+    captureCoordinate: available ? Object.freeze({ ...captureCoordinate }) : null,
+    cameraCoordinate: Object.freeze({ longitude, latitude }),
+    offsetMeters: Number.isFinite(offsetMeters) ? offsetMeters : null,
+    imageDate: queried.result?.imageDate || null,
+    heading: Number.isFinite(Number(heading)) ? Number(heading) : null,
+    searchRadiusMeters: radiusMeters,
+    mutatesCameraPose: false
+  });
 }
 
 async function ensureStreetViewLibrary({ holdAmd = false } = {}) {

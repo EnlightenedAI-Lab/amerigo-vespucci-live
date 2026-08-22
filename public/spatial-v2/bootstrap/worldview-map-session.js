@@ -3,7 +3,7 @@
  * Does not rewrite map-foundation.js. Does not create a second MapView.
  */
 
-import { VIEW_ID, failClosed } from '../foundation/contracts/index.js';
+import { VIEW_ID, failClosed, createDropPinFocusRef } from '../foundation/contracts/index.js';
 import {
   getMapFoundationController,
   getMapViewCreateCount,
@@ -37,6 +37,24 @@ import { applyMapFoundationToStage } from '../shell/MapStage.js';
 import { bindDropPinControl } from '../shell/DropPinControl.js';
 import { bindPlaceCameraControl } from '../shell/PlaceCameraControl.js';
 import { bindViewCameraControl } from '../shell/ViewCameraControl.js';
+import { bindCameraRelevanceSurface } from '../shell/CameraRelevanceSurface.js';
+import { bindCameraWallSurface } from '../shell/CameraWallSurface.js';
+import { bindGuidedNextSurface } from '../shell/GuidedNextSurface.js';
+import { clearAllCameras, clearGeneratedPlan, generateCameraCoverage, rememberedCoverageFocusRef } from '../camera/engine/coverage-plan.js';
+import { printCameraPlan } from '../camera/engine/plan-print.js';
+import {
+  TARGET_GEOMETRY,
+  addCoveragePolygonVertex,
+  clearCoveragePolygon,
+  closeCoveragePolygon,
+  getCoverageIntentSnapshot,
+  setCoverageOrientation,
+  setCoveragePattern,
+  setCoveragePolygon
+} from '../camera/engine/coverage-intent.js';
+import { getLastVisualCoverage, isVisualCoverageSearching, resetVisualCoverageState, searchVisualCoverage } from '../camera/engine/visual-coverage.js';
+import { CAMERA_OPERATOR_MODE, getCameraOperatorMode, setCameraOperatorMode } from '../camera/operator-mode.js';
+import { bindVisualCoverageOverlay } from '../map/visual-coverage-overlay.js';
 import { bindStreet360Control } from '../shell/Street360Control.js';
 import { bindGooglePhotorealistic3dControl } from '../shell/GooglePhotorealistic3dControl.js';
 import { bindAnalyze3dControl } from '../shell/Analyze3dControl.js';
@@ -147,8 +165,11 @@ export function attachWorldviewMapSession(root, chassis, api) {
   let imageryCommand = null;
   let focusInstrument = null;
   let placeCamera = null;
+  let visualCoverageOverlay = bindVisualCoverageOverlay();
+  let coveragePolygonHandle = null;
   let opsSelection = null;
   let solarIntelligence = null;
+  let cameraRelevance = null;
   const dropPin = bindDropPinControl(root, {
     getActiveView: () => viewSwitcher?.snapshot?.().activeView || 'map',
     returnToMap: () => worldViewFrame?.setLayout(1) || viewSwitcher?.setView('MAP'),
@@ -156,23 +177,35 @@ export function attachWorldviewMapSession(root, chassis, api) {
     isPlaceCameraArmed: () => placeCamera?.snapshot()?.armed === true,
     disarmPlaceCamera: () => placeCamera?.disarm?.(),
     resolveProperty: (longitude, latitude) => focusInstrument?.propertyAt?.(latitude, longitude),
-    onPlaced: (focus) => {
+    onPlaced: async (focus) => {
       if (!focus) return;
+      const mode = getCameraOperatorMode();
+      const lookAround = mode === CAMERA_OPERATOR_MODE.LOOK_AROUND;
+      const planCameras = mode === CAMERA_OPERATOR_MODE.PLAN_CAMERAS;
       seedWorldviewNavigationFromFocus(focus);
       street360.selectPoint(focus.longitude, focus.latitude, 'drop-pin');
       google3d.selectPoint(focus.longitude, focus.latitude, 'drop-pin');
       analyze3d.selectPoint(focus.longitude, focus.latitude, 'drop-pin');
       viewSwitcher?.onMapPointSelected(focus);
       void worldViewFrame?.followFocus?.();
-      if (root.dataset.iqaiImageSurface !== 'HISTORY') {
+      if (!lookAround && !planCameras && root.dataset.iqaiImageSurface !== 'HISTORY' && root.dataset.iqaiOpen3dOnPin === 'true') {
         void worldViewFrame?.openSupporting?.('3D VISUAL');
       }
-      void chassis.executeChassis('focus.set', {
+      await chassis.executeChassis('focus.set', {
         longitude: focus.longitude,
         latitude: focus.latitude,
         address: focus.resolvedAddress || null,
         sourceView: VIEW_ID.MAP
       });
+      if (lookAround) {
+        dropPin.disarm?.();
+        await cameraRelevance?.buildVisualCoverage?.();
+        return;
+      }
+      if (planCameras && getCoverageIntentSnapshot().pattern !== TARGET_GEOMETRY.PERIMETER) {
+        dropPin.disarm?.();
+        await cameraRelevance?.generateCoverage?.();
+      }
     }
   });
 
@@ -227,7 +260,9 @@ export function attachWorldviewMapSession(root, chassis, api) {
     analyze3d,
     exclusive: false,
     armDropPin: () => dropPin.arm(),
+    isCameraMode: () => worldViewFrame?.snapshot?.()?.cameraViz === true,
     onRequestView: (viewId) => {
+      if (worldViewFrame?.snapshot?.()?.cameraViz === true) return;
       if (root.dataset.iqaiImageSurface === 'HISTORY') return;
       ensureWorldviewMapAdapter();
       return worldViewFrame?.openSupporting(viewId);
@@ -237,6 +272,7 @@ export function attachWorldviewMapSession(root, chassis, api) {
     }
   });
 
+  let cameraWall = null;
   worldViewFrame = bindWorldViewFrame(root, {
     google3d,
     street360,
@@ -249,12 +285,115 @@ export function attachWorldviewMapSession(root, chassis, api) {
     leaveImagery: () => imageryCommand?.leaveWorldviewImagery?.(),
     onPrimaryMap: () => {
       void chassis.executeChassis('view.select', { viewId: VIEW_ID.MAP });
+    },
+    onWorkspacePaint: () => {
+      void cameraWall?.paint?.();
+    },
+    backToMainView: async () => {
+      try {
+        if (typeof cameraRelevance?.exitCameraMode === 'function') await cameraRelevance.exitCameraMode();
+      } catch {
+        /* still restore workspace */
+      }
+      try {
+        if (typeof cameraWall?.close === 'function') await cameraWall.close();
+      } catch {
+        /* still restore workspace */
+      }
+      await worldViewFrame?.returnToMainScreen?.();
     }
   });
   const viewCamera = bindViewCameraControl(root, {
     street360,
     worldViewFrame
   });
+  cameraWall = bindCameraWallSurface(root, {
+    chassis,
+    enterCameraVisualization: () => worldViewFrame?.enterCameraVisualization?.(),
+    exitCameraVisualization: () => worldViewFrame?.exitCameraVisualization?.(),
+    ensureCameraPane: () => {
+      const snap = worldViewFrame?.snapshot?.() || {};
+      if (snap.cameraViz === true) return snap;
+      if (Number(snap.layout) >= 3) {
+        void worldViewFrame.openSupporting('STREET 360');
+        return worldViewFrame.snapshot?.();
+      }
+      if (Number(snap.layout) === 2 && snap.pairView === '3D VISUAL') {
+        void worldViewFrame.setLayout(3);
+        return worldViewFrame.snapshot?.();
+      }
+      void worldViewFrame.openSupporting('STREET 360');
+      return worldViewFrame.snapshot?.();
+    }
+  });
+  cameraRelevance = bindCameraRelevanceSurface(root, {
+    chassis,
+    returnToMainScreen: () => worldViewFrame?.returnToMainScreen?.(),
+    buildWall: async () => {
+      let snap = cameraRelevance?.snapshot?.();
+      if (!Number(snap?.relevantCount) || !Array.isArray(snap?.relevant) || snap.relevant.length === 0) {
+        snap = await cameraRelevance?.query?.(true);
+      }
+      const relevant = Array.isArray(snap?.relevant)
+        ? snap.relevant.map((item) => ({ ...item }))
+        : [];
+      if (!relevant.length) return snap;
+      return cameraWall?.build?.({
+        ...snap,
+        relevantCount: relevant.length,
+        relevant
+      });
+    },
+    closeWall: () => cameraWall?.close?.(),
+    generateCoverage: async () => {
+      const world = chassis.stateStore.getSnapshot();
+      const result = generateCameraCoverage(world.activeFocus, getCoverageIntentSnapshot());
+      if (!result.ok) return result;
+      await cameraRelevance?.query?.(true);
+      if (result.cameraCount >= 3) await cameraWall?.build?.(cameraRelevance?.snapshot?.());
+      return result;
+    },
+    clearCoverage: async () => {
+      const result = clearGeneratedPlan();
+      await cameraRelevance?.query?.(true);
+      await cameraWall?.close?.();
+      return result;
+    },
+    clearAllCameras: async () => {
+      const result = clearAllCameras();
+      resetVisualCoverageState({ emit: true });
+      visualCoverageOverlay?.paint?.();
+      await cameraWall?.close?.();
+      await cameraRelevance?.query?.(true);
+      return result;
+    },
+    armPlaceCamera: () => placeCamera?.arm?.(),
+    disarmPlaceCamera: () => placeCamera?.disarm?.(),
+    disarmDropPin: () => dropPin.disarm?.(),
+    armCoveragePolygon: () => {
+      placeCamera?.disarm?.();
+      dropPin.disarm?.();
+      return getCoverageIntentSnapshot();
+    },
+    disarmCoveragePolygon: () => getCoverageIntentSnapshot(),
+    chooseNewTarget: () => {
+      placeCamera?.disarm?.();
+      return dropPin.arm?.();
+    },
+    buildVisualCoverage: async () => {
+      const world = chassis.stateStore.getSnapshot();
+      const focus = world.activeFocus || rememberedCoverageFocusRef();
+      const result = await searchVisualCoverage(focus);
+      visualCoverageOverlay?.paint?.();
+      if (!result?.ok || !result.selected?.length) {
+        const wall = cameraWall?.snapshot?.()?.wall;
+        if (wall?.source === 'VISUAL_COVERAGE') await cameraWall?.close?.();
+        return result;
+      }
+      return cameraWall?.buildVisual?.(result);
+    }
+  });
+  const guidedNext = bindGuidedNextSurface(root, { chassis });
   imageryCommand = bindImageryCommandSurface(root, {
     getMapViewCreateCount,
     isWorldviewImagery: () => Number(worldViewFrame?.snapshot?.()?.layout) === 4,
@@ -305,6 +444,19 @@ export function attachWorldviewMapSession(root, chassis, api) {
       street360.setMapReady(true);
       google3d.setMapReady(true);
       analyze3d.setMapReady(true);
+      visualCoverageOverlay?.attachView?.(getMapView());
+      const mapView = getMapView();
+      if (mapView && !coveragePolygonHandle && typeof mapView.on === 'function') {
+        coveragePolygonHandle = mapView.on('click', (event) => {
+          if (getCameraOperatorMode() !== CAMERA_OPERATOR_MODE.PLAN_CAMERAS) return;
+          if (getCoverageIntentSnapshot().pattern !== TARGET_GEOMETRY.PERIMETER) return;
+          if (placeCamera?.snapshot()?.armed === true) return;
+          const longitude = Number(event?.mapPoint?.longitude);
+          const latitude = Number(event?.mapPoint?.latitude);
+          if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) return;
+          addCoveragePolygonVertex({ longitude, latitude });
+        });
+      }
       hydrantSelection?.attachView?.(getMapView());
       if (!positionOverlay) {
         positionOverlay = bindWorldviewPositionOverlay(root);
@@ -424,6 +576,33 @@ export function attachWorldviewMapSession(root, chassis, api) {
   api.dropPin = dropPin;
   api.placeCamera = placeCamera;
   api.viewCamera = viewCamera;
+  api.cameraRelevance = cameraRelevance;
+  api.cameraWall = cameraWall;
+  api.guidedNext = guidedNext;
+  api.cameraCoverage = Object.freeze({
+    generate: () => generateCameraCoverage(chassis.stateStore.getSnapshot().activeFocus, getCoverageIntentSnapshot()),
+    clear: () => clearGeneratedPlan(),
+    clearAll: () => clearAllCameras(),
+    print: () => printCameraPlan()
+  });
+  api.coverageIntent = Object.freeze({
+    snapshot: getCoverageIntentSnapshot,
+    setPattern: setCoveragePattern,
+    setOrientation: setCoverageOrientation,
+    addVertex: addCoveragePolygonVertex,
+    setPolygon: setCoveragePolygon,
+    closePolygon: closeCoveragePolygon,
+    clearPolygon: clearCoveragePolygon
+  });
+  api.visualCoverage = Object.freeze({
+    search: (focus) => searchVisualCoverage(focus || chassis.stateStore.getSnapshot().activeFocus || rememberedCoverageFocusRef()),
+    snapshot: getLastVisualCoverage,
+    searching: isVisualCoverageSearching
+  });
+  api.cameraOperatorMode = Object.freeze({
+    get: getCameraOperatorMode,
+    set: setCameraOperatorMode
+  });
   api.imageryCommand = imageryCommand;
   api.focusInstrument = focusInstrument;
   chassis.setHereContextProvider(() => ({
@@ -569,11 +748,50 @@ export function attachWorldviewMapSession(root, chassis, api) {
     snapshot: () => solarIntelligence?.snapshot?.() || null,
     runAction: (name) => solarIntelligence?.runAction?.(name)
   };
+  api.returnToMainScreen = async () => {
+    dropPin.disarm?.();
+    placeCamera?.disarm?.();
+    try { await cameraRelevance?.exitCameraMode?.(); } catch { /* still go home */ }
+    try { await cameraWall?.close?.(); } catch { /* still go home */ }
+    try { await imageryCommand?.returnToMainMap?.(); } catch { /* still go home */ }
+    try { await worldViewFrame?.returnToMainScreen?.(); } catch { /* still go home */ }
+    chassis.closeAsk?.();
+    chassis.closeTimeDrawer?.();
+    void chassis.executeChassis?.('view.select', { viewId: VIEW_ID.MAP });
+    return Object.freeze({
+      ok: true,
+      surface: 'MAP',
+      layout: worldViewFrame?.snapshot?.()?.layout || 1
+    });
+  };
+  api.clearScreen = async () => {
+    dropPin.disarm?.();
+    placeCamera?.disarm?.();
+    try { await dropPin.clear?.(); } catch { /* still wipe drawings */ }
+    try { await cameraWall?.close?.(); } catch { /* still wipe drawings */ }
+    try { await imageryCommand?.clearMapDrawings?.(); } catch { /* still wipe drawings */ }
+    try {
+      resetVisualCoverageState({ emit: true });
+      visualCoverageOverlay?.paint?.();
+    } catch { /* overlay may be absent */ }
+    try { await worldViewFrame?.returnToMainScreen?.(); } catch { /* still wipe drawings */ }
+    chassis.closeAsk?.();
+    chassis.closeTimeDrawer?.();
+    void chassis.executeChassis?.('view.select', { viewId: VIEW_ID.MAP });
+    return Object.freeze({
+      ok: true,
+      cleared: true,
+      surface: 'MAP'
+    });
+  };
 
   return Object.freeze({
     dropPin,
     placeCamera,
     viewCamera,
+    cameraRelevance,
+    cameraWall,
+    guidedNext,
     imageryCommand,
     focusInstrument,
     viewSwitcher,

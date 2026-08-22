@@ -7,9 +7,11 @@
 import { isGreaterMontrealLongitudeLatitude } from '../../spatial/montreal-operational-config.js';
 import { getMapView } from '../map/map-foundation.js';
 import {
+  PLANNING_LABEL,
   deleteAuthoredCamera,
   getActiveAuthoredSensorPose,
   getAuthoredCamerasSnapshot,
+  hydrateAuthoredCameras,
   placeAuthoredCamera,
   resetAuthoredCameras,
   selectAuthoredCamera,
@@ -35,16 +37,22 @@ export function bindPlaceCameraControl(root, options = {}) {
   const mapHost = root?.querySelector('[data-iqai-map-host]');
   const button = root?.querySelector('[data-iqai-place-camera]');
   const editor = root?.querySelector('[data-iqai-place-camera-editor]');
+  const manualBtn = root?.querySelector('[data-iqai-camera-manual]');
   const overlay = bindPlaceCameraOverlay();
   let armed = false;
   let mapReady = false;
   let clickHandle = null;
   let painting = false;
+  let editing = false;
+  let expert = false;
+
+  hydrateAuthoredCameras();
 
   function snapshot() {
     return Object.freeze({
       ...getAuthoredCamerasSnapshot(),
       armed,
+      expert,
       mapReady,
       overlayId: 'iqai-v2-place-camera-overlay'
     });
@@ -53,8 +61,11 @@ export function bindPlaceCameraControl(root, options = {}) {
   function paintEditor() {
     if (!editor) return;
     const current = getAuthoredCamerasSnapshot().active;
-    editor.hidden = !current;
-    if (!current) return;
+    editor.hidden = !expert || !current;
+    if (!current || !expert) {
+      editing = false;
+      return;
+    }
     const idNode = field(editor, 'id');
     const llNode = field(editor, 'll');
     const zNode = field(editor, 'z');
@@ -62,9 +73,20 @@ export function bindPlaceCameraControl(root, options = {}) {
     const pitch = field(editor, 'pitch');
     const height = field(editor, 'height');
     const fov = field(editor, 'fov');
+    const summary = field(editor, 'summary');
+    const fields = editor.querySelector('[data-iqai-place-camera-fields]');
+    const editBtn = field(editor, 'edit');
     if (idNode) idNode.textContent = current.cameraId;
     if (llNode) llNode.textContent = `${formatLatitude(current.latitude)}   ${formatLongitude(current.longitude)}`;
     if (zNode) zNode.textContent = current.zKnown ? `Z ${current.z}` : 'Z UNKNOWN';
+    const planNode = field(editor, 'plan');
+    if (planNode) planNode.textContent = current.planningLabel || PLANNING_LABEL;
+    if (summary) {
+      summary.textContent = `${Math.round(current.heading)}° · HFOV ${Math.round(current.horizontalFov)}°`;
+    }
+    if (fields) fields.hidden = !editing;
+    if (editBtn) editBtn.textContent = editing ? 'DONE' : 'EDIT';
+    editor.classList.toggle('is-editing', editing);
     if (heading && document.activeElement !== heading) heading.value = String(Math.round(current.heading));
     if (pitch && document.activeElement !== pitch) pitch.value = String(current.pitch);
     if (height && document.activeElement !== height) height.value = String(current.heightAboveGround);
@@ -77,9 +99,15 @@ export function bindPlaceCameraControl(root, options = {}) {
     if (well) well.classList.toggle('is-place-camera', armed);
     if (mapHost) mapHost.classList.toggle('is-place-camera', armed);
     if (button) {
+      button.hidden = !expert;
       button.setAttribute('aria-pressed', armed ? 'true' : 'false');
       button.classList.toggle('is-active', armed);
     }
+    if (manualBtn) {
+      manualBtn.setAttribute('aria-pressed', expert ? 'true' : 'false');
+      manualBtn.classList.toggle('is-active', expert);
+    }
+    if (!expert && armed) armed = false;
     paintEditor();
     overlay.paint();
     painting = false;
@@ -110,6 +138,7 @@ export function bindPlaceCameraControl(root, options = {}) {
   }
 
   async function arm() {
+    expert = true;
     if (options.getActiveView?.() && options.getActiveView() !== 'map' && options.getActiveView() !== 'MAP') {
       await options.returnToMap?.();
     }
@@ -149,8 +178,22 @@ export function bindPlaceCameraControl(root, options = {}) {
     event.preventDefault();
     void toggle();
   });
+  manualBtn?.addEventListener('click', (event) => {
+    event.preventDefault();
+    expert = !expert;
+    if (!expert) {
+      armed = false;
+      editing = false;
+    }
+    paintChrome();
+  });
   editor?.addEventListener('change', onEditorField);
   editor?.addEventListener('input', onEditorField);
+  field(editor, 'edit')?.addEventListener('click', (event) => {
+    event.preventDefault();
+    editing = !editing;
+    paintEditor();
+  });
   field(editor, 'delete')?.addEventListener('click', (event) => {
     event.preventDefault();
     deleteAuthoredCamera();
@@ -173,6 +216,15 @@ export function bindPlaceCameraControl(root, options = {}) {
     deleteActive: () => deleteAuthoredCamera(),
     reset: resetAuthoredCameras,
     sensorPose: getActiveAuthoredSensorPose,
+    setExpert(next) {
+      expert = next !== false;
+      if (!expert) {
+        armed = false;
+        editing = false;
+      }
+      paintChrome();
+      return snapshot();
+    },
     setMapReady(ready) {
       mapReady = Boolean(ready);
       if (mapReady) attachMapView(getMapView());

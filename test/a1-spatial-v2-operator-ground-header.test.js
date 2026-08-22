@@ -188,6 +188,8 @@ test('closed primary header has no account email or connection clutter', () => {
   assert.doesNotMatch(primary, /MONTRÉAL/);
   assert.match(primary, /Search place, address or coordinates/);
   assert.match(primary, />GO</);
+  assert.match(primary, />MAIN SCREEN</);
+  assert.match(primary, />CLEAR SCREEN</);
   assert.match(primary, />BRAIN</);
   assert.match(primary, /aria-label="Ask IQAI"/);
   assert.doesNotMatch(primary, /SYSTEM STATUS/);

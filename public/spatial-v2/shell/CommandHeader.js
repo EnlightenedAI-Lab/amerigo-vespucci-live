@@ -54,6 +54,18 @@ export function renderCommandHeader() {
             <span class="iqai-v2-brand__product">SPATIAL</span>
           </div>
         </div>
+        <button
+          type="button"
+          class="iqai-v2-main-screen"
+          data-iqai-main-screen
+          title="Return to the main map from any module"
+        >MAIN SCREEN</button>
+        <button
+          type="button"
+          class="iqai-v2-clear-screen"
+          data-iqai-clear-screen
+          title="Erase remote sensing, overlays, and pins from the map"
+        >CLEAR SCREEN</button>
 
         <form class="iqai-v2-search" data-iqai-search-form autocomplete="off">
           <label>
@@ -179,6 +191,28 @@ export function bindExperienceControls(root, handlers = {}) {
     if (experience && typeof handlers.onChange === 'function') {
       handlers.onChange(experience);
     }
+  };
+  root.addEventListener('click', onClick);
+  return () => root.removeEventListener('click', onClick);
+}
+
+export function bindMainScreenControl(root, handlers = {}) {
+  const onClick = (event) => {
+    const control = event.target.closest('[data-iqai-main-screen]');
+    if (!control || !root.contains(control)) return;
+    event.preventDefault();
+    if (typeof handlers.onMainScreen === 'function') handlers.onMainScreen();
+  };
+  root.addEventListener('click', onClick);
+  return () => root.removeEventListener('click', onClick);
+}
+
+export function bindClearScreenControl(root, handlers = {}) {
+  const onClick = (event) => {
+    const control = event.target.closest('[data-iqai-clear-screen]');
+    if (!control || !root.contains(control)) return;
+    event.preventDefault();
+    if (typeof handlers.onClearScreen === 'function') handlers.onClearScreen();
   };
   root.addEventListener('click', onClick);
   return () => root.removeEventListener('click', onClick);

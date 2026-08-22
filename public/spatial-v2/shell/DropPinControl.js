@@ -524,6 +524,14 @@ export function bindDropPinControl(root, options = {}) {
     placeFocus,
     placeFromSearch,
     snapshot,
-    paint: paintChrome
+    paint: paintChrome,
+    clear: async () => {
+      disarm();
+      setActiveSpatialFocus(null);
+      const layer = await ensureFocusLayer();
+      layer?.removeAll?.();
+      paintChrome();
+      return snapshot();
+    }
   });
 }

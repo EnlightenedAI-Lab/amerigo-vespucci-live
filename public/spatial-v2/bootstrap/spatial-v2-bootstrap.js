@@ -592,6 +592,14 @@ export function createSpatialV2Chassis(options = {}) {
       presentation.askOpen = !presentation.askOpen;
       notify();
     },
+    closeAsk() {
+      presentation.askOpen = false;
+      notify();
+    },
+    closeTimeDrawer() {
+      presentation.timeDrawerOpen = false;
+      notify();
+    },
     toggleTimeDrawer() {
       presentation.timeDrawerOpen = !presentation.timeDrawerOpen;
       notify();

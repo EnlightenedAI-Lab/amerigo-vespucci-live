@@ -22,10 +22,15 @@ import {
 import { mountMapNavControls } from './map-nav-controls.js';
 import {
   IQAI_AERIAL_MAX_ZOOM,
+  IQAI_BLACK_BASEMAP_ID,
   IQAI_MAP_BASEMAP_ID,
   IQAI_MAP_MAX_ZOOM,
+  IQAI_STREETS_BASEMAP_ID,
   createIqaiAerialBasemap,
-  createIqaiMapBasemap
+  createIqaiBlackBasemap,
+  createIqaiMapBasemap,
+  createIqaiStreetsBasemap,
+  createIqaiWhiteBasemap
 } from './iqai-public-basemap.js';
 import {
   ensureAuthoredNearmapGroundSlot,
@@ -49,17 +54,11 @@ export const IQAI_RASTER_MAX_ZOOM = 19;
 
 /** Session MAP cartography. AERIAL stays Nearmap; these replace only the MAP surface. */
 export const IQAI_SESSION_BASEMAPS = Object.freeze([
-  { id: IQAI_MAP_BASEMAP_ID, title: 'Streets Vector', group: 'vector', source: 'iqai' },
-  { id: 'streets-navigation-vector', title: 'Navigation', group: 'vector', esriIds: ['streets-navigation-vector'], styleId: 'arcgis/navigation' },
-  { id: 'streets-night-vector', title: 'Streets Night', group: 'vector', esriIds: ['streets-night-vector'], styleId: 'arcgis/streets-night' },
-  { id: 'gray-vector', title: 'Light Gray', group: 'vector', esriIds: ['gray-vector', 'gray'], styleId: 'arcgis/light-gray' },
-  { id: 'dark-gray-vector', title: 'Dark Gray', group: 'vector', esriIds: ['dark-gray-vector', 'dark-gray'], styleId: 'arcgis/dark-gray' },
-  { id: 'topo-vector', title: 'Topographic', group: 'vector', esriIds: ['topo-vector', 'topo'], styleId: 'arcgis/topographic' },
-  { id: 'satellite', title: 'Imagery', group: 'imagery', esriIds: ['satellite'], styleId: 'arcgis/imagery' },
-  { id: 'hybrid', title: 'Imagery Hybrid', group: 'imagery', esriIds: ['hybrid'], styleId: 'arcgis/imagery/standard' },
-  { id: 'streets', title: 'Streets Raster', group: 'raster', esriIds: ['streets'], styleId: 'arcgis/streets' },
-  { id: 'oceans', title: 'Oceans', group: 'raster', esriIds: ['oceans'], styleId: 'arcgis/oceans' },
-  { id: 'osm', title: 'OpenStreetMap', group: 'vector', esriIds: ['osm'], styleId: 'osm/standard' }
+  { id: IQAI_MAP_BASEMAP_ID, title: 'White', group: 'basemap', source: 'iqai-white', tone: 'light' },
+  { id: IQAI_BLACK_BASEMAP_ID, title: 'Black', group: 'basemap', source: 'iqai-black', tone: 'dark' },
+  { id: IQAI_STREETS_BASEMAP_ID, title: 'Streets', group: 'basemap', source: 'iqai-streets', tone: 'light' },
+  { id: 'hybrid', title: 'Imagery Hybrid', group: 'imagery', esriIds: ['hybrid'], styleId: 'arcgis/imagery/standard', tone: 'dark' },
+  { id: 'satellite', title: 'Imagery', group: 'imagery', esriIds: ['satellite'], styleId: 'arcgis/imagery', tone: 'dark' }
 ]);
 
 /** @type {import('@arcgis/core/views/MapView').default | null} */
@@ -179,6 +178,17 @@ function sessionBasemapSpec(id = sessionEsriBasemapId) {
   return IQAI_SESSION_BASEMAPS.find((spec) => spec.id === id) || IQAI_SESSION_BASEMAPS[0];
 }
 
+function applyBasemapTone(spec = sessionBasemapSpec()) {
+  const tone = spec?.tone === 'dark' ? 'dark' : 'light';
+  const root = document.getElementById('iqai-spatial-v2');
+  if (root) root.dataset.iqaiBasemapTone = tone;
+  const host = mapView?.container;
+  if (host?.closest) {
+    const mapHost = host.closest('.iqai-v2-map-host') || host;
+    mapHost.dataset.iqaiBasemapTone = tone;
+  }
+}
+
 function firstBasemapLayer(basemap) {
   const layers = basemap?.baseLayers;
   if (!layers) return null;
@@ -216,8 +226,18 @@ async function loadSessionBasemap(spec) {
   if (!spec) return null;
   const cached = sessionBasemapCache.get(spec.id);
   if (cached) return cached;
-  if (spec.source === 'iqai') {
-    const created = mapBasemap || await createIqaiMapBasemap();
+  if (spec.source === 'iqai-white' || spec.source === 'iqai') {
+    const created = await createIqaiWhiteBasemap();
+    sessionBasemapCache.set(spec.id, created);
+    return created;
+  }
+  if (spec.source === 'iqai-black') {
+    const created = await createIqaiBlackBasemap();
+    sessionBasemapCache.set(spec.id, created);
+    return created;
+  }
+  if (spec.source === 'iqai-streets') {
+    const created = await createIqaiStreetsBasemap();
     sessionBasemapCache.set(spec.id, created);
     return created;
   }
@@ -260,6 +280,7 @@ export async function setSessionEsriBasemap(basemapId) {
   cartoBaseLayer = firstBasemapLayer(next);
   if (cartoBaseLayer) cartoBaseLayer.listMode = 'hide';
   sessionEsriBasemapId = spec.id;
+  applyBasemapTone(spec);
   if (groundSurface !== 'aerial') await setIqaiGroundSurface('map');
   else emit();
   return sessionEsriBasemapId;
@@ -829,6 +850,7 @@ async function bootstrap(container, options) {
   cartoBaseLayer = firstBasemapLayer(mapBasemap);
   sessionEsriBasemapId = IQAI_MAP_BASEMAP_ID;
   sessionBasemapCache.set(IQAI_MAP_BASEMAP_ID, mapBasemap);
+  applyBasemapTone();
   groundSurface = 'map';
   void prepareAerialBasemap().catch(() => {});
   const map = new IqaiMap({
@@ -872,6 +894,7 @@ async function bootstrap(container, options) {
   });
   mapView = view;
   mapViewCreateCount += 1;
+  applyBasemapTone();
 
   const hostSize = `${container.clientWidth}x${container.clientHeight}`;
   if (container.clientWidth < 8 || container.clientHeight < 8) {
